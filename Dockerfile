@@ -25,6 +25,9 @@ RUN go build -o /app/main .
 # Stage 2: Run the binary
 FROM golang:latest
 
+# Install PostgreSQL client utilities and bash
+RUN apt-get update && apt-get install -y postgresql-client bash
+
 # Set the Current Working Directory inside the container
 WORKDIR /app
 
@@ -37,8 +40,15 @@ COPY --from=builder /go/bin/goose /usr/local/bin/goose
 # Copy migration files
 COPY --from=builder /app/sql/schema /app/sql/schema
 
+# Copy wait-for-it script
+COPY --from=builder /app/wait-for-it.sh /app/wait-for-it.sh
+RUN chmod +x /app/wait-for-it.sh
+
+# Copy .env file
+COPY .env .env
+
 # Expose port 8080 to the outside world
 EXPOSE 8080
 
 # Command to run the executable and migrate the database
-CMD ["sh", "-c", "/usr/local/bin/goose -dir /app/sql/schema postgres \"postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable\" up && ./main"]
+CMD ["bash", "-c", "/app/wait-for-it.sh db ${DB_USER} && /usr/local/bin/goose -dir /app/sql/schema postgres \"postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable\" up && ./main"]

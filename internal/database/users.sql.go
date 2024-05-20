@@ -12,6 +12,29 @@ import (
 	"github.com/google/uuid"
 )
 
+const countAllUsers = `-- name: CountAllUsers :one
+SELECT count(*) FROM users
+`
+
+func (q *Queries) CountAllUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAllUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAllUsersByUsername = `-- name: CountAllUsersByUsername :one
+SELECT COUNT(*) FROM users
+WHERE username = $1
+`
+
+func (q *Queries) CountAllUsersByUsername(ctx context.Context, username string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAllUsersByUsername, username)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, username, email, hashed_password, first_name, last_name, phone_number, profile_image_url,
                    date_of_birth, is_active, created_at, updated_at, last_login)
@@ -39,7 +62,7 @@ type CreateUserRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -90,7 +113,7 @@ type DeactivateUserRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -153,7 +176,7 @@ type GetUserByEmailRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -205,7 +228,7 @@ type GetUserByIDRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -257,7 +280,7 @@ type GetUserByUsernameRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -315,7 +338,7 @@ type ListUsersRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -372,7 +395,7 @@ type UpdateUserLastLoginRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -419,7 +442,7 @@ type UpdateUserPasswordRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
@@ -474,7 +497,7 @@ type UpdateUserProfileRow struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime

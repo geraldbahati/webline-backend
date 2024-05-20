@@ -100,3 +100,10 @@ SELECT id,
 FROM users
 ORDER BY created_at DESC LIMIT $1
 OFFSET $2;
+
+-- name: CountAllUsersByUsername :one
+SELECT COUNT(*) FROM users
+WHERE username = $1;
+
+-- name: CountAllUsers :one
+SELECT count(*) FROM users;

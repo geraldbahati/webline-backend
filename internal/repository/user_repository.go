@@ -315,3 +315,24 @@ func (r *UserRepository) ListUsers(ctx context.Context, limit int32, offset int3
 	return userList, nil
 
 }
+
+// CountUsersByUsername retrieves a count of users by username
+func (r *UserRepository) CountUsersByUsername(ctx context.Context, username string) (int64, error) {
+	count, err := r.Queries.CountAllUsersByUsername(ctx, username)
+	if err != nil {
+		logger.Error("failed to count users by username: ", zap.Error(err))
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// CountAllUsers get the total number of users
+func (r *UserRepository) CountAllUsers(ctx context.Context) (int64, error) {
+	count, err := r.Queries.CountAllUsers(ctx)
+	if err != nil {
+		logger.Error("failed to get the total number of users")
+	}
+
+	return count, err
+}

@@ -13,7 +13,7 @@ CREATE TABLE users (
                        phone_number VARCHAR(20),
                        profile_image_url TEXT,
                        date_of_birth DATE,
-                       is_active BOOLEAN DEFAULT TRUE,
+                       is_active BOOLEAN NOT NULL DEFAULT TRUE,
                        created_at TIMESTAMPTZ DEFAULT NOW(),
                        updated_at TIMESTAMPTZ DEFAULT NOW(),
                        last_login TIMESTAMPTZ

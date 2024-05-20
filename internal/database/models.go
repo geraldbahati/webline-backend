@@ -162,7 +162,7 @@ type User struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
-	IsActive        sql.NullBool
+	IsActive        bool
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime

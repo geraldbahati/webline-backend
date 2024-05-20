@@ -18,18 +18,17 @@ type UserClaims struct {
 	UserId   uuid.UUID `json:"userId"`
 	Username string    `json:"username"`
 	Email    string    `json:"email"`
-	Role     string    `json:"role"`
 	jwt.RegisteredClaims
 }
 
 // GenerateTokens generates access and refresh tokens
-func GenerateTokens(userId uuid.UUID, username, email, role string) (string, string, time.Time, error) {
-	accessToken, err := generateToken(userId, username, email, role, jwtAccessSecret, 24*time.Hour)
+func GenerateTokens(userId uuid.UUID, username, email string) (string, string, time.Time, error) {
+	accessToken, err := generateToken(userId, username, email, jwtAccessSecret, 24*time.Hour)
 	if err != nil {
 		return "", "", time.Time{}, err
 	}
 
-	refreshToken, expireTime, err := generateTokenWithExpiry(userId, username, email, role, jwtRefreshSecret, 90*24*time.Hour)
+	refreshToken, expireTime, err := generateTokenWithExpiry(userId, username, email, jwtRefreshSecret, 90*24*time.Hour)
 	if err != nil {
 		return "", "", time.Time{}, err
 	}
@@ -37,12 +36,11 @@ func GenerateTokens(userId uuid.UUID, username, email, role string) (string, str
 	return accessToken, refreshToken, expireTime, nil
 }
 
-func generateToken(userId uuid.UUID, username, email, role string, secret []byte, duration time.Duration) (string, error) {
+func generateToken(userId uuid.UUID, username, email string, secret []byte, duration time.Duration) (string, error) {
 	claims := UserClaims{
 		UserId:   userId,
 		Username: username,
 		Email:    email,
-		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -54,9 +52,9 @@ func generateToken(userId uuid.UUID, username, email, role string, secret []byte
 	return token.SignedString(secret)
 }
 
-func generateTokenWithExpiry(userId uuid.UUID, username, email, role string, secret []byte, duration time.Duration) (string, time.Time, error) {
+func generateTokenWithExpiry(userId uuid.UUID, username, email string, secret []byte, duration time.Duration) (string, time.Time, error) {
 	expireTime := time.Now().Add(duration)
-	token, err := generateToken(userId, username, email, role, secret, duration)
+	token, err := generateToken(userId, username, email, secret, duration)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -94,11 +92,11 @@ func RefreshToken(refreshToken string) (string, error) {
 		return "", err
 	}
 
-	if claims.UserId == uuid.Nil || claims.Username == "" || claims.Email == "" || claims.Role == "" {
+	if claims.UserId == uuid.Nil || claims.Username == "" || claims.Email == "" {
 		return "", errors.New("invalid token claims")
 	}
 
-	return generateToken(claims.UserId, claims.Username, claims.Email, claims.Role, jwtAccessSecret, 24*time.Hour)
+	return generateToken(claims.UserId, claims.Username, claims.Email, jwtAccessSecret, 24*time.Hour)
 }
 
 // ValidateToken validates the token
