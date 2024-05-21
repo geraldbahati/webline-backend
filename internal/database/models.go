@@ -84,6 +84,9 @@ type Product struct {
 	CategoryID  uuid.NullUUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
+	IsActive    sql.NullBool
+	CreatedBy   uuid.NullUUID
+	UpdatedBy   uuid.NullUUID
 }
 
 type ProductImage struct {
