@@ -97,17 +97,35 @@ func sendEmail(email string, resetPasswordLink string) error {
         <html>
         <head>
             <style>
-                body { background-color: #f0f0f0; font-family: Arial, sans-serif; }
-                .container { background-color: #fff; padding: 20px; margin: 10px auto; width: 80%; max-width: 600px; }
-                .button { background-color: #007bff; color: #ffffff; padding: 10px; text-decoration: none; border-radius: 5px; }
+                body { background-color: #f4f4f4; font-family: Arial, sans-serif; }
+                .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+                .header { background-color: #00aaff; color: #ffffff; padding: 20px; text-align: center; }
+                .header h1 { margin: 0; }
+                .content { padding: 20px; }
+                .content p { font-size: 16px; line-height: 1.6; }
+                .button-container { text-align: center; margin: 20px 0; }
+                .button { background-color: #00aaff; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 16px; }
+                .footer { background-color: #f4f4f4; color: #666; text-align: center; padding: 20px; font-size: 14px; }
             </style>
         </head>
         <body>
             <div class="container">
-                <h2>Reset Your Password</h2>
-                <p>Please click the link below to reset your password for your e-commerce account.</p>
-                <a href="` + resetPasswordLink + `" class="button">Reset Password</a>
-                <p>If you did not request a password reset, please ignore this email.</p>
+                <div class="header">
+                    <h1>Webline Technologies Ltd.</h1>
+                </div>
+                <div class="content">
+                    <p>Hello Customer,</p>
+                    <p>We received a request to reset your password for your Webline Technologies Ltd. account. Please click the link below to reset your password.</p>
+                    <div class="button-container">
+                        <a href="` + resetPasswordLink + `" class="button">Reset Password</a>
+                    </div>
+                    <p>If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
+                    <p>Thanks,<br>The Webline Technologies Ltd. Team</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
+                    <p>If you have any questions, contact us at <a href="mailto:support@webline.com">support@webline.com</a>.</p>
+                </div>
             </div>
         </body>
         </html>

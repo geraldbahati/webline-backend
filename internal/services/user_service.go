@@ -14,22 +14,24 @@ import (
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
-	"weblineBackend/pkg/logger"
 	"weblineBackend/pkg/utils"
 )
 
 type UserService struct {
 	userRepository  *repository.UserRepository
 	tokenRepository *repository.TokenRepository
+	config          *config.Config
 }
 
 func NewUserService(
 	userRepository *repository.UserRepository,
 	tokenRepository *repository.TokenRepository,
+	config *config.Config,
 ) *UserService {
 	return &UserService{
 		userRepository:  userRepository,
 		tokenRepository: tokenRepository,
+		config:          config,
 	}
 }
 
@@ -114,37 +116,31 @@ func generateUsername(ctx context.Context, userRepo *repository.UserRepository, 
 
 // GetUserByEmail returns the user with the given email
 func (s *UserService) GetUserByEmail(ctx context.Context, email string) (database.User, error) {
-	// get user from database
 	user, err := s.userRepository.GetUserByEmail(ctx, email)
 	if err != nil {
 		return database.User{}, err
 	}
 
-	// return user
 	return user, nil
 }
 
 // LoginUser logs in a user
 func (s *UserService) LoginUser(ctx context.Context, params model.LoginParams) (model.LoginResponse, error) {
-	// get user by email
 	user, err := s.userRepository.GetUserByEmail(ctx, params.Email)
 	if err != nil {
 		return model.LoginResponse{}, err
 	}
 
-	// compare password
 	err = bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(params.Password))
 	if err != nil {
 		return model.LoginResponse{}, err
 	}
 
-	// generate access token and refresh token
 	accessToken, refreshToken, expireTime, err := utils.GenerateTokens(user.ID, user.Username, user.Email)
 	if err != nil {
 		return model.LoginResponse{}, err
 	}
 
-	// save refresh token
 	err = s.tokenRepository.StoreRefreshToken(ctx, database.StoreRefreshTokenParams{
 		UserID:    user.ID,
 		Token:     refreshToken,
@@ -154,7 +150,6 @@ func (s *UserService) LoginUser(ctx context.Context, params model.LoginParams) (
 		return model.LoginResponse{}, err
 	}
 
-	// update last login
 	_, err = s.userRepository.UpdateUserLastLogin(ctx, user.ID)
 	if err != nil {
 		log.Printf("Failed to update last login for user with id %s: %v", user.ID.String(), err)
@@ -168,7 +163,6 @@ func (s *UserService) LoginUser(ctx context.Context, params model.LoginParams) (
 
 // RefreshToken refreshes a user's access token
 func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (model.LoginResponse, error) {
-	// generate access token
 	newAccessToken, err := utils.RefreshToken(refreshToken)
 	if err != nil {
 		return model.LoginResponse{}, err
@@ -182,41 +176,34 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (mo
 
 // UpdateUserProfile updates a user's profile
 func (s *UserService) UpdateUserProfile(ctx context.Context, params model.UpdateUserProfileParams) (database.User, error) {
-	// get user id from context
 	userId := ctx.Value("userId").(uuid.UUID)
 	user, err := s.userRepository.GetUserByID(ctx, userId)
 	if err != nil {
 		return database.User{}, err
 	}
 
-	// update user profile
 	if params.FirstName != "" {
-		firstNameValue := sql.NullString{String: params.FirstName, Valid: params.FirstName != ""}
-		user.FirstName = firstNameValue
+		user.FirstName = sql.NullString{String: params.FirstName, Valid: params.FirstName != ""}
 	}
 
 	if params.LastName != "" {
-		lastNameValue := sql.NullString{String: params.LastName, Valid: params.LastName != ""}
-		user.LastName = lastNameValue
+		user.LastName = sql.NullString{String: params.LastName, Valid: params.LastName != ""}
 	}
 
 	if params.PhoneNumber != "" {
-		phoneNumberValue := sql.NullString{String: params.PhoneNumber, Valid: params.PhoneNumber != ""}
-		user.PhoneNumber = phoneNumberValue
+		user.PhoneNumber = sql.NullString{String: params.PhoneNumber, Valid: params.PhoneNumber != ""}
 	}
 
 	if params.ProfileImageUrl != "" {
-		genderValue := sql.NullString{String: params.ProfileImageUrl, Valid: params.ProfileImageUrl != ""}
-		user.ProfileImageUrl = genderValue
+		user.ProfileImageUrl = sql.NullString{String: params.ProfileImageUrl, Valid: params.ProfileImageUrl != ""}
 	}
 
 	if params.DateOfBirth != "" {
-		dateOfBirthDate, err := time.Parse("02-01-2006", params.DateOfBirth)
+		dateOfBirth, err := time.Parse("02-01-2006", params.DateOfBirth)
 		if err != nil {
-			dateOfBirthDate = time.Time{}
+			dateOfBirth = time.Time{}
 		}
-		dateOfBirthValue := sql.NullTime{Time: dateOfBirthDate, Valid: dateOfBirthDate != time.Time{}}
-		user.DateOfBirth = dateOfBirthValue
+		user.DateOfBirth = sql.NullTime{Time: dateOfBirth, Valid: !dateOfBirth.IsZero()}
 	}
 
 	updatedUser, err := s.userRepository.UpdateUserProfile(ctx, database.UpdateUserProfileParams{
@@ -231,37 +218,31 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, params model.Update
 		return database.User{}, err
 	}
 
-	// return updated user
 	return updatedUser, nil
 }
 
 // SendPasswordResetEmail sends a password reset email to the user
 func (s *UserService) SendPasswordResetEmail(ctx context.Context, email string) error {
-	// get user by email
 	user, err := s.userRepository.GetUserByEmail(ctx, email)
 	if err != nil {
 		return err
 	}
 
 	return utils.SendResetPasswordEmail(user.ID, user.Email)
-
 }
 
 // UpdateUserPassword updates a user's password
 func (s *UserService) UpdateUserPassword(ctx context.Context, token string, newPassword string) error {
-	// verify reset password token
 	userId, err := utils.VerifyResetPasswordToken(token)
 	if err != nil {
 		return err
 	}
 
-	// hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	// update user password
 	_, err = s.userRepository.UpdateUserPassword(ctx, database.UpdateUserPasswordParams{
 		ID:             userId,
 		HashedPassword: string(hashedPassword),
@@ -275,18 +256,17 @@ func (s *UserService) UpdateUserPassword(ctx context.Context, token string, newP
 
 // VerifyResetPasswordToken verifies a reset password token
 func (s *UserService) VerifyResetPasswordToken(token string) (uuid.UUID, error) {
-	// verify reset password token
-	passwordToken, err := utils.VerifyResetPasswordToken(token)
-	return passwordToken, err
+	return utils.VerifyResetPasswordToken(token)
 }
 
 // DeactivateUser deactivates a user's account
-func (s *UserService) DeactivateUser(ctx context.Context) error {
-	// get user id from context
-	userId := ctx.Value("userId").(uuid.UUID)
+func (s *UserService) DeactivateUser(ctx context.Context, userId string) error {
+	userIdUUID, err := uuid.Parse(userId)
+	if err != nil {
+		return err
+	}
 
-	// deactivate user
-	_, err := s.userRepository.DeactivateUser(ctx, userId)
+	_, err = s.userRepository.DeactivateUser(ctx, userIdUUID)
 	if err != nil {
 		return err
 	}
@@ -296,15 +276,13 @@ func (s *UserService) DeactivateUser(ctx context.Context) error {
 
 // ListUsers lists all users
 func (s *UserService) ListUsers(ctx context.Context, pageSize int32, page int32) (model.PaginationResult[[]database.User], error) {
-	// get total user count
 	count, err := s.userRepository.CountAllUsers(ctx)
 	if err != nil {
 		return model.PaginationResult[[]database.User]{}, err
 	}
 
-	// get users
 	paginatedListUsers, err := utils.Paginate(
-		config.LoadConfig(),
+		s.config,
 		count,
 		page,
 		pageSize,
@@ -313,10 +291,23 @@ func (s *UserService) ListUsers(ctx context.Context, pageSize int32, page int32)
 		},
 	)
 	if err != nil {
-		logger.Error("failed to fetch users: (US)")
 		return model.PaginationResult[[]database.User]{}, err
 	}
 
-	// return paginated list of users
 	return *paginatedListUsers, nil
+}
+
+// GetUserProfile gets a user's profile
+func (s *UserService) GetUserProfile(ctx context.Context, userId string) (database.User, error) {
+	userIdUUID, err := uuid.Parse(userId)
+	if err != nil {
+		return database.User{}, err
+	}
+
+	user, err := s.userRepository.GetUserByID(ctx, userIdUUID)
+	if err != nil {
+		return database.User{}, err
+	}
+
+	return user, nil
 }

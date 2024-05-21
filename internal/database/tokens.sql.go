@@ -14,8 +14,8 @@ import (
 
 const storeRefreshToken = `-- name: StoreRefreshToken :one
 INSERT INTO refresh_tokens (id, user_id, token, created_at, expires_at)
-VALUES (gen_random_uuid(), $1, $2, NOW(), $3)
-    RETURNING id, user_id, token, created_at, expires_at, revoked_at
+    VALUES (gen_random_uuid(), $1, $2, NOW(), $3)
+RETURNING id, user_id, token, created_at, expires_at
 `
 
 type StoreRefreshTokenParams struct {
@@ -24,16 +24,23 @@ type StoreRefreshTokenParams struct {
 	ExpiresAt time.Time
 }
 
-func (q *Queries) StoreRefreshToken(ctx context.Context, arg StoreRefreshTokenParams) (RefreshToken, error) {
+type StoreRefreshTokenRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Token     string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+func (q *Queries) StoreRefreshToken(ctx context.Context, arg StoreRefreshTokenParams) (StoreRefreshTokenRow, error) {
 	row := q.db.QueryRowContext(ctx, storeRefreshToken, arg.UserID, arg.Token, arg.ExpiresAt)
-	var i RefreshToken
+	var i StoreRefreshTokenRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
 		&i.CreatedAt,
 		&i.ExpiresAt,
-		&i.RevokedAt,
 	)
 	return i, err
 }

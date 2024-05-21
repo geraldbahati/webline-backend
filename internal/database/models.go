@@ -27,6 +27,7 @@ type Category struct {
 	ParentID  uuid.NullUUID
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+	IsActive  bool
 }
 
 type Order struct {

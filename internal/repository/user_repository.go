@@ -7,21 +7,24 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"weblineBackend/internal/database"
-	"weblineBackend/pkg/logger"
 )
 
 type UserRepository struct {
 	*database.Queries
-	db *sql.DB
+	db     *sql.DB
+	logger *zap.Logger
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
+// NewUserRepository initializes a new UserRepository with dependency injection for logging
+func NewUserRepository(db *sql.DB, logger *zap.Logger) *UserRepository {
 	return &UserRepository{
 		Queries: database.New(db),
 		db:      db,
+		logger:  logger,
 	}
 }
 
+// execTx executes a database transaction with the provided function
 func (r *UserRepository) execTx(ctx context.Context, fn func(*database.Queries) error) error {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelSerializable,
@@ -31,10 +34,12 @@ func (r *UserRepository) execTx(ctx context.Context, fn func(*database.Queries) 
 	}
 	q := database.New(tx)
 	if err := fn(q); err != nil {
+		r.logger.Error("transaction failed, rolling back", zap.Error(err))
 		if rbErr := tx.Rollback(); rbErr != nil {
+			r.logger.Error("rollback failed", zap.Error(rbErr))
 			return fmt.Errorf("rollback transaction: %w", rbErr)
 		}
-		return fmt.Errorf("exec transaction: %w", err)
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
@@ -57,11 +62,11 @@ func (r *UserRepository) CreateUser(
 		return nil
 	})
 	if err != nil {
-		logger.Error("failed to create user: ", zap.Error(err))
+		r.logger.Error("failed to create user", zap.Error(err))
 		return database.User{}, err
 	}
 
-	logger.Info("User created successfully", zap.String("userID", createdUser.ID.String()))
+	r.logger.Info("User created successfully", zap.String("userID", createdUser.ID.String()))
 	return database.User{
 		ID:              createdUser.ID,
 		Username:        createdUser.Username,
@@ -82,7 +87,7 @@ func (r *UserRepository) CreateUser(
 func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (database.User, error) {
 	user, err := r.Queries.GetUserByID(ctx, id)
 	if err != nil {
-		logger.Error("failed to get user by ID: ", zap.Error(err))
+		r.logger.Error("failed to get user by ID", zap.Error(err))
 		return database.User{}, err
 	}
 
@@ -106,7 +111,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (databas
 func (r *UserRepository) GetUserByUsername(ctx context.Context, username string) (database.User, error) {
 	user, err := r.Queries.GetUserByUsername(ctx, username)
 	if err != nil {
-		logger.Error("failed to get user by username: ", zap.Error(err))
+		r.logger.Error("failed to get user by username", zap.Error(err))
 		return database.User{}, err
 	}
 
@@ -124,14 +129,13 @@ func (r *UserRepository) GetUserByUsername(ctx context.Context, username string)
 		UpdatedAt:       user.UpdatedAt,
 		LastLogin:       user.LastLogin,
 	}, nil
-
 }
 
 // GetUserByEmail retrieves a user by email
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (database.User, error) {
 	user, err := r.Queries.GetUserByEmail(ctx, email)
 	if err != nil {
-		logger.Error("failed to get user by email: ", zap.Error(err))
+		r.logger.Error("failed to get user by email", zap.Error(err))
 		return database.User{}, err
 	}
 
@@ -149,7 +153,6 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (data
 		UpdatedAt:       user.UpdatedAt,
 		LastLogin:       user.LastLogin,
 	}, nil
-
 }
 
 // UpdateUserProfile updates a user's profile
@@ -157,20 +160,13 @@ func (r *UserRepository) UpdateUserProfile(
 	ctx context.Context,
 	user database.UpdateUserProfileParams,
 ) (database.User, error) {
-	updatedUser, err := r.Queries.UpdateUserProfile(ctx, database.UpdateUserProfileParams{
-		ID:              user.ID,
-		FirstName:       user.FirstName,
-		LastName:        user.LastName,
-		PhoneNumber:     user.PhoneNumber,
-		ProfileImageUrl: user.ProfileImageUrl,
-		DateOfBirth:     user.DateOfBirth,
-	})
+	updatedUser, err := r.Queries.UpdateUserProfile(ctx, user)
 	if err != nil {
-		logger.Error("failed to update user profile: ", zap.Error(err))
+		r.logger.Error("failed to update user profile", zap.Error(err))
 		return database.User{}, err
 	}
 
-	logger.Info("User profile updated successfully", zap.String("userID", updatedUser.ID.String()))
+	r.logger.Info("User profile updated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
 		Username:        updatedUser.Username,
@@ -192,16 +188,13 @@ func (r *UserRepository) UpdateUserPassword(
 	ctx context.Context,
 	user database.UpdateUserPasswordParams,
 ) (database.User, error) {
-	updatedUser, err := r.Queries.UpdateUserPassword(ctx, database.UpdateUserPasswordParams{
-		ID:             user.ID,
-		HashedPassword: user.HashedPassword,
-	})
+	updatedUser, err := r.Queries.UpdateUserPassword(ctx, user)
 	if err != nil {
-		logger.Error("failed to update user password: ", zap.Error(err))
+		r.logger.Error("failed to update user password", zap.Error(err))
 		return database.User{}, err
 	}
 
-	logger.Info("User password updated successfully", zap.String("userID", updatedUser.ID.String()))
+	r.logger.Info("User password updated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
 		Username:        updatedUser.Username,
@@ -222,11 +215,11 @@ func (r *UserRepository) UpdateUserPassword(
 func (r *UserRepository) UpdateUserLastLogin(ctx context.Context, id uuid.UUID) (database.User, error) {
 	updatedUser, err := r.Queries.UpdateUserLastLogin(ctx, id)
 	if err != nil {
-		logger.Error("failed to update user last login: ", zap.Error(err))
+		r.logger.Error("failed to update user last login", zap.Error(err))
 		return database.User{}, err
 	}
 
-	logger.Info("User last login updated successfully", zap.String("userID", updatedUser.ID.String()))
+	r.logger.Info("User last login updated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
 		Username:        updatedUser.Username,
@@ -241,18 +234,17 @@ func (r *UserRepository) UpdateUserLastLogin(ctx context.Context, id uuid.UUID) 
 		UpdatedAt:       updatedUser.UpdatedAt,
 		LastLogin:       updatedUser.LastLogin,
 	}, nil
-
 }
 
 // DeactivateUser deactivates a user
 func (r *UserRepository) DeactivateUser(ctx context.Context, id uuid.UUID) (database.User, error) {
 	updatedUser, err := r.Queries.DeactivateUser(ctx, id)
 	if err != nil {
-		logger.Error("failed to deactivate user: ", zap.Error(err))
+		r.logger.Error("failed to deactivate user", zap.Error(err))
 		return database.User{}, err
 	}
 
-	logger.Info("User deactivated successfully", zap.String("userID", updatedUser.ID.String()))
+	r.logger.Info("User deactivated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
 		Username:        updatedUser.Username,
@@ -267,20 +259,18 @@ func (r *UserRepository) DeactivateUser(ctx context.Context, id uuid.UUID) (data
 		UpdatedAt:       updatedUser.UpdatedAt,
 		LastLogin:       updatedUser.LastLogin,
 	}, nil
-
 }
 
 // DeleteUser deletes a user
 func (r *UserRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	err := r.Queries.DeleteUser(ctx, id)
 	if err != nil {
-		logger.Error("failed to delete user: ", zap.Error(err))
+		r.logger.Error("failed to delete user", zap.Error(err))
 		return err
 	}
 
-	logger.Info("User deleted successfully", zap.String("userID", id.String()))
+	r.logger.Info("User deleted successfully", zap.String("userID", id.String()))
 	return nil
-
 }
 
 // ListUsers retrieves a list of users
@@ -290,13 +280,13 @@ func (r *UserRepository) ListUsers(ctx context.Context, limit int32, offset int3
 		Offset: offset,
 	})
 	if err != nil {
-		logger.Error("failed to list users: ", zap.Error(err))
+		r.logger.Error("failed to list users", zap.Error(err))
 		return nil, err
 	}
 
-	var userList []database.User
-	for _, user := range users {
-		userList = append(userList, database.User{
+	userList := make([]database.User, len(users))
+	for i, user := range users {
+		userList[i] = database.User{
 			ID:              user.ID,
 			Username:        user.Username,
 			Email:           user.Email,
@@ -309,30 +299,30 @@ func (r *UserRepository) ListUsers(ctx context.Context, limit int32, offset int3
 			CreatedAt:       user.CreatedAt,
 			UpdatedAt:       user.UpdatedAt,
 			LastLogin:       user.LastLogin,
-		})
+		}
 	}
 
 	return userList, nil
-
 }
 
 // CountUsersByUsername retrieves a count of users by username
 func (r *UserRepository) CountUsersByUsername(ctx context.Context, username string) (int64, error) {
 	count, err := r.Queries.CountAllUsersByUsername(ctx, username)
 	if err != nil {
-		logger.Error("failed to count users by username: ", zap.Error(err))
+		r.logger.Error("failed to count users by username", zap.Error(err))
 		return 0, err
 	}
 
 	return count, nil
 }
 
-// CountAllUsers get the total number of users
+// CountAllUsers gets the total number of users
 func (r *UserRepository) CountAllUsers(ctx context.Context) (int64, error) {
 	count, err := r.Queries.CountAllUsers(ctx)
 	if err != nil {
-		logger.Error("failed to get the total number of users")
+		r.logger.Error("failed to get the total number of users", zap.Error(err))
+		return 0, err
 	}
 
-	return count, err
+	return count, nil
 }

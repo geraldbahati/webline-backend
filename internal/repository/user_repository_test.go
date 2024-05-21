@@ -13,19 +13,13 @@ import (
 	"weblineBackend/internal/database"
 )
 
-func setupTestDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	return db, mock
-}
-
 func TestCreateUser(t *testing.T) {
 	logger.Init() // Initialize the logger
 
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -68,10 +62,12 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestGetUserByID(t *testing.T) {
+	logger.Init() // Initialize the logger
+
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -97,10 +93,12 @@ func TestGetUserByID(t *testing.T) {
 }
 
 func TestGetUserByUsername(t *testing.T) {
+	logger.Init() // Initialize the logger
+
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	username := "testuser"
@@ -127,10 +125,12 @@ func TestGetUserByUsername(t *testing.T) {
 }
 
 func TestGetUserByEmail(t *testing.T) {
+	logger.Init() // Initialize the logger
+
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	email := "test@example.com"
@@ -162,7 +162,7 @@ func TestUpdateUserProfile(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -199,7 +199,7 @@ func TestUpdateUserPassword(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -233,7 +233,7 @@ func TestUpdateUserLastLogin(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -263,7 +263,7 @@ func TestDeactivateUser(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -292,7 +292,7 @@ func TestDeleteUser(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -314,7 +314,7 @@ func TestListUsers(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewUserRepository(db)
+	repo := NewUserRepository(db, logger.GetLogger())
 
 	ctx := context.Background()
 	userID := uuid.New()

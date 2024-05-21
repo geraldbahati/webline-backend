@@ -6,21 +6,24 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"weblineBackend/internal/database"
-	"weblineBackend/pkg/logger"
 )
 
 type TokenRepository struct {
 	*database.Queries
-	db *sql.DB
+	db     *sql.DB
+	logger *zap.Logger
 }
 
-func NewTokenRepository(db *sql.DB) *TokenRepository {
+// NewTokenRepository initializes a new TokenRepository with dependency injection for logging
+func NewTokenRepository(db *sql.DB, logger *zap.Logger) *TokenRepository {
 	return &TokenRepository{
 		Queries: database.New(db),
 		db:      db,
+		logger:  logger,
 	}
 }
 
+// execTx executes a database transaction with the provided function
 func (r *TokenRepository) execTx(ctx context.Context, fn func(*database.Queries) error) error {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelSerializable,
@@ -30,10 +33,12 @@ func (r *TokenRepository) execTx(ctx context.Context, fn func(*database.Queries)
 	}
 	q := database.New(tx)
 	if err := fn(q); err != nil {
+		r.logger.Error("transaction failed, rolling back", zap.Error(err))
 		if rbErr := tx.Rollback(); rbErr != nil {
+			r.logger.Error("rollback failed", zap.Error(rbErr))
 			return fmt.Errorf("rollback transaction: %w", rbErr)
 		}
-		return fmt.Errorf("exec transaction: %w", err)
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
@@ -41,7 +46,7 @@ func (r *TokenRepository) execTx(ctx context.Context, fn func(*database.Queries)
 	return nil
 }
 
-// StoreRefreshToken stores a refresh token
+// StoreRefreshToken stores a refresh token in the database
 func (r *TokenRepository) StoreRefreshToken(
 	ctx context.Context,
 	refreshToken database.StoreRefreshTokenParams,
@@ -53,10 +58,10 @@ func (r *TokenRepository) StoreRefreshToken(
 		return nil
 	})
 	if err != nil {
-		logger.Error("failed to store refresh token: ", zap.Error(err))
+		r.logger.Error("failed to store refresh token", zap.Error(err))
 		return err
 	}
 
-	logger.Info("refresh token stored successfully")
+	r.logger.Info("refresh token stored successfully")
 	return nil
 }
