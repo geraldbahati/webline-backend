@@ -11,7 +11,8 @@ WHERE id = $1;
 -- name: ListProducts :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
 FROM products
-ORDER BY name;
+ORDER BY name
+LIMIT $1 OFFSET $2;
 
 -- name: UpdateProduct :one
 UPDATE products
@@ -33,5 +34,9 @@ ORDER BY name;
 -- name: SearchProducts :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
 FROM products
-WHERE name ILIKE '%' || $1 || '%'
+WHERE (name ILIKE '%' || $1 || '%' OR description ILIKE '%' || $1 || '%')
 ORDER BY name;
+
+-- name: CountProducts :one
+SELECT COUNT(*) AS count
+FROM products;

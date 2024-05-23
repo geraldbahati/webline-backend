@@ -185,3 +185,16 @@ func (h *CategoryHandler) GetCategoriesByParentIDHandler(w http.ResponseWriter, 
 	// respond with categories
 	RespondWithJSON(w, http.StatusOK, categories)
 }
+
+// GetParentCategoriesHandler retrieves parent categories
+func (h *CategoryHandler) GetParentCategoriesHandler(w http.ResponseWriter, r *http.Request) {
+	// get parent categories
+	parentCategories, err := h.categoryService.GetParentCategoriesService(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get parent categories")
+		return
+	}
+
+	// respond with parent categories
+	RespondWithJSON(w, http.StatusOK, parentCategories)
+}

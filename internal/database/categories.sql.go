@@ -261,6 +261,43 @@ func (q *Queries) GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, er
 	return items, nil
 }
 
+const getParentCategories = `-- name: GetParentCategories :many
+SELECT id, name, parent_id, created_at, updated_at, is_active
+FROM categories
+WHERE parent_id IS NULL
+ORDER BY name
+`
+
+func (q *Queries) GetParentCategories(ctx context.Context) ([]Category, error) {
+	rows, err := q.db.QueryContext(ctx, getParentCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Category
+	for rows.Next() {
+		var i Category
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ParentID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCategories = `-- name: ListCategories :many
 SELECT id, name, parent_id, created_at, updated_at, is_active
 FROM categories

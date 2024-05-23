@@ -2,13 +2,13 @@ package utils
 
 import (
 	"errors"
-	"weblineBackend/internal/config"
+	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 )
 
 // Paginate fetches paginated data using the provided fetchData function.
 func Paginate[T any](
-	cfg *config.Config,
+	cfg *appconfig.Config,
 	totalCount int64,
 	page int32,
 	pageSize int32,

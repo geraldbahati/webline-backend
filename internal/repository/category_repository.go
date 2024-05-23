@@ -88,6 +88,7 @@ func (r *CategoryRepository) GetCategories(ctx context.Context) ([]database.Cate
 		r.logger.Error("failed to get categories", zap.Error(err))
 		return nil, fmt.Errorf("failed to get categories: %w", err)
 	}
+	r.logger.Info("Category successfully retrieved")
 	return categories, nil
 }
 
@@ -192,4 +193,16 @@ func (r *CategoryRepository) GetCategoriesWithSubcategoryCount(
 		return nil, fmt.Errorf("failed to get categories with subcategory count: %w", err)
 	}
 	return categoriesWithSubcategoryCount, nil
+}
+
+// GetParentCategories retrieves parent categories
+func (r *CategoryRepository) GetParentCategories(
+	ctx context.Context,
+) ([]database.Category, error) {
+	parentCategories, err := r.Queries.GetParentCategories(ctx)
+	if err != nil {
+		r.logger.Error("failed to get parent categories", zap.Error(err))
+		return nil, fmt.Errorf("failed to get parent categories: %w", err)
+	}
+	return parentCategories, nil
 }

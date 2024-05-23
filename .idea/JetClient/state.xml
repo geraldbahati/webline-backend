@@ -47,6 +47,130 @@
               <option name="sortWeight" value="2000000" />
               <option name="url" value="http://localhost:8080/api/users" />
             </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;Example Product&quot;,&#10;  &quot;description&quot;: &quot;This is an example product description.&quot;,&#10;  &quot;price&quot;: 99.99,&#10;  &quot;stock&quot;: 10,&#10;  &quot;product_id&quot;: &quot;47fbf332-0554-4eb5-b813-9a3c0268e0ce&quot; &#10;}" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="49793b7c-7a88-4f2a-b5ec-e035b26980cc" />
+              <option name="method" value="POST" />
+              <option name="name" value="create products" />
+              <option name="sortWeight" value="3000000" />
+              <option name="url" value="http://localhost:8080/api/products" />
+            </requestState>
+            <requestState>
+              <option name="id" value="8b16b649-8ae6-41e0-bbac-f7650b076489" />
+              <option name="method" value="GET" />
+              <option name="name" value="login user" />
+              <option name="sortWeight" value="4000000" />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="formData">
+                    <list>
+                      <formDataParameterState>
+                        <option name="key" value="product_id" />
+                        <option name="value" value="4b8eae36-173e-4565-9cf3-faba3a629e60" />
+                      </formDataParameterState>
+                      <formDataParameterState>
+                        <option name="key" value="image" />
+                        <option name="type" value="FILE" />
+                        <option name="value" value="$USER_HOME$/Downloads/p2.jpg" />
+                      </formDataParameterState>
+                    </list>
+                  </option>
+                  <option name="type" value="FORM_DATA" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState />
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="multipart/form-data" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="d60a09d0-bd0e-4b92-89f6-017ff134eefb" />
+              <option name="method" value="POST" />
+              <option name="name" value="upload product images" />
+              <option name="sortWeight" value="6000000" />
+              <option name="url" value="http://localhost:8080/api/product-images" />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;Zkteco&quot;,&#10;  &quot;parent_id&quot;: &quot;7720d685-edad-4e9f-b937-6cb6fa14cbb3&quot;&#10;}" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="5445a6e2-1b00-4e61-aac8-57c28135fe34" />
+              <option name="method" value="POST" />
+              <option name="name" value="create category" />
+              <option name="sortWeight" value="6500000" />
+              <option name="url" value="http://localhost:8080/api/categories" />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;Monitors&quot;,&#10;  &quot;parent_id&quot;: &quot;e6bdbf37-907e-427f-99a8-8ba141398863&quot;&#10;}" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="f75261dd-58db-4be8-b2f2-4f3175974654" />
+              <option name="method" value="GET" />
+              <option name="name" value="get categories" />
+              <option name="sortWeight" value="7000000" />
+              <option name="url" value="http://localhost:8080/api/categories" />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;Security Systems&quot;,&#10;  &quot;parent_id&quot;: null&#10;}" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="99e2242a-13fc-484b-a071-6c70fce2f278" />
+              <option name="method" value="GET" />
+              <option name="name" value="category tree" />
+              <option name="sortWeight" value="8000000" />
+              <option name="url" value="http://localhost:8080/api/categories/tree" />
+            </requestState>
           </list>
         </option>
       </draftsState>

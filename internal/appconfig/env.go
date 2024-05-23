@@ -1,4 +1,4 @@
-package config
+package appconfig
 
 import (
 	"fmt"
@@ -9,10 +9,14 @@ import (
 )
 
 type Config struct {
-	Port            string
-	DbUrl           string
-	DefaultPageSize int32
-	DefaultPage     int32
+	Port               string
+	DbUrl              string
+	DefaultPageSize    int32
+	DefaultPage        int32
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
+	AWSRegion          string
+	AWSBucketName      string
 }
 
 func LoadConfig() Config {
@@ -32,8 +36,12 @@ func LoadConfig() Config {
 			getEnv("DB_PORT", "5432"),
 			getEnv("POSTGRES_DB", "webline"),
 		),
-		DefaultPageSize: 100,
-		DefaultPage:     1,
+		DefaultPageSize:    100,
+		DefaultPage:        1,
+		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
+		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
+		AWSRegion:          getEnv("AWS_REGION", "us-east-1"),
+		AWSBucketName:      getEnv("AWS_BUCKET_NAME", "your_bucket_name"),
 	}
 }
 

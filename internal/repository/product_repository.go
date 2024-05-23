@@ -1,0 +1,169 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"weblineBackend/internal/database"
+)
+
+type ProductRepository struct {
+	*database.Queries
+	db     *sql.DB
+	logger *zap.Logger
+}
+
+func NewProductRepository(db *sql.DB, logger *zap.Logger) *ProductRepository {
+	return &ProductRepository{
+		Queries: database.New(db),
+		db:      db,
+		logger:  logger,
+	}
+}
+
+// execTx executes a database transaction with the provided function
+func (r *ProductRepository) execTx(ctx context.Context, fn func(*database.Queries) error) error {
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable,
+	})
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	q := database.New(tx)
+	if err := fn(q); err != nil {
+		r.logger.Error("transaction failed, rolling back", zap.Error(err))
+		if rbErr := tx.Rollback(); rbErr != nil {
+			r.logger.Error("rollback failed", zap.Error(rbErr))
+			return fmt.Errorf("rollback transaction: %w", rbErr)
+		}
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
+// CreateProduct stores a product in the database and returns the created product
+func (r *ProductRepository) CreateProduct(
+	ctx context.Context,
+	product database.CreateProductParams,
+) (database.Product, error) {
+	var createdProduct database.Product
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		createdProduct, err = q.CreateProduct(ctx, product)
+		if err != nil {
+			return fmt.Errorf("failed to create product: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to create product", zap.Error(err))
+		return database.Product{}, err
+	}
+	return createdProduct, nil
+}
+
+// GetProductByID retrieves a product by its ID
+func (r *ProductRepository) GetProductByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (database.Product, error) {
+	product, err := r.Queries.GetProductByID(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get product by ID", zap.Error(err))
+		return database.Product{}, fmt.Errorf("failed to get product by ID: %w", err)
+	}
+	return product, nil
+}
+
+// ListProducts retrieves all products from the database
+func (r *ProductRepository) ListProducts(ctx context.Context, limit int32, offset int32) ([]database.Product, error) {
+	products, err := r.Queries.ListProducts(ctx, database.ListProductsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		r.logger.Error("failed to list products", zap.Error(err))
+		return nil, fmt.Errorf("failed to list products: %w", err)
+	}
+	return products, nil
+}
+
+// UpdateProduct updates a product in the database and returns the updated product
+func (r *ProductRepository) UpdateProduct(
+	ctx context.Context,
+	params database.UpdateProductParams,
+) (database.Product, error) {
+	var updatedProduct database.Product
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		updatedProduct, err = q.UpdateProduct(ctx, params)
+		if err != nil {
+			return fmt.Errorf("failed to update product: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update product", zap.Error(err))
+		return database.Product{}, err
+	}
+	return updatedProduct, nil
+}
+
+// SoftDeleteProduct marks a product as inactive in the database
+func (r *ProductRepository) SoftDeleteProduct(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.SoftDeleteProduct(ctx, id); err != nil {
+			return fmt.Errorf("failed to soft delete product: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to soft delete product", zap.Error(err))
+		return fmt.Errorf("failed to soft delete product: %w", err)
+	}
+	return nil
+}
+
+// GetProductsByCategoryID retrieves products by their category ID
+func (r *ProductRepository) GetProductsByCategoryID(
+	ctx context.Context,
+	categoryID uuid.NullUUID,
+) ([]database.Product, error) {
+	products, err := r.Queries.GetProductsByCategoryID(ctx, categoryID)
+	if err != nil {
+		r.logger.Error("failed to get products by category ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
+	}
+	return products, nil
+}
+
+// SearchProducts searches for products by name or description
+func (r *ProductRepository) SearchProducts(
+	ctx context.Context,
+	searchTerm sql.NullString,
+) ([]database.Product, error) {
+	products, err := r.Queries.SearchProducts(ctx, searchTerm)
+	if err != nil {
+		r.logger.Error("failed to search products", zap.Error(err))
+		return nil, fmt.Errorf("failed to search products: %w", err)
+	}
+	return products, nil
+}
+
+// CountProducts returns the total number of products in the database
+func (r *ProductRepository) CountProducts(ctx context.Context) (int64, error) {
+	count, err := r.Queries.CountProducts(ctx)
+	if err != nil {
+		r.logger.Error("failed to count products", zap.Error(err))
+		return 0, fmt.Errorf("failed to count products: %w", err)
+	}
+	return count, nil
+}

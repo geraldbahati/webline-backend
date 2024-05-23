@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"log"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/repository"
 )
@@ -28,6 +29,7 @@ func (s *CategoryService) CreateCategoryService(
 ) (database.Category, error) {
 
 	// parse parentID to null uuid
+	log.Printf("parentID: %v", parentID)
 	var parentIDValue uuid.NullUUID
 	if parentID != "" {
 		id, err := uuid.Parse(parentID)
@@ -224,4 +226,15 @@ func (s *CategoryService) GetCategoriesWithSubcategoryCountService(ctx context.C
 	}
 
 	return categoriesWithCount, nil
+}
+
+// GetParentCategoriesService retrieves parent categories
+func (s *CategoryService) GetParentCategoriesService(ctx context.Context) ([]database.Category, error) {
+	categories, err := s.repo.GetParentCategories(ctx)
+	if err != nil {
+		s.logger.Error("failed to get parent categories", zap.Error(err))
+		return nil, err
+	}
+
+	return categories, nil
 }

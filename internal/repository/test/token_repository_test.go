@@ -1,11 +1,13 @@
-package repository
+package test
 
 import (
 	"context"
+	"database/sql"
+	"go.uber.org/zap"
 	"testing"
 	"time"
 	"weblineBackend/internal/database"
-	"weblineBackend/pkg/logger"
+	"weblineBackend/internal/repository"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
@@ -13,12 +15,17 @@ import (
 )
 
 func TestStoreRefreshToken(t *testing.T) {
-	logger.Init() // Initialize the logger
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewTokenRepository(db, logger.GetLogger())
+	repo := repository.NewTokenRepository(db, logger)
 
 	ctx := context.Background()
 	refreshToken := database.StoreRefreshTokenParams{

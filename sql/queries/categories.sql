@@ -66,3 +66,9 @@ FROM categories c
          LEFT JOIN categories sc ON c.id = sc.parent_id
 GROUP BY c.id
 ORDER BY c.name;
+
+-- name: GetParentCategories :many
+SELECT id, name, parent_id, created_at, updated_at, is_active
+FROM categories
+WHERE parent_id IS NULL
+ORDER BY name;

@@ -30,6 +30,16 @@ type Category struct {
 	IsActive  bool
 }
 
+type Discount struct {
+	ID                 uuid.UUID
+	ProductID          uuid.NullUUID
+	DiscountPercentage string
+	StartDate          sql.NullTime
+	EndDate            sql.NullTime
+	CreatedAt          sql.NullTime
+	UpdatedAt          sql.NullTime
+}
+
 type Order struct {
 	ID        uuid.UUID
 	UserID    uuid.NullUUID
@@ -89,12 +99,45 @@ type Product struct {
 	UpdatedBy   uuid.NullUUID
 }
 
+type ProductColor struct {
+	ID        uuid.UUID
+	ProductID uuid.NullUUID
+	ColorName string
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+}
+
 type ProductImage struct {
 	ID        uuid.UUID
 	ProductID uuid.NullUUID
 	ImageUrl  string
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+}
+
+type ProductInteraction struct {
+	ID              uuid.UUID
+	ProductID       uuid.NullUUID
+	InteractionType string
+	UserID          uuid.NullUUID
+	InteractionTime sql.NullTime
+}
+
+type ProductOption struct {
+	ID         uuid.UUID
+	ProductID  uuid.NullUUID
+	OptionName string
+	CreatedAt  sql.NullTime
+	UpdatedAt  sql.NullTime
+}
+
+type ProductOptionValue struct {
+	ID              uuid.UUID
+	OptionID        uuid.NullUUID
+	ValueName       string
+	AdditionalPrice sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
 }
 
 type ProductReview struct {
@@ -124,6 +167,14 @@ type ProductVariant struct {
 	AdditionalPrice sql.NullString
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
+	Price           string
+	Stock           sql.NullInt32
+}
+
+type Recommendation struct {
+	UserID    uuid.NullUUID
+	ProductID uuid.NullUUID
+	Score     int64
 }
 
 type RefreshToken struct {
@@ -133,6 +184,11 @@ type RefreshToken struct {
 	CreatedAt time.Time
 	ExpiresAt time.Time
 	RevokedAt sql.NullTime
+}
+
+type RelatedProduct struct {
+	ProductID        uuid.UUID
+	RelatedProductID uuid.UUID
 }
 
 type Shipment struct {
@@ -179,6 +235,12 @@ type UserAddress struct {
 	IsDefault sql.NullBool
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+}
+
+type UserPreference struct {
+	UserID           uuid.NullUUID
+	ProductID        uuid.NullUUID
+	InteractionCount int64
 }
 
 type UserRole struct {

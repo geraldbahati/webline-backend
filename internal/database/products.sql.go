@@ -12,6 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const countProducts = `-- name: CountProducts :one
+SELECT COUNT(*) AS count
+FROM products
+`
+
+func (q *Queries) CountProducts(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProducts)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createProduct = `-- name: CreateProduct :one
 INSERT INTO products (name, description, price, stock, category_id, created_by, updated_by, is_active)
 VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
@@ -126,10 +138,16 @@ const listProducts = `-- name: ListProducts :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
 FROM products
 ORDER BY name
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListProducts(ctx context.Context) ([]Product, error) {
-	rows, err := q.db.QueryContext(ctx, listProducts)
+type ListProductsParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, listProducts, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +184,7 @@ func (q *Queries) ListProducts(ctx context.Context) ([]Product, error) {
 const searchProducts = `-- name: SearchProducts :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
 FROM products
-WHERE name ILIKE '%' || $1 || '%'
+WHERE (name ILIKE '%' || $1 || '%' OR description ILIKE '%' || $1 || '%')
 ORDER BY name
 `
 

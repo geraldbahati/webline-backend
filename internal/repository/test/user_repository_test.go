@@ -1,11 +1,12 @@
-package repository
+package test
 
 import (
 	"context"
 	"database/sql"
+	"go.uber.org/zap"
 	"testing"
 	"time"
-	"weblineBackend/pkg/logger"
+	"weblineBackend/internal/repository"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
@@ -14,12 +15,17 @@ import (
 )
 
 func TestCreateUser(t *testing.T) {
-	logger.Init() // Initialize the logger
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -62,12 +68,17 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestGetUserByID(t *testing.T) {
-	logger.Init() // Initialize the logger
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -93,12 +104,17 @@ func TestGetUserByID(t *testing.T) {
 }
 
 func TestGetUserByUsername(t *testing.T) {
-	logger.Init() // Initialize the logger
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	username := "testuser"
@@ -125,12 +141,17 @@ func TestGetUserByUsername(t *testing.T) {
 }
 
 func TestGetUserByEmail(t *testing.T) {
-	logger.Init() // Initialize the logger
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	email := "test@example.com"
@@ -157,12 +178,17 @@ func TestGetUserByEmail(t *testing.T) {
 }
 
 func TestUpdateUserProfile(t *testing.T) {
-	logger.Init() // Initialize the logger
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -194,12 +220,17 @@ func TestUpdateUserProfile(t *testing.T) {
 }
 
 func TestUpdateUserPassword(t *testing.T) {
-	logger.Init()
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -228,12 +259,17 @@ func TestUpdateUserPassword(t *testing.T) {
 }
 
 func TestUpdateUserLastLogin(t *testing.T) {
-	logger.Init()
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -258,12 +294,17 @@ func TestUpdateUserLastLogin(t *testing.T) {
 }
 
 func TestDeactivateUser(t *testing.T) {
-	logger.Init()
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -287,12 +328,17 @@ func TestDeactivateUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	logger.Init()
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -309,12 +355,17 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestListUsers(t *testing.T) {
-	logger.Init()
+	logger, _ := zap.NewDevelopment()
 
 	db, mock := setupTestDB(t)
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			logger.Error("Failed to close the database connection", zap.Error(err))
+		}
+	}(db)
 
-	repo := NewUserRepository(db, logger.GetLogger())
+	repo := repository.NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()

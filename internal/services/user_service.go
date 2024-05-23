@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"weblineBackend/internal/config"
+	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
@@ -20,13 +20,13 @@ import (
 type UserService struct {
 	userRepository  *repository.UserRepository
 	tokenRepository *repository.TokenRepository
-	config          *config.Config
+	config          *appconfig.Config
 }
 
 func NewUserService(
 	userRepository *repository.UserRepository,
 	tokenRepository *repository.TokenRepository,
-	config *config.Config,
+	config *appconfig.Config,
 ) *UserService {
 	return &UserService{
 		userRepository:  userRepository,
