@@ -24,7 +24,7 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 		Description string  `json:"description"`
 		Price       float64 `json:"price"`
 		Stock       int32   `json:"stock"`
-		ProductId   string  `json:"product_id"`
+		CategoryID  string  `json:"category_id"`
 	}
 
 	// decode request body
@@ -34,7 +34,7 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// create product
-	product, err := h.productService.CreateProduct(r.Context(), params.Name, params.Description, params.Price, params.ProductId, params.Stock)
+	product, err := h.productService.CreateProduct(r.Context(), params.Name, params.Description, params.Price, params.CategoryID, params.Stock)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product")
 		return
@@ -96,6 +96,7 @@ func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Req
 		Price       float64 `json:"price"`
 		CategoryID  string  `json:"category_id"`
 		Stock       int32   `json:"stock"`
+		Featured    bool    `json:"featured"`
 	}
 
 	// decode request body
@@ -105,7 +106,7 @@ func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// update product
-	product, err := h.productService.UpdateProduct(r.Context(), productID, params.Name, params.Description, params.Price, params.CategoryID, params.Stock)
+	product, err := h.productService.UpdateProduct(r.Context(), productID, params.Name, params.Description, params.Price, params.CategoryID, params.Stock, params.Featured)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to update product")
 		return
@@ -142,6 +143,23 @@ func (h *ProductHandler) GetProductsByCategoryIDHandler(w http.ResponseWriter, r
 	products, err := h.productService.GetProductsByCategoryID(r.Context(), categoryID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by category ID")
+		return
+	}
+
+	// respond with products
+	RespondWithJSON(w, http.StatusOK, products)
+}
+
+// GetProductsByParentCategoryIDHandler gets all products by parent category ID
+func (h *ProductHandler) GetProductsByParentCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
+	// get category ID
+	vars := mux.Vars(r)
+	categoryID := vars["id"]
+
+	// get products
+	products, err := h.productService.GetProductsByParentCategoryID(r.Context(), categoryID)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by parent category ID")
 		return
 	}
 

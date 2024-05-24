@@ -21,6 +21,7 @@ type ProductService struct {
 	productVariantRepo       *repository.ProductVariantRepository
 	productImageRepo         *repository.ProductImageRepository
 	productSpecificationRepo *repository.ProductSpecificationRepository
+	categoryRepo             *repository.CategoryRepository
 	logger                   *zap.Logger
 	config                   *appconfig.Config
 	s3Client                 *s3.Client
@@ -31,6 +32,7 @@ func NewProductService(
 	productVariantRepo *repository.ProductVariantRepository,
 	productImageRepo *repository.ProductImageRepository,
 	productSpecificationRepo *repository.ProductSpecificationRepository,
+	categoryRepo *repository.CategoryRepository,
 	logger *zap.Logger,
 	config *appconfig.Config,
 	s3Client *s3.Client,
@@ -41,6 +43,7 @@ func NewProductService(
 		productVariantRepo:       productVariantRepo,
 		productImageRepo:         productImageRepo,
 		productSpecificationRepo: productSpecificationRepo,
+		categoryRepo:             categoryRepo,
 		logger:                   logger,
 		config:                   config,
 		s3Client:                 s3Client,
@@ -130,7 +133,7 @@ func (s *ProductService) ListProducts(ctx context.Context, page int32, pageSize 
 		page,
 		pageSize,
 		func(offset int32, limit int32) ([]database.Product, error) {
-			products, err := s.productRepo.ListProducts(ctx, offset, limit)
+			products, err := s.productRepo.ListProducts(ctx, limit, offset)
 			if err != nil {
 				s.logger.Error("failed to list products", zap.Error(err))
 				return nil, fmt.Errorf("failed to list products: %w", err)
@@ -151,6 +154,7 @@ func (s *ProductService) UpdateProduct(
 	price float64,
 	categoryID string,
 	stock int32,
+	featured bool,
 ) (database.Product, error) {
 	// get user from context
 	userId, exists := ctx.Value("userId").(uuid.UUID)
@@ -207,6 +211,7 @@ func (s *ProductService) UpdateProduct(
 		CategoryID:  categoryIDValue,
 		Stock:       stockValue,
 		UpdatedBy:   updaterIDValue,
+		Featured:    sql.NullBool{Bool: featured, Valid: true},
 	}
 
 	// update product
@@ -279,7 +284,8 @@ func (s *ProductService) CreateProductVariant(
 	productID string,
 	variantName string,
 	variantValue string,
-	additionalPrice float64,
+	price float64,
+	stock int32,
 ) (database.ProductVariant, error) {
 	// Parsing
 	var productIDValue uuid.NullUUID
@@ -290,19 +296,12 @@ func (s *ProductService) CreateProductVariant(
 		productIDValue.Valid = false
 	}
 
-	var additionalPriceValue sql.NullString
-	if additionalPrice >= 0 {
-		additionalPriceValue.String = strconv.FormatFloat(additionalPrice, 'f', -1, 64)
-		additionalPriceValue.Valid = true
-	} else {
-		additionalPriceValue.Valid = false
-	}
-
 	params := database.CreateProductVariantParams{
-		ProductID:       productIDValue,
-		VariantName:     variantName,
-		VariantValue:    variantValue,
-		AdditionalPrice: additionalPriceValue,
+		ProductID:    productIDValue,
+		VariantName:  variantName,
+		VariantValue: variantValue,
+		Price:        strconv.FormatFloat(price, 'f', 2, 64),
+		Stock:        sql.NullInt32{Int32: stock, Valid: true},
 	}
 
 	// Create product variant
@@ -359,7 +358,8 @@ func (s *ProductService) UpdateProductVariant(
 	id string,
 	variantName string,
 	variantValue string,
-	additionalPrice float64,
+	price float64,
+	stock int32,
 ) (database.ProductVariant, error) {
 	// Parse the product variant ID
 	productVariantID, err := uuid.Parse(id)
@@ -370,10 +370,11 @@ func (s *ProductService) UpdateProductVariant(
 
 	// Prepare the parameters for the update
 	params := database.UpdateProductVariantParams{
-		ID:              productVariantID,
-		VariantName:     variantName,
-		VariantValue:    variantValue,
-		AdditionalPrice: sql.NullString{String: strconv.FormatFloat(additionalPrice, 'f', 2, 64), Valid: true},
+		ID:           productVariantID,
+		VariantName:  variantName,
+		VariantValue: variantValue,
+		Price:        strconv.FormatFloat(price, 'f', 2, 64),
+		Stock:        sql.NullInt32{Int32: stock, Valid: true},
 	}
 
 	// Update the product variant in the repository
@@ -666,4 +667,107 @@ func (s *ProductService) DeleteProductSpecification(ctx context.Context, id stri
 	}
 
 	return nil
+}
+
+// GetProductsByParentCategoryID retrieves products by their parent category ID
+func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, parentCategoryID string) ([]model.Product, error) {
+	// Parse the parent category ID
+	var parentCategoryIDValue uuid.NullUUID
+	if parentCategoryID != "" {
+		parentCategoryUUID, err := uuid.Parse(parentCategoryID)
+		if err != nil {
+			s.logger.Error("invalid parent category ID", zap.Error(err))
+			return nil, fmt.Errorf("invalid parent category ID: %w", err)
+		}
+		parentCategoryIDValue.UUID = parentCategoryUUID
+		parentCategoryIDValue.Valid = true
+	}
+
+	// Fetch child categories by parent category ID
+	childCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, parentCategoryIDValue)
+	if err != nil {
+		s.logger.Error("failed to get categories by parent ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get categories by parent ID: %w", err)
+	}
+
+	// Get products by category ID
+	var products []model.Product
+	for _, category := range childCategories {
+		productsByCategory, err := s.productRepo.GetProductsByCategoryID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get products by category ID", zap.Error(err))
+			return nil, fmt.Errorf("failed to get products by category ID: %w", err)
+		}
+
+		for _, product := range productsByCategory {
+			// get the product specifications
+			productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get product specifications", zap.Error(err))
+				return nil, fmt.Errorf("failed to get product specifications: %w", err)
+			}
+
+			// get the product variants
+			productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get product variants", zap.Error(err))
+				return nil, fmt.Errorf("failed to get product variants: %w", err)
+			}
+
+			// get the product images
+			productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get product images", zap.Error(err))
+				return nil, fmt.Errorf("failed to get product images: %w", err)
+			}
+
+			// map the product to the model
+			var specs []model.ProductSpecification
+			for _, spec := range productSpecs {
+				specs = append(specs, model.ProductSpecification{
+					ID:        spec.ID,
+					SpecName:  spec.SpecName,
+					SpecValue: spec.SpecValue,
+				})
+			}
+
+			var variants []model.ProductVariant
+			for _, variant := range productVariants {
+				variants = append(variants, model.ProductVariant{
+					ID:           variant.ID,
+					VariantName:  variant.VariantName,
+					VariantValue: variant.VariantValue,
+					Price:        variant.Price,
+					Stock:        variant.Stock.Int32,
+				})
+			}
+
+			var images []model.ProductImage
+			for _, image := range productImages {
+				images = append(images, model.ProductImage{
+					ID:        image.ID.String(),
+					ProductID: image.ProductID.UUID.String(),
+					S3URL:     s.constructS3URL(image.ImageUrl),
+					CreatedAt: image.CreatedAt.Time,
+					UpdatedAt: image.UpdatedAt.Time,
+				})
+			}
+
+			products = append(products, model.Product{
+				ID:             product.ID,
+				Name:           product.Name,
+				Description:    product.Description.String,
+				Price:          product.Price,
+				Stock:          product.Stock.Int32,
+				CategoryID:     product.CategoryID.UUID,
+				IsActive:       product.IsActive.Bool,
+				Featured:       product.Featured.Bool,
+				Specifications: specs,
+				Variants:       variants,
+				Images:         images,
+			})
+		}
+	}
+
+	return products, nil
 }

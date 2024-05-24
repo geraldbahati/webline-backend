@@ -21,10 +21,11 @@ func NewProductVariantHandler(productVariantService *services.ProductService) *P
 func (h *ProductVariantHandler) CreateProductVariantHandler(w http.ResponseWriter, r *http.Request) {
 	// params
 	var params struct {
-		ProductID       string  `json:"product_id"`
-		VariantName     string  `json:"variant_name"`
-		VariantValue    string  `json:"variant_value"`
-		AdditionalPrice float64 `json:"additional_price"`
+		ProductID    string  `json:"product_id"`
+		VariantName  string  `json:"variant_name"`
+		VariantValue string  `json:"variant_value"`
+		Price        float64 `json:"price"`
+		Stock        int32   `json:"stock"`
 	}
 
 	// decode request body
@@ -34,7 +35,7 @@ func (h *ProductVariantHandler) CreateProductVariantHandler(w http.ResponseWrite
 	}
 
 	// create product variant
-	productVariant, err := h.productVariantService.CreateProductVariant(r.Context(), params.ProductID, params.VariantName, params.VariantValue, params.AdditionalPrice)
+	productVariant, err := h.productVariantService.CreateProductVariant(r.Context(), params.ProductID, params.VariantName, params.VariantValue, params.Price, params.Stock)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product variant")
 		return
@@ -82,9 +83,10 @@ func (h *ProductVariantHandler) UpdateProductVariantHandler(w http.ResponseWrite
 	id := mux.Vars(r)["id"]
 
 	var params struct {
-		VariantName     string  `json:"variant_name"`
-		VariantValue    string  `json:"variant_value"`
-		AdditionalPrice float64 `json:"additional_price"`
+		VariantName  string  `json:"variant_name"`
+		VariantValue string  `json:"variant_value"`
+		Price        float64 `json:"price"`
+		Stock        int32   `json:"stock"`
 	}
 
 	// decode request body
@@ -94,7 +96,7 @@ func (h *ProductVariantHandler) UpdateProductVariantHandler(w http.ResponseWrite
 	}
 
 	// update product variant
-	productVariant, err := h.productVariantService.UpdateProductVariant(r.Context(), id, params.VariantName, params.VariantValue, params.AdditionalPrice)
+	productVariant, err := h.productVariantService.UpdateProductVariant(r.Context(), id, params.VariantName, params.VariantValue, params.Price, params.Stock)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to update product variant")
 		return

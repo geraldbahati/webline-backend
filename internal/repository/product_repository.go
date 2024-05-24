@@ -86,6 +86,7 @@ func (r *ProductRepository) ListProducts(ctx context.Context, limit int32, offse
 		Limit:  limit,
 		Offset: offset,
 	})
+
 	if err != nil {
 		r.logger.Error("failed to list products", zap.Error(err))
 		return nil, fmt.Errorf("failed to list products: %w", err)

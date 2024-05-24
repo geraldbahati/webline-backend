@@ -27,7 +27,7 @@ func (q *Queries) CountProducts(ctx context.Context) (int64, error) {
 const createProduct = `-- name: CreateProduct :one
 INSERT INTO products (name, description, price, stock, category_id, created_by, updated_by, is_active)
 VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
 `
 
 type CreateProductParams struct {
@@ -63,12 +63,13 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.IsActive,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Featured,
 	)
 	return i, err
 }
 
 const getProductByID = `-- name: GetProductByID :one
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
 FROM products
 WHERE id = $1
 `
@@ -88,12 +89,13 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (Product, er
 		&i.IsActive,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Featured,
 	)
 	return i, err
 }
 
 const getProductsByCategoryID = `-- name: GetProductsByCategoryID :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
 FROM products
 WHERE category_id = $1
 ORDER BY name
@@ -120,6 +122,7 @@ func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.N
 			&i.IsActive,
 			&i.CreatedBy,
 			&i.UpdatedBy,
+			&i.Featured,
 		); err != nil {
 			return nil, err
 		}
@@ -135,7 +138,7 @@ func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.N
 }
 
 const listProducts = `-- name: ListProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
 FROM products
 ORDER BY name
 LIMIT $1 OFFSET $2
@@ -167,6 +170,7 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 			&i.IsActive,
 			&i.CreatedBy,
 			&i.UpdatedBy,
+			&i.Featured,
 		); err != nil {
 			return nil, err
 		}
@@ -182,7 +186,7 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 }
 
 const searchProducts = `-- name: SearchProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
 FROM products
 WHERE (name ILIKE '%' || $1 || '%' OR description ILIKE '%' || $1 || '%')
 ORDER BY name
@@ -209,6 +213,7 @@ func (q *Queries) SearchProducts(ctx context.Context, dollar_1 sql.NullString) (
 			&i.IsActive,
 			&i.CreatedBy,
 			&i.UpdatedBy,
+			&i.Featured,
 		); err != nil {
 			return nil, err
 		}
@@ -236,9 +241,9 @@ func (q *Queries) SoftDeleteProduct(ctx context.Context, id uuid.UUID) error {
 
 const updateProduct = `-- name: UpdateProduct :one
 UPDATE products
-SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7
+SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8
 WHERE id = $1
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
 `
 
 type UpdateProductParams struct {
@@ -249,6 +254,7 @@ type UpdateProductParams struct {
 	Stock       sql.NullInt32
 	CategoryID  uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
+	Featured    sql.NullBool
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
@@ -260,6 +266,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		arg.Stock,
 		arg.CategoryID,
 		arg.UpdatedBy,
+		arg.Featured,
 	)
 	var i Product
 	err := row.Scan(
@@ -274,6 +281,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		&i.IsActive,
 		&i.CreatedBy,
 		&i.UpdatedBy,
+		&i.Featured,
 	)
 	return i, err
 }

@@ -80,7 +80,7 @@ func main() {
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
 	categoryService := services.NewCategoryService(categoryRepo, logger)
-	productService := services.NewProductService(productRepo, productVariantRepo, productImageRepo, productSpecificationRepo, logger, &cfg, s3Client)
+	productService := services.NewProductService(productRepo, productVariantRepo, productImageRepo, productSpecificationRepo, categoryRepo, logger, &cfg, s3Client)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
@@ -141,7 +141,7 @@ func setupRouter(
 	categoryRouter.HandleFunc("", categoryHandler.GetCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.UpdateCategoryHandler).Methods(http.MethodPut)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodDelete)
-	categoryRouter.HandleFunc("/parent/{parentId}", categoryHandler.GetCategoriesByParentIDHandler).Methods(http.MethodGet)
+	categoryRouter.HandleFunc("/parent/{parentId}/", categoryHandler.GetCategoriesByParentIDHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/products/count", categoryHandler.GetCategoriesWithProductsCountHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/tree", categoryHandler.GetCategoryTreeHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.CheckCategoryExistenceHandler).Methods(http.MethodHead)
@@ -155,6 +155,8 @@ func setupRouter(
 	productRouter.HandleFunc("/{id}", productHandler.UpdateProductHandler).Methods(http.MethodPut)
 	productRouter.HandleFunc("/{id}", productHandler.SoftDeleteProductHandler).Methods(http.MethodDelete)
 	productRouter.HandleFunc("/category/{id}", productHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
+	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodGet)
+	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodOptions)
 
 	// Product Variant routes
 	productVariantRouter := r.PathPrefix("/api/product-variants").Subrouter()

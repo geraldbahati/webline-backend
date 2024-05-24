@@ -97,6 +97,7 @@ type Product struct {
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
+	Featured    sql.NullBool
 }
 
 type ProductColor struct {
@@ -160,15 +161,14 @@ type ProductSpecification struct {
 }
 
 type ProductVariant struct {
-	ID              uuid.UUID
-	ProductID       uuid.NullUUID
-	VariantName     string
-	VariantValue    string
-	AdditionalPrice sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-	Price           string
-	Stock           sql.NullInt32
+	ID           uuid.UUID
+	ProductID    uuid.NullUUID
+	VariantName  string
+	VariantValue string
+	CreatedAt    sql.NullTime
+	UpdatedAt    sql.NullTime
+	Price        string
+	Stock        sql.NullInt32
 }
 
 type Recommendation struct {

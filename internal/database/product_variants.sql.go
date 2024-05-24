@@ -13,44 +13,37 @@ import (
 )
 
 const createProductVariant = `-- name: CreateProductVariant :one
-INSERT INTO product_variants (product_id, variant_name, variant_value, additional_price)
-VALUES ($1, $2, $3, $4)
-    RETURNING id, product_id, variant_name, variant_value, additional_price, created_at, updated_at
+INSERT INTO product_variants (product_id, variant_name, variant_value, price, stock)
+VALUES ($1, $2, $3, $4, $5)
+    RETURNING id, product_id, variant_name, variant_value, created_at, updated_at, price, stock
 `
 
 type CreateProductVariantParams struct {
-	ProductID       uuid.NullUUID
-	VariantName     string
-	VariantValue    string
-	AdditionalPrice sql.NullString
+	ProductID    uuid.NullUUID
+	VariantName  string
+	VariantValue string
+	Price        string
+	Stock        sql.NullInt32
 }
 
-type CreateProductVariantRow struct {
-	ID              uuid.UUID
-	ProductID       uuid.NullUUID
-	VariantName     string
-	VariantValue    string
-	AdditionalPrice sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-}
-
-func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (CreateProductVariantRow, error) {
+func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (ProductVariant, error) {
 	row := q.db.QueryRowContext(ctx, createProductVariant,
 		arg.ProductID,
 		arg.VariantName,
 		arg.VariantValue,
-		arg.AdditionalPrice,
+		arg.Price,
+		arg.Stock,
 	)
-	var i CreateProductVariantRow
+	var i ProductVariant
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
 		&i.VariantName,
 		&i.VariantValue,
-		&i.AdditionalPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Price,
+		&i.Stock,
 	)
 	return i, err
 }
@@ -66,70 +59,52 @@ func (q *Queries) DeleteProductVariant(ctx context.Context, id uuid.UUID) error 
 }
 
 const getProductVariantByID = `-- name: GetProductVariantByID :one
-SELECT id, product_id, variant_name, variant_value, additional_price, created_at, updated_at
+SELECT id, product_id, variant_name, variant_value, created_at, updated_at, price, stock
 FROM product_variants
 WHERE id = $1
 `
 
-type GetProductVariantByIDRow struct {
-	ID              uuid.UUID
-	ProductID       uuid.NullUUID
-	VariantName     string
-	VariantValue    string
-	AdditionalPrice sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-}
-
-func (q *Queries) GetProductVariantByID(ctx context.Context, id uuid.UUID) (GetProductVariantByIDRow, error) {
+func (q *Queries) GetProductVariantByID(ctx context.Context, id uuid.UUID) (ProductVariant, error) {
 	row := q.db.QueryRowContext(ctx, getProductVariantByID, id)
-	var i GetProductVariantByIDRow
+	var i ProductVariant
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
 		&i.VariantName,
 		&i.VariantValue,
-		&i.AdditionalPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Price,
+		&i.Stock,
 	)
 	return i, err
 }
 
 const listProductVariantsByProductID = `-- name: ListProductVariantsByProductID :many
-SELECT id, product_id, variant_name, variant_value, additional_price, created_at, updated_at
+SELECT id, product_id, variant_name, variant_value, created_at, updated_at , price, stock
 FROM product_variants
 WHERE product_id = $1
 ORDER BY variant_name
 `
 
-type ListProductVariantsByProductIDRow struct {
-	ID              uuid.UUID
-	ProductID       uuid.NullUUID
-	VariantName     string
-	VariantValue    string
-	AdditionalPrice sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-}
-
-func (q *Queries) ListProductVariantsByProductID(ctx context.Context, productID uuid.NullUUID) ([]ListProductVariantsByProductIDRow, error) {
+func (q *Queries) ListProductVariantsByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductVariant, error) {
 	rows, err := q.db.QueryContext(ctx, listProductVariantsByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListProductVariantsByProductIDRow
+	var items []ProductVariant
 	for rows.Next() {
-		var i ListProductVariantsByProductIDRow
+		var i ProductVariant
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProductID,
 			&i.VariantName,
 			&i.VariantValue,
-			&i.AdditionalPrice,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Price,
+			&i.Stock,
 		); err != nil {
 			return nil, err
 		}
@@ -146,44 +121,37 @@ func (q *Queries) ListProductVariantsByProductID(ctx context.Context, productID 
 
 const updateProductVariant = `-- name: UpdateProductVariant :one
 UPDATE product_variants
-SET variant_name = $2, variant_value = $3, additional_price = $4, updated_at = NOW()
+SET variant_name = $2, variant_value = $3, price = $4, stock = $5, updated_at = NOW()
 WHERE id = $1
-    RETURNING id, product_id, variant_name, variant_value, additional_price, created_at, updated_at
+    RETURNING id, product_id, variant_name, variant_value, created_at, updated_at, price, stock
 `
 
 type UpdateProductVariantParams struct {
-	ID              uuid.UUID
-	VariantName     string
-	VariantValue    string
-	AdditionalPrice sql.NullString
+	ID           uuid.UUID
+	VariantName  string
+	VariantValue string
+	Price        string
+	Stock        sql.NullInt32
 }
 
-type UpdateProductVariantRow struct {
-	ID              uuid.UUID
-	ProductID       uuid.NullUUID
-	VariantName     string
-	VariantValue    string
-	AdditionalPrice sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-}
-
-func (q *Queries) UpdateProductVariant(ctx context.Context, arg UpdateProductVariantParams) (UpdateProductVariantRow, error) {
+func (q *Queries) UpdateProductVariant(ctx context.Context, arg UpdateProductVariantParams) (ProductVariant, error) {
 	row := q.db.QueryRowContext(ctx, updateProductVariant,
 		arg.ID,
 		arg.VariantName,
 		arg.VariantValue,
-		arg.AdditionalPrice,
+		arg.Price,
+		arg.Stock,
 	)
-	var i UpdateProductVariantRow
+	var i ProductVariant
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
 		&i.VariantName,
 		&i.VariantValue,
-		&i.AdditionalPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Price,
+		&i.Stock,
 	)
 	return i, err
 }
