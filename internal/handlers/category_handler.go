@@ -198,3 +198,19 @@ func (h *CategoryHandler) GetParentCategoriesHandler(w http.ResponseWriter, r *h
 	// respond with parent categories
 	RespondWithJSON(w, http.StatusOK, parentCategories)
 }
+
+// GetCategoryByNameHandler retrieves a category by its name
+func (h *CategoryHandler) GetCategoryByNameHandler(w http.ResponseWriter, r *http.Request) {
+	// get category name
+	name := mux.Vars(r)["name"]
+
+	// get category
+	category, err := h.categoryService.GetCategoryByNameService(r.Context(), name)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get category by name")
+		return
+	}
+
+	// respond with category
+	RespondWithJSON(w, http.StatusOK, category)
+}

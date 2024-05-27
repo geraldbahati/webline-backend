@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"weblineBackend/internal/database"
+	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 )
 
@@ -237,4 +238,43 @@ func (s *CategoryService) GetParentCategoriesService(ctx context.Context) ([]dat
 	}
 
 	return categories, nil
+}
+
+// GetCategoryByNameService retrieves a category by its name
+func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name string) (model.Category, error) {
+	// get category by name
+	category, err := s.repo.GetCategoryByName(ctx, name)
+	if err != nil {
+		s.logger.Error("failed to get category by name", zap.Error(err))
+		return model.Category{}, err
+	}
+
+	// get categories by parent ID
+	categories, err := s.repo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to get categories by parent ID", zap.Error(err))
+		return model.Category{}, err
+	}
+
+	// create a new category model
+	var subCategories []model.Category
+	for _, category := range categories {
+		subCategory := model.Category{
+			ID:       category.ID,
+			Name:     category.Name,
+			ParentID: category.ParentID.UUID,
+			IsActive: category.IsActive,
+		}
+		subCategories = append(subCategories, subCategory)
+	}
+
+	categoryModel := model.Category{
+		ID:            category.ID,
+		Name:          category.Name,
+		ParentID:      category.ParentID.UUID,
+		IsActive:      category.IsActive,
+		SubCategories: subCategories,
+	}
+
+	return categoryModel, nil
 }

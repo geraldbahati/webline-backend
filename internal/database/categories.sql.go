@@ -207,6 +207,26 @@ func (q *Queries) GetCategoryByID(ctx context.Context, id uuid.UUID) (Category, 
 	return i, err
 }
 
+const getCategoryByName = `-- name: GetCategoryByName :one
+SELECT id, name, parent_id, created_at, updated_at, is_active
+FROM categories
+WHERE name = $1
+`
+
+func (q *Queries) GetCategoryByName(ctx context.Context, name string) (Category, error) {
+	row := q.db.QueryRowContext(ctx, getCategoryByName, name)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ParentID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const getCategoryTree = `-- name: GetCategoryTree :many
 WITH RECURSIVE category_tree AS (
     SELECT id, name, parent_id, created_at, updated_at, is_active

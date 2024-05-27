@@ -206,3 +206,16 @@ func (r *CategoryRepository) GetParentCategories(
 	}
 	return parentCategories, nil
 }
+
+// GetCategoryByName retrieves a category by its name
+func (r *CategoryRepository) GetCategoryByName(
+	ctx context.Context,
+	name string,
+) (database.Category, error) {
+	category, err := r.Queries.GetCategoryByName(ctx, name)
+	if err != nil {
+		r.logger.Error("failed to get category by name", zap.Error(err))
+		return database.Category{}, fmt.Errorf("failed to get category by name: %w", err)
+	}
+	return category, nil
+}

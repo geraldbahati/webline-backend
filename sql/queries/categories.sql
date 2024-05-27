@@ -72,3 +72,8 @@ SELECT id, name, parent_id, created_at, updated_at, is_active
 FROM categories
 WHERE parent_id IS NULL
 ORDER BY name;
+
+-- name: GetCategoryByName :one
+SELECT id, name, parent_id, created_at, updated_at, is_active
+FROM categories
+WHERE name = $1;
