@@ -1,17 +1,15 @@
-package test
+package repository
 
 import (
 	"context"
 	"database/sql"
-	"testing"
-	"time"
-	"weblineBackend/internal/database"
-	"weblineBackend/internal/repository"
-
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"testing"
+	"time"
+	"weblineBackend/internal/database"
 )
 
 func TestCreateCategory(t *testing.T) {
@@ -26,7 +24,7 @@ func TestCreateCategory(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 	categoryID := uuid.New()
@@ -72,7 +70,7 @@ func TestCreateCategoryRollback(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 
@@ -107,7 +105,7 @@ func TestGetCategoryByID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 	categoryID := uuid.New()
@@ -148,7 +146,7 @@ func TestGetCategories(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 	categoryID1 := uuid.New()
@@ -199,7 +197,7 @@ func TestUpdateCategory(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 	categoryID := uuid.New()
@@ -242,7 +240,7 @@ func TestSoftDeleteCategory(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 	categoryID := uuid.New()
@@ -272,7 +270,7 @@ func TestSoftDeleteCategoryFailure(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 	categoryID := uuid.New()
@@ -302,7 +300,7 @@ func TestGetCategoriesByParentID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewCategoryRepository(db, logger)
+	repo := NewCategoryRepository(db, logger)
 
 	ctx := context.Background()
 	parentID := uuid.New()

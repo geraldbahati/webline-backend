@@ -1,16 +1,14 @@
-package test
+package repository
 
 import (
 	"context"
 	"database/sql"
-	"go.uber.org/zap"
-	"testing"
-	"time"
-	"weblineBackend/internal/repository"
-
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"testing"
+	"time"
 	"weblineBackend/internal/database"
 )
 
@@ -25,7 +23,7 @@ func TestCreateUser(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -78,7 +76,7 @@ func TestGetUserByID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -114,7 +112,7 @@ func TestGetUserByUsername(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	username := "testuser"
@@ -151,7 +149,7 @@ func TestGetUserByEmail(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	email := "test@example.com"
@@ -188,7 +186,7 @@ func TestUpdateUserProfile(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -230,7 +228,7 @@ func TestUpdateUserPassword(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -269,7 +267,7 @@ func TestUpdateUserLastLogin(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -304,7 +302,7 @@ func TestDeactivateUser(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -338,7 +336,7 @@ func TestDeleteUser(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -365,7 +363,7 @@ func TestListUsers(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewUserRepository(db, logger)
+	repo := NewUserRepository(db, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()

@@ -1,4 +1,4 @@
-package test
+package repository
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 	"weblineBackend/internal/database"
-	"weblineBackend/internal/repository"
 )
 
 func TestCreateProductVariant(t *testing.T) {
@@ -23,7 +22,7 @@ func TestCreateProductVariant(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductVariantRepository(db, logger)
+	repo := NewProductVariantRepository(db, logger)
 
 	ctx := context.Background()
 	variantID := uuid.New()
@@ -69,7 +68,7 @@ func TestGetProductVariantByID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductVariantRepository(db, logger)
+	repo := NewProductVariantRepository(db, logger)
 
 	ctx := context.Background()
 	variantID := uuid.New()
@@ -105,7 +104,7 @@ func TestListProductVariantsByProductID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductVariantRepository(db, logger)
+	repo := NewProductVariantRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -144,7 +143,7 @@ func TestUpdateProductVariant(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductVariantRepository(db, logger)
+	repo := NewProductVariantRepository(db, logger)
 
 	ctx := context.Background()
 	variantID := uuid.New()
@@ -188,7 +187,7 @@ func TestDeleteProductVariant(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductVariantRepository(db, logger)
+	repo := NewProductVariantRepository(db, logger)
 
 	ctx := context.Background()
 	variantID := uuid.New()

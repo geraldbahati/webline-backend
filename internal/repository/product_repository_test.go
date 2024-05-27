@@ -1,4 +1,4 @@
-package test
+package repository
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 	"weblineBackend/internal/database"
-	"weblineBackend/internal/repository"
 )
 
 func TestCreateProduct(t *testing.T) {
@@ -20,7 +19,7 @@ func TestCreateProduct(t *testing.T) {
 		_ = db.Close()
 	}()
 
-	repo := repository.NewProductRepository(db, logger)
+	repo := NewProductRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -74,7 +73,7 @@ func TestGetProductByID(t *testing.T) {
 		_ = db.Close()
 	}()
 
-	repo := repository.NewProductRepository(db, logger)
+	repo := NewProductRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -112,7 +111,7 @@ func TestListProducts(t *testing.T) {
 		_ = db.Close()
 	}()
 
-	repo := repository.NewProductRepository(db, logger)
+	repo := NewProductRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -154,7 +153,7 @@ func TestUpdateProduct(t *testing.T) {
 		_ = db.Close()
 	}()
 
-	repo := repository.NewProductRepository(db, logger)
+	repo := NewProductRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -209,7 +208,7 @@ func TestSoftDeleteProduct(t *testing.T) {
 		_ = db.Close()
 	}()
 
-	repo := repository.NewProductRepository(db, logger)
+	repo := NewProductRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -235,7 +234,7 @@ func TestGetProductsByCategoryID(t *testing.T) {
 		_ = db.Close()
 	}()
 
-	repo := repository.NewProductRepository(db, logger)
+	repo := NewProductRepository(db, logger)
 
 	ctx := context.Background()
 	categoryID := uuid.New()
@@ -271,7 +270,7 @@ func TestSearchProducts(t *testing.T) {
 		_ = db.Close()
 	}()
 
-	repo := repository.NewProductRepository(db, logger)
+	repo := NewProductRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()

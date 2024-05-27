@@ -1,4 +1,4 @@
-package test
+package repository
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 	"weblineBackend/internal/database"
-	"weblineBackend/internal/repository"
 )
 
 func TestCreateProductImage(t *testing.T) {
@@ -23,7 +22,7 @@ func TestCreateProductImage(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductImageRepository(db, logger)
+	repo := NewProductImageRepository(db, logger)
 
 	ctx := context.Background()
 	imageID := uuid.New()
@@ -63,7 +62,7 @@ func TestGetProductImageByID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductImageRepository(db, logger)
+	repo := NewProductImageRepository(db, logger)
 
 	ctx := context.Background()
 	imageID := uuid.New()
@@ -98,7 +97,7 @@ func TestListProductImagesByProductID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductImageRepository(db, logger)
+	repo := NewProductImageRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -136,7 +135,7 @@ func TestUpdateProductImage(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductImageRepository(db, logger)
+	repo := NewProductImageRepository(db, logger)
 
 	ctx := context.Background()
 	imageID := uuid.New()
@@ -173,7 +172,7 @@ func TestDeleteProductImage(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductImageRepository(db, logger)
+	repo := NewProductImageRepository(db, logger)
 
 	ctx := context.Background()
 	imageID := uuid.New()

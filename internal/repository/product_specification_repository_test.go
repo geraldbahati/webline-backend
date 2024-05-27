@@ -1,4 +1,4 @@
-package test
+package repository
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 	"weblineBackend/internal/database"
-	"weblineBackend/internal/repository"
 )
 
 func TestCreateProductSpecification(t *testing.T) {
@@ -23,7 +22,7 @@ func TestCreateProductSpecification(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductSpecificationRepository(db, logger)
+	repo := NewProductSpecificationRepository(db, logger)
 
 	ctx := context.Background()
 	specID := uuid.New()
@@ -63,7 +62,7 @@ func TestGetProductSpecificationByID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductSpecificationRepository(db, logger)
+	repo := NewProductSpecificationRepository(db, logger)
 
 	ctx := context.Background()
 	specID := uuid.New()
@@ -97,7 +96,7 @@ func TestListProductSpecificationsByProductID(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductSpecificationRepository(db, logger)
+	repo := NewProductSpecificationRepository(db, logger)
 
 	ctx := context.Background()
 	productID := uuid.New()
@@ -134,7 +133,7 @@ func TestUpdateProductSpecification(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductSpecificationRepository(db, logger)
+	repo := NewProductSpecificationRepository(db, logger)
 
 	ctx := context.Background()
 	specID := uuid.New()
@@ -174,7 +173,7 @@ func TestDeleteProductSpecification(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewProductSpecificationRepository(db, logger)
+	repo := NewProductSpecificationRepository(db, logger)
 
 	ctx := context.Background()
 	specID := uuid.New()

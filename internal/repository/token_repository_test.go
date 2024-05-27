@@ -1,17 +1,15 @@
-package test
+package repository
 
 import (
 	"context"
 	"database/sql"
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"testing"
 	"time"
 	"weblineBackend/internal/database"
-	"weblineBackend/internal/repository"
-
-	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func TestStoreRefreshToken(t *testing.T) {
@@ -25,7 +23,7 @@ func TestStoreRefreshToken(t *testing.T) {
 		}
 	}(db)
 
-	repo := repository.NewTokenRepository(db, logger)
+	repo := NewTokenRepository(db, logger)
 
 	ctx := context.Background()
 	refreshToken := database.StoreRefreshTokenParams{

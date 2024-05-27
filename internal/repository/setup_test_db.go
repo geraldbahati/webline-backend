@@ -1,4 +1,4 @@
-package test
+package repository
 
 import (
 	"database/sql"
