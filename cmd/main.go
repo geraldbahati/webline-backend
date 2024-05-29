@@ -76,11 +76,24 @@ func main() {
 	productVariantRepo := repository.NewProductVariantRepository(conn, logger)
 	productImageRepo := repository.NewProductImageRepository(conn, logger)
 	productSpecificationRepo := repository.NewProductSpecificationRepository(conn, logger)
+	productColorRepo := repository.NewProductColourRepository(conn, logger)
+	productOptionRepo := repository.NewProductOptionRepository(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
-	categoryService := services.NewCategoryService(categoryRepo, logger)
-	productService := services.NewProductService(productRepo, productVariantRepo, productImageRepo, productSpecificationRepo, categoryRepo, logger, &cfg, s3Client)
+	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger)
+	productService := services.NewProductService(
+		productRepo,
+		productVariantRepo,
+		productImageRepo,
+		productSpecificationRepo,
+		categoryRepo,
+		productColorRepo,
+		productOptionRepo,
+		logger,
+		&cfg,
+		s3Client,
+	)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
@@ -159,6 +172,7 @@ func setupRouter(
 	productRouter.HandleFunc("/category/{id}", productHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodOptions)
+	productRouter.HandleFunc("/filter/{category_id}", productHandler.GetProductsByFiltersHandler).Methods(http.MethodGet)
 
 	// Product Variant routes
 	productVariantRouter := r.PathPrefix("/api/product-variants").Subrouter()

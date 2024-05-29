@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strings"
 	"weblineBackend/internal/services"
 )
 
@@ -160,6 +161,30 @@ func (h *ProductHandler) GetProductsByParentCategoryIDHandler(w http.ResponseWri
 	products, err := h.productService.GetProductsByParentCategoryID(r.Context(), categoryID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by parent category ID")
+		return
+	}
+
+	// respond with products
+	RespondWithJSON(w, http.StatusOK, products)
+}
+
+// GetProductsByFiltersHandler gets all products by filters
+func (h *ProductHandler) GetProductsByFiltersHandler(w http.ResponseWriter, r *http.Request) {
+	// get filters
+	categoryID := mux.Vars(r)["category_id"]
+	subCategoriesStr := r.URL.Query().Get("sub_categories")
+	colorsStr := r.URL.Query().Get("colors")
+	priceFromStr := r.URL.Query().Get("price_from")
+	priceToStr := r.URL.Query().Get("price_to")
+	sortBy := r.URL.Query().Get("sort")
+
+	colors := strings.Split(colorsStr, ",")
+	subCategories := strings.Split(subCategoriesStr, ",")
+
+	// get products
+	products, err := h.productService.GetProductsByFilters(r.Context(), categoryID, subCategories, colors, priceFromStr, priceToStr, sortBy)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
 		return
 	}
 

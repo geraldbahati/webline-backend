@@ -5,9 +5,10 @@ import (
 )
 
 type Category struct {
-	ID            uuid.UUID  `json:"ID"`
-	Name          string     `json:"Name"`
-	ParentID      uuid.UUID  `json:"ParentID"`
-	IsActive      bool       `json:"IsActive"`
-	SubCategories []Category `json:"SubCategories"`
+	ID              uuid.UUID  `json:"ID"`
+	Name            string     `json:"Name"`
+	ParentID        uuid.UUID  `json:"ParentID"`
+	IsActive        bool       `json:"IsActive"`
+	SubCategories   []Category `json:"SubCategories"`
+	AvailableColors []string   `json:"AvailableColors"`
 }

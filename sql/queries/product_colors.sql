@@ -23,3 +23,19 @@ WHERE id = $1
 -- name: DeleteProductColor :exec
 DELETE FROM product_colors
 WHERE id = $1;
+
+-- name: GetAvailableColorsByParentCategoryID :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id
+    FROM categories c
+             INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT pc.color_name
+FROM products p
+         JOIN product_colors pc ON p.id = pc.product_id
+         JOIN category_tree ct ON p.category_id = ct.id
+ORDER BY pc.color_name;

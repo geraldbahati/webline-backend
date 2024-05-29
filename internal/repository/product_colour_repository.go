@@ -132,3 +132,16 @@ func (r *ProductColourRepository) DeleteProductColor(
 	}
 	return nil
 }
+
+// GetAvailableColorsByCategoryID retrieves all available colours for a given category ID
+func (r *ProductColourRepository) GetAvailableColorsByCategoryID(
+	ctx context.Context,
+	categoryID uuid.UUID,
+) ([]string, error) {
+	productColours, err := r.GetAvailableColorsByParentCategoryID(ctx, categoryID)
+	if err != nil {
+		r.logger.Error("failed to get available colours", zap.Error(err))
+		return nil, err
+	}
+	return productColours, nil
+}

@@ -80,6 +80,7 @@ func (h *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.R
 	var params struct {
 		Name     string `json:"name"`
 		ParentID string `json:"parent_id"`
+		Position int32  `json:"position"`
 	}
 
 	// decode request body
@@ -89,7 +90,7 @@ func (h *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// update category
-	category, err := h.categoryService.UpdateCategoryService(r.Context(), id, params.Name, params.ParentID)
+	category, err := h.categoryService.UpdateCategoryService(r.Context(), id, params.Name, params.ParentID, params.Position)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to update category")
 		return

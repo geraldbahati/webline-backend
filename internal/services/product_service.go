@@ -22,6 +22,8 @@ type ProductService struct {
 	productImageRepo         *repository.ProductImageRepository
 	productSpecificationRepo *repository.ProductSpecificationRepository
 	categoryRepo             *repository.CategoryRepository
+	productColorRepo         *repository.ProductColourRepository
+	productOptionRepo        *repository.ProductOptionRepository
 	logger                   *zap.Logger
 	config                   *appconfig.Config
 	s3Client                 *s3.Client
@@ -33,6 +35,8 @@ func NewProductService(
 	productImageRepo *repository.ProductImageRepository,
 	productSpecificationRepo *repository.ProductSpecificationRepository,
 	categoryRepo *repository.CategoryRepository,
+	productColorRepo *repository.ProductColourRepository,
+	productOptionRepo *repository.ProductOptionRepository,
 	logger *zap.Logger,
 	config *appconfig.Config,
 	s3Client *s3.Client,
@@ -44,6 +48,8 @@ func NewProductService(
 		productImageRepo:         productImageRepo,
 		productSpecificationRepo: productSpecificationRepo,
 		categoryRepo:             categoryRepo,
+		productOptionRepo:        productOptionRepo,
+		productColorRepo:         productColorRepo,
 		logger:                   logger,
 		config:                   config,
 		s3Client:                 s3Client,
@@ -505,7 +511,7 @@ func (s *ProductService) UpdateProductImage(
 // mapToProductImageModel maps a database ProductImage to a model ProductImage
 func (s *ProductService) mapToProductImageModel(dbImage database.ProductImage) model.ProductImage {
 	return model.ProductImage{
-		ID:        dbImage.ID.String(),
+		ID:        dbImage.ID,
 		ProductID: dbImage.ProductID.UUID.String(),
 		S3URL:     s.constructS3URL(dbImage.ImageUrl),
 		CreatedAt: dbImage.CreatedAt.Time,
@@ -672,101 +678,571 @@ func (s *ProductService) DeleteProductSpecification(ctx context.Context, id stri
 // GetProductsByParentCategoryID retrieves products by their parent category ID
 func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, parentCategoryID string) ([]model.Product, error) {
 	// Parse the parent category ID
-	var parentCategoryIDValue uuid.NullUUID
-	if parentCategoryID != "" {
-		parentCategoryUUID, err := uuid.Parse(parentCategoryID)
-		if err != nil {
-			s.logger.Error("invalid parent category ID", zap.Error(err))
-			return nil, fmt.Errorf("invalid parent category ID: %w", err)
-		}
-		parentCategoryIDValue.UUID = parentCategoryUUID
-		parentCategoryIDValue.Valid = true
-	}
-
-	// Fetch child categories by parent category ID
-	childCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, parentCategoryIDValue)
-	if err != nil {
-		s.logger.Error("failed to get categories by parent ID", zap.Error(err))
-		return nil, fmt.Errorf("failed to get categories by parent ID: %w", err)
-	}
+	parentCategoryUUID, err := uuid.Parse(parentCategoryID)
 
 	// Get products by category ID
 	var products []model.Product
-	for _, category := range childCategories {
-		productsByCategory, err := s.productRepo.GetProductsByCategoryID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+
+	productsByCategory, err := s.productRepo.GetProductsByParentCategoryID(ctx, parentCategoryUUID)
+	if err != nil {
+		s.logger.Error("failed to get products by category ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
+	}
+
+	for _, product := range productsByCategory {
+		// get the product specifications
+		productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 		if err != nil {
-			s.logger.Error("failed to get products by category ID", zap.Error(err))
-			return nil, fmt.Errorf("failed to get products by category ID: %w", err)
+			s.logger.Error("failed to get product specifications", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product specifications: %w", err)
 		}
 
-		for _, product := range productsByCategory {
-			// get the product specifications
-			productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-			if err != nil {
-				s.logger.Error("failed to get product specifications", zap.Error(err))
-				return nil, fmt.Errorf("failed to get product specifications: %w", err)
-			}
+		// get the product variants
+		productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product variants", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product variants: %w", err)
+		}
 
-			// get the product variants
-			productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-			if err != nil {
-				s.logger.Error("failed to get product variants", zap.Error(err))
-				return nil, fmt.Errorf("failed to get product variants: %w", err)
-			}
+		// get the product images
+		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product images", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product images: %w", err)
+		}
 
-			// get the product images
-			productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-			if err != nil {
-				s.logger.Error("failed to get product images", zap.Error(err))
-				return nil, fmt.Errorf("failed to get product images: %w", err)
-			}
+		// get the product colors
+		productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product colors", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product colors: %w", err)
+		}
 
-			// map the product to the model
-			var specs []model.ProductSpecification
-			for _, spec := range productSpecs {
-				specs = append(specs, model.ProductSpecification{
-					ID:        spec.ID,
-					SpecName:  spec.SpecName,
-					SpecValue: spec.SpecValue,
-				})
-			}
-
-			var variants []model.ProductVariant
-			for _, variant := range productVariants {
-				variants = append(variants, model.ProductVariant{
-					ID:           variant.ID,
-					VariantName:  variant.VariantName,
-					VariantValue: variant.VariantValue,
-					Price:        variant.Price,
-					Stock:        variant.Stock.Int32,
-				})
-			}
-
-			var images []model.ProductImage
-			for _, image := range productImages {
-				images = append(images, model.ProductImage{
-					ID:        image.ID.String(),
-					ProductID: image.ProductID.UUID.String(),
-					S3URL:     s.constructS3URL(image.ImageUrl),
-					CreatedAt: image.CreatedAt.Time,
-					UpdatedAt: image.UpdatedAt.Time,
-				})
-			}
-
-			products = append(products, model.Product{
-				ID:             product.ID,
-				Name:           product.Name,
-				Description:    product.Description.String,
-				Price:          product.Price,
-				Stock:          product.Stock.Int32,
-				CategoryID:     product.CategoryID.UUID,
-				IsActive:       product.IsActive.Bool,
-				Featured:       product.Featured.Bool,
-				Specifications: specs,
-				Variants:       variants,
-				Images:         images,
+		// map the product to the model
+		var specs []model.ProductSpecification
+		for _, spec := range productSpecs {
+			specs = append(specs, model.ProductSpecification{
+				ID:        spec.ID,
+				SpecName:  spec.SpecName,
+				SpecValue: spec.SpecValue,
 			})
 		}
+
+		var variants []model.ProductVariant
+		for _, variant := range productVariants {
+			variants = append(variants, model.ProductVariant{
+				ID:           variant.ID,
+				VariantName:  variant.VariantName,
+				VariantValue: variant.VariantValue,
+				Price:        variant.Price,
+				Stock:        variant.Stock.Int32,
+			})
+		}
+
+		var images []model.ProductImage
+		for _, image := range productImages {
+			images = append(images, model.ProductImage{
+				ID:        image.ID,
+				ProductID: image.ProductID.UUID.String(),
+				S3URL:     s.constructS3URL(image.ImageUrl),
+				CreatedAt: image.CreatedAt.Time,
+				UpdatedAt: image.UpdatedAt.Time,
+			})
+		}
+
+		var colors []model.ProductColor
+		for _, color := range productColors {
+			colors = append(colors, model.ProductColor{
+				ID:        color.ID,
+				ColorName: color.ColorName,
+			})
+		}
+
+		products = append(products, model.Product{
+			ID:             product.ID,
+			Name:           product.Name,
+			Description:    product.Description.String,
+			Price:          product.Price,
+			Stock:          product.Stock.Int32,
+			CategoryID:     product.CategoryID.UUID,
+			IsActive:       product.IsActive.Bool,
+			Featured:       product.Featured.Bool,
+			Colors:         colors,
+			Specifications: specs,
+			Variants:       variants,
+			Images:         images,
+		})
+	}
+
+	return products, nil
+}
+
+// CreateProductColor creates a new product color
+func (s *ProductService) CreateProductColor(
+	ctx context.Context,
+	productID string,
+	color string,
+) (database.ProductColor, error) {
+	// Parse the product ID
+	productUUID, err := uuid.Parse(productID)
+	if err != nil {
+		s.logger.Error("invalid product ID", zap.Error(err))
+		return database.ProductColor{}, fmt.Errorf("invalid product ID: %w", err)
+	}
+
+	// Prepare parameters for creating product color
+	params := database.CreateProductColorParams{
+		ProductID: uuid.NullUUID{UUID: productUUID, Valid: true},
+		ColorName: color,
+	}
+
+	// Create product color
+	productColor, err := s.productColorRepo.CreateProductColor(ctx, params)
+	if err != nil {
+		s.logger.Error("failed to create product color", zap.Error(err))
+		return database.ProductColor{}, fmt.Errorf("failed to create product color: %w", err)
+	}
+
+	return productColor, nil
+}
+
+// ListProductColorsByProductID lists product colors by product ID
+func (s *ProductService) ListProductColorsByProductID(
+	ctx context.Context,
+	productID string,
+) ([]database.ProductColor, error) {
+	// Parse the product ID
+	productUUID, err := uuid.Parse(productID)
+	if err != nil {
+		s.logger.Error("invalid product ID", zap.Error(err))
+		return nil, fmt.Errorf("invalid product ID: %w", err)
+	}
+
+	// List product colors by product ID
+	productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: productUUID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to list product colors", zap.Error(err))
+		return nil, fmt.Errorf("failed to list product colors: %w", err)
+	}
+
+	return productColors, nil
+}
+
+// UpdateProductColor updates an existing product color
+func (s *ProductService) UpdateProductColor(
+	ctx context.Context,
+	id string,
+	color string,
+) (database.ProductColor, error) {
+	// Parse the product color ID
+	colorUUID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("invalid product color ID", zap.Error(err))
+		return database.ProductColor{}, fmt.Errorf("invalid product color ID: %w", err)
+	}
+
+	// Prepare parameters for updating product color
+	params := database.UpdateProductColorParams{
+		ID:        colorUUID,
+		ColorName: color,
+	}
+
+	// Update product color
+	productColor, err := s.productColorRepo.UpdateProductColor(ctx, params)
+	if err != nil {
+		s.logger.Error("failed to update product color", zap.Error(err))
+		return database.ProductColor{}, fmt.Errorf("failed to update product color: %w", err)
+	}
+
+	return productColor, nil
+}
+
+// DeleteProductColor deletes a product color from the database
+func (s *ProductService) DeleteProductColor(ctx context.Context, id string) error {
+	// Parse the product color ID
+	colorUUID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("invalid product color ID", zap.Error(err))
+		return fmt.Errorf("invalid product color ID: %w", err)
+	}
+
+	// Delete product color
+	err = s.productColorRepo.DeleteProductColor(ctx, colorUUID)
+	if err != nil {
+		s.logger.Error("failed to delete product color", zap.Error(err))
+		return fmt.Errorf("failed to delete product color: %w", err)
+	}
+
+	return nil
+}
+
+// CreateProductOption creates a new product option
+func (s *ProductService) CreateProductOption(
+	ctx context.Context,
+	productID string,
+	optionName string,
+) (database.ProductOption, error) {
+	// Parse the product ID
+	productUUID, err := uuid.Parse(productID)
+	if err != nil {
+		s.logger.Error("invalid product ID", zap.Error(err))
+		return database.ProductOption{}, fmt.Errorf("invalid product ID: %w", err)
+	}
+
+	// Prepare parameters for creating product option
+	params := database.CreateProductOptionParams{
+		ProductID:  uuid.NullUUID{UUID: productUUID, Valid: true},
+		OptionName: optionName,
+	}
+
+	// Create product option
+	productOption, err := s.productOptionRepo.CreateProductOption(ctx, params)
+	if err != nil {
+		s.logger.Error("failed to create product option", zap.Error(err))
+		return database.ProductOption{}, fmt.Errorf("failed to create product option: %w", err)
+	}
+
+	return productOption, nil
+}
+
+// ListProductOptionsByProductID lists product options by product ID
+func (s *ProductService) ListProductOptionsByProductID(
+	ctx context.Context,
+	productID string,
+) ([]database.ProductOption, error) {
+	// Parse the product ID
+	productUUID, err := uuid.Parse(productID)
+	if err != nil {
+		s.logger.Error("invalid product ID", zap.Error(err))
+		return nil, fmt.Errorf("invalid product ID: %w", err)
+	}
+
+	// List product options by product ID
+	productOptions, err := s.productOptionRepo.ListProductOptionsByProductID(ctx, uuid.NullUUID{UUID: productUUID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to list product options", zap.Error(err))
+		return nil, fmt.Errorf("failed to list product options: %w", err)
+	}
+
+	return productOptions, nil
+}
+
+// UpdateProductOption updates an existing product option
+func (s *ProductService) UpdateProductOption(
+	ctx context.Context,
+	id string,
+	optionName string,
+) (database.ProductOption, error) {
+	// Parse the product option ID
+	optionUUID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("invalid product option ID", zap.Error(err))
+		return database.ProductOption{}, fmt.Errorf("invalid product option ID: %w", err)
+	}
+
+	// Prepare parameters for updating product option
+	params := database.UpdateProductOptionParams{
+		ID:         optionUUID,
+		OptionName: optionName,
+	}
+
+	// Update product option
+	productOption, err := s.productOptionRepo.UpdateProductOption(ctx, params)
+	if err != nil {
+		s.logger.Error("failed to update product option", zap.Error(err))
+		return database.ProductOption{}, fmt.Errorf("failed to update product option: %w", err)
+	}
+
+	return productOption, nil
+}
+
+// DeleteProductOption deletes a product option from the database
+func (s *ProductService) DeleteProductOption(ctx context.Context, id string) error {
+	// Parse the product option ID
+	optionUUID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("invalid product option ID", zap.Error(err))
+		return fmt.Errorf("invalid product option ID: %w", err)
+	}
+
+	// Delete product option
+	err = s.productOptionRepo.DeleteProductOption(ctx, optionUUID)
+	if err != nil {
+		s.logger.Error("failed to delete product option", zap.Error(err))
+		return fmt.Errorf("failed to delete product option: %w", err)
+	}
+
+	return nil
+}
+
+// CreateProductOptionValue creates a new product option value
+func (s *ProductService) CreateProductOptionValue(
+	ctx context.Context,
+	optionID string,
+	optionValue string,
+	additionalPrice float64,
+) (database.ProductOptionValue, error) {
+	// Parse the option ID
+	optionUUID, err := uuid.Parse(optionID)
+	if err != nil {
+		s.logger.Error("invalid product option ID", zap.Error(err))
+		return database.ProductOptionValue{}, fmt.Errorf("invalid product option ID: %w", err)
+	}
+
+	// Prepare parameters for creating product option value
+	params := database.CreateProductOptionValueParams{
+		OptionID:        uuid.NullUUID{UUID: optionUUID, Valid: true},
+		ValueName:       optionValue,
+		AdditionalPrice: sql.NullString{String: strconv.FormatFloat(additionalPrice, 'f', 2, 64), Valid: true},
+	}
+
+	// Create product option value
+	productOptionValue, err := s.productOptionRepo.CreateProductOptionValue(ctx, params)
+	if err != nil {
+		s.logger.Error("failed to create product option value", zap.Error(err))
+		return database.ProductOptionValue{}, fmt.Errorf("failed to create product option value: %w", err)
+	}
+
+	return productOptionValue, nil
+}
+
+// ListProductOptionValuesByOptionID lists product option values by option ID
+func (s *ProductService) ListProductOptionValuesByOptionID(
+	ctx context.Context,
+	optionID string,
+) ([]database.ProductOptionValue, error) {
+	// Parse the option ID
+	optionUUID, err := uuid.Parse(optionID)
+	if err != nil {
+		s.logger.Error("invalid product option ID", zap.Error(err))
+		return nil, fmt.Errorf("invalid product option ID: %w", err)
+	}
+
+	// List product option values by option ID
+	productOptionValues, err := s.productOptionRepo.ListProductOptionValuesByOptionID(ctx, uuid.NullUUID{UUID: optionUUID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to list product option values", zap.Error(err))
+		return nil, fmt.Errorf("failed to list product option values: %w", err)
+	}
+
+	return productOptionValues, nil
+}
+
+// UpdateProductOptionValue updates an existing product option value
+func (s *ProductService) UpdateProductOptionValue(
+	ctx context.Context,
+	id string,
+	optionValue string,
+	additionalPrice float64,
+) (database.ProductOptionValue, error) {
+	// Parse the option value ID
+	optionValueUUID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("invalid product option value ID", zap.Error(err))
+		return database.ProductOptionValue{}, fmt.Errorf("invalid product option value ID: %w", err)
+	}
+
+	// Prepare parameters for updating product option value
+	params := database.UpdateProductOptionValueParams{
+		ID:              optionValueUUID,
+		ValueName:       optionValue,
+		AdditionalPrice: sql.NullString{String: strconv.FormatFloat(additionalPrice, 'f', 2, 64), Valid: true},
+	}
+
+	// Update product option value
+	productOptionValue, err := s.productOptionRepo.UpdateProductOptionValue(ctx, params)
+	if err != nil {
+		s.logger.Error("failed to update product option value", zap.Error(err))
+		return database.ProductOptionValue{}, fmt.Errorf("failed to update product option value: %w", err)
+	}
+
+	return productOptionValue, nil
+}
+
+// DeleteProductOptionValue deletes a product option value from the database
+func (s *ProductService) DeleteProductOptionValue(ctx context.Context, id string) error {
+	// Parse the option value ID
+	optionValueUUID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("invalid product option value ID", zap.Error(err))
+		return fmt.Errorf("invalid product option value ID: %w", err)
+	}
+
+	// Delete product option value
+	err = s.productOptionRepo.DeleteProductOptionValue(ctx, optionValueUUID)
+	if err != nil {
+		s.logger.Error("failed to delete product option value", zap.Error(err))
+		return fmt.Errorf("failed to delete product option value: %w", err)
+	}
+
+	return nil
+}
+
+const (
+	// SortByFilterOptions is a list of valid sort by filter options
+	SortByFilterOptions = "price_asc,price_desc,name_asc,name_desc"
+)
+
+// GetProductsByFilters retrieves products by their parent category ID
+func (s *ProductService) GetProductsByFilters(
+	ctx context.Context,
+	parentCategoryID string,
+	subCategories []string,
+	colors []string,
+	priceFrom string,
+	priceTo string,
+	sortBy string,
+) ([]model.Product, error) {
+	parentCategoryUUID, err := uuid.Parse(parentCategoryID)
+	if err != nil {
+		s.logger.Error("invalid parent category ID", zap.Error(err))
+		return nil, fmt.Errorf("invalid parent category ID: %w", err)
+	}
+
+	if len(subCategories) == 0 {
+		categories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: parentCategoryUUID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get subcategories", zap.Error(err))
+			return nil, fmt.Errorf("failed to get subcategories: %w", err)
+		}
+
+		for _, category := range categories {
+			subCategories = append(subCategories, category.Name)
+		}
+	}
+
+	if len(colors) == 0 {
+		productColors, err := s.productColorRepo.GetAvailableColorsByParentCategoryID(ctx, parentCategoryUUID)
+		if err != nil {
+			s.logger.Error("failed to get colors", zap.Error(err))
+			return nil, fmt.Errorf("failed to get colors: %w", err)
+		}
+
+		for _, color := range productColors {
+			colors = append(colors, color)
+		}
+	}
+
+	if priceFrom == "" {
+		priceFrom = "0"
+	}
+
+	if priceTo == "" {
+		priceTo = "999999"
+	}
+
+	priceFromFloat, err := strconv.ParseFloat(priceFrom, 64)
+	if err != nil {
+		s.logger.Error("invalid price from", zap.Error(err))
+		return nil, fmt.Errorf("invalid price from: %w", err)
+	}
+
+	priceToFloat, err := strconv.ParseFloat(priceTo, 64)
+	if err != nil {
+		s.logger.Error("invalid price to", zap.Error(err))
+		return nil, fmt.Errorf("invalid price to: %w", err)
+	}
+
+	filter := utils.NewFilter()
+	for _, subCategory := range subCategories {
+		if subCategory != "" {
+			filter.Add("ct.name", "=", 1, strings.Trim(subCategory, " "))
+		}
+	}
+
+	for _, color := range colors {
+		if color != "" {
+			filter.Add("pc.color_name", "=", 1, strings.Trim(color, " "))
+		}
+	}
+
+	filter.AddRaw("p.price", fmt.Sprintf("p.price >= %f AND p.price <= %f", priceFromFloat, priceToFloat))
+
+	productsByCategory, err := s.productRepo.GetProductsByFilters(ctx, parentCategoryUUID, filter, sortBy)
+	if err != nil {
+		s.logger.Error("failed to get products by category ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
+	}
+
+	var products []model.Product
+	for _, product := range productsByCategory {
+		productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product specifications", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product specifications: %w", err)
+		}
+
+		productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product variants", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product variants: %w", err)
+		}
+
+		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product images", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product images: %w", err)
+		}
+
+		productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product colors", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product colors: %w", err)
+		}
+
+		var specs []model.ProductSpecification
+		for _, spec := range productSpecs {
+			specs = append(specs, model.ProductSpecification{
+				ID:        spec.ID,
+				SpecName:  spec.SpecName,
+				SpecValue: spec.SpecValue,
+			})
+		}
+
+		var variants []model.ProductVariant
+		for _, variant := range productVariants {
+			variants = append(variants, model.ProductVariant{
+				ID:           variant.ID,
+				VariantName:  variant.VariantName,
+				VariantValue: variant.VariantValue,
+				Price:        variant.Price,
+				Stock:        variant.Stock.Int32,
+			})
+		}
+
+		var images []model.ProductImage
+		for _, image := range productImages {
+			images = append(images, model.ProductImage{
+				ID:        image.ID,
+				ProductID: image.ProductID.UUID.String(),
+				S3URL:     s.constructS3URL(image.ImageUrl),
+				CreatedAt: image.CreatedAt.Time,
+				UpdatedAt: image.UpdatedAt.Time,
+			})
+		}
+
+		var colors []model.ProductColor
+		for _, color := range productColors {
+			colors = append(colors, model.ProductColor{
+				ID:        color.ID,
+				ColorName: color.ColorName,
+			})
+		}
+
+		products = append(products, model.Product{
+			ID:             product.ID,
+			Name:           product.Name,
+			Description:    product.Description.String,
+			Price:          product.Price,
+			Stock:          product.Stock.Int32,
+			CategoryID:     product.CategoryID.UUID,
+			IsActive:       product.IsActive.Bool,
+			Featured:       product.Featured.Bool,
+			Colors:         colors,
+			Specifications: specs,
+			Variants:       variants,
+			Images:         images,
+		})
 	}
 
 	return products, nil

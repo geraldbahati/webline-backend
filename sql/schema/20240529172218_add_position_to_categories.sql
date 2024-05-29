@@ -1,9 +1,11 @@
 -- +goose Up
--- +goose StatementBegin
-SELECT 'up SQL query';
--- +goose StatementEnd
+-- SQL in section 'Up' is executed when this migration is applied
+
+ALTER TABLE categories
+    ADD COLUMN position INTEGER NOT NULL DEFAULT -1;
 
 -- +goose Down
--- +goose StatementBegin
-SELECT 'down SQL query';
--- +goose StatementEnd
+-- SQL in section 'Down' is executed when this migration is rolled back
+
+ALTER TABLE categories
+DROP COLUMN position;

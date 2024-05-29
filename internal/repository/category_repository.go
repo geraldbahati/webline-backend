@@ -98,6 +98,7 @@ func (r *CategoryRepository) UpdateCategory(
 	id uuid.UUID,
 	name string,
 	parentID uuid.NullUUID,
+	position int32,
 ) (database.Category, error) {
 	var updatedCategory database.Category
 	err := r.execTx(ctx, func(q *database.Queries) error {
@@ -106,6 +107,7 @@ func (r *CategoryRepository) UpdateCategory(
 			ID:       id,
 			Name:     name,
 			ParentID: parentID,
+			Position: position,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update category: %w", err)

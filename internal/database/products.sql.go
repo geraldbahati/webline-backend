@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const countProducts = `-- name: CountProducts :one
@@ -68,6 +69,70 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 	return i, err
 }
 
+const getFilteredProductsByParentCategoryID = `-- name: GetFilteredProductsByParentCategoryID :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id
+    FROM categories c
+             INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured
+FROM products p
+         JOIN category_tree ct ON p.category_id = ct.id
+        JOIN categories c2 on c2.id = p.category_id
+         LEFT JOIN product_colors pc ON p.id = pc.product_id
+
+WHERE ($2::VARCHAR[] IS NULL OR c2.name ILIKE ANY ($2::VARCHAR[]))
+ORDER BY p.name
+`
+
+type GetFilteredProductsByParentCategoryIDParams struct {
+	ID      uuid.UUID
+	Column2 []string
+}
+
+// AND ($3 IS NULL OR pc.color_name ILIKE ANY ($3::VARCHAR[]))
+// WHERE ($2::DECIMAL IS NULL OR p.price >= $2::DECIMAL)
+// AND ($3::DECIMAL IS NULL OR p.price <= $3::DECIMAL)
+func (q *Queries) GetFilteredProductsByParentCategoryID(ctx context.Context, arg GetFilteredProductsByParentCategoryIDParams) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, getFilteredProductsByParentCategoryID, arg.ID, pq.Array(arg.Column2))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Product
+	for rows.Next() {
+		var i Product
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getProductByID = `-- name: GetProductByID :one
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
 FROM products
@@ -103,6 +168,58 @@ ORDER BY name
 
 func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.NullUUID) ([]Product, error) {
 	rows, err := q.db.QueryContext(ctx, getProductsByCategoryID, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Product
+	for rows.Next() {
+		var i Product
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProductsByParentCategoryID = `-- name: GetProductsByParentCategoryID :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id
+    FROM categories c
+             INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured
+FROM products p
+         JOIN category_tree ct ON p.category_id = ct.id
+ORDER BY p.name
+`
+
+func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, id uuid.UUID) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, getProductsByParentCategoryID, id)
 	if err != nil {
 		return nil, err
 	}

@@ -131,3 +131,89 @@ func (r *ProductOptionRepository) DeleteProductOption(
 	}
 	return nil
 }
+
+// CreateProductOptionValue stores a product option value in the database and returns the created product option value
+func (r *ProductOptionRepository) CreateProductOptionValue(
+	ctx context.Context,
+	params database.CreateProductOptionValueParams,
+) (database.ProductOptionValue, error) {
+	var productOptionValue database.ProductOptionValue
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		productOptionValue, err = q.CreateProductOptionValue(ctx, params)
+		if err != nil {
+			return fmt.Errorf("failed to create product option value: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to create product option value", zap.Error(err))
+		return database.ProductOptionValue{}, err
+	}
+	return productOptionValue, nil
+}
+
+// GetProductOptionValuesByProductOptionID retrieves all product option values for a given product option ID
+func (r *ProductOptionRepository) GetProductOptionValuesByProductOptionID(
+	ctx context.Context,
+	productOptionID uuid.NullUUID,
+) ([]database.ProductOptionValue, error) {
+	productOptionValues, err := r.ListProductOptionValuesByOptionID(ctx, productOptionID)
+	if err != nil {
+		r.logger.Error("failed to get product option values", zap.Error(err))
+		return nil, err
+	}
+	return productOptionValues, nil
+}
+
+// GetProductOptionValueByID retrieves a product option value by its ID
+func (r *ProductOptionRepository) GetProductOptionValueByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (database.ProductOptionValue, error) {
+	productOptionValue, err := r.Queries.GetProductOptionValueByID(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get product option value by ID", zap.Error(err))
+		return database.ProductOptionValue{}, fmt.Errorf("failed to get product option value by ID: %w", err)
+	}
+	return productOptionValue, nil
+}
+
+// UpdateProductOptionValue updates a product option value in the database
+func (r *ProductOptionRepository) UpdateProductOptionValue(
+	ctx context.Context,
+	params database.UpdateProductOptionValueParams,
+) (database.ProductOptionValue, error) {
+	var productOptionValue database.ProductOptionValue
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		productOptionValue, err = q.UpdateProductOptionValue(ctx, params)
+		if err != nil {
+			return fmt.Errorf("failed to create product option value: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to create product option value", zap.Error(err))
+		return database.ProductOptionValue{}, err
+	}
+	return productOptionValue, nil
+}
+
+// DeleteProductOptionValue deletes a product option value from the database
+func (r *ProductOptionRepository) DeleteProductOptionValue(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.DeleteProductOptionValue(ctx, id); err != nil {
+			return fmt.Errorf("failed to delete product option value: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to delete product option value", zap.Error(err))
+		return fmt.Errorf("failed to delete product option value: %w", err)
+	}
+	return nil
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"weblineBackend/internal/database"
+	"weblineBackend/pkg/utils"
 )
 
 type ProductRepository struct {
@@ -167,4 +168,112 @@ func (r *ProductRepository) CountProducts(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("failed to count products: %w", err)
 	}
 	return count, nil
+}
+
+// GetProductsByParentCategoryID retrieves products by their parent category ID
+func (r *ProductRepository) GetProductsByParentCategoryID(
+	ctx context.Context,
+	parentCategoryID uuid.UUID,
+) ([]database.Product, error) {
+	products, err := r.Queries.GetProductsByParentCategoryID(ctx, parentCategoryID)
+	if err != nil {
+		r.logger.Error("failed to get products by parent category ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by parent category ID: %w", err)
+	}
+	return products, nil
+}
+
+// GetProductsByFilters retrieves products by their filters
+func (r *ProductRepository) GetProductsByFilters(
+	ctx context.Context,
+	parentCategoryUUID uuid.UUID,
+	filter *utils.Filter,
+	sortBy string,
+) ([]database.Product, error) {
+	query := `
+		WITH RECURSIVE category_tree AS (
+			SELECT c.id, c.name
+			FROM categories c
+			WHERE c.id = $1
+			UNION ALL
+			SELECT c.id, c.name
+			FROM categories c
+			INNER JOIN category_tree ct ON ct.id = c.parent_id
+		)
+		SELECT DISTINCT 
+			p.id, 
+			p.name, 
+			p.description, 
+			p.price, 
+			p.stock, 
+			p.category_id, 
+			p.created_at, 
+			p.updated_at, 
+			p.is_active, 
+			p.created_by, 
+			p.updated_by, 
+			p.featured
+		FROM products p
+		JOIN category_tree ct ON p.category_id = ct.id
+		LEFT JOIN product_colors pc ON p.id = pc.product_id
+	`
+
+	args := []interface{}{parentCategoryUUID}
+
+	if filter.HasFilter() {
+		filterQuery, filterArgs := filter.GetParameterizedQuery()
+		query += " WHERE " + filterQuery
+		args = append(args, filterArgs...)
+	}
+
+	// Dynamic sorting
+	switch sortBy {
+	case "price_asc":
+		query += " ORDER BY p.price ASC"
+	case "price_desc":
+		query += " ORDER BY p.price DESC"
+	case "name_asc":
+		query += " ORDER BY p.name ASC"
+	case "name_desc":
+		query += " ORDER BY p.name DESC"
+	default:
+		query += " ORDER BY p.name ASC" // Default sort
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		r.logger.Error("failed to execute query", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []database.Product
+	for rows.Next() {
+		var product database.Product
+		if err := rows.Scan(
+			&product.ID,
+			&product.Name,
+			&product.Description,
+			&product.Price,
+			&product.Stock,
+			&product.CategoryID,
+			&product.CreatedAt,
+			&product.UpdatedAt,
+			&product.IsActive,
+			&product.CreatedBy,
+			&product.UpdatedBy,
+			&product.Featured,
+		); err != nil {
+			r.logger.Error("failed to scan product", zap.Error(err))
+			return nil, err
+		}
+		products = append(products, product)
+	}
+
+	if err := rows.Err(); err != nil {
+		r.logger.Error("failed to iterate over rows", zap.Error(err))
+		return nil, err
+	}
+
+	return products, nil
 }

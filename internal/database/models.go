@@ -28,6 +28,7 @@ type Category struct {
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
 	IsActive  bool
+	Position  int32
 }
 
 type Discount struct {

@@ -11,14 +11,16 @@ import (
 )
 
 type CategoryService struct {
-	repo   *repository.CategoryRepository
-	logger *zap.Logger
+	categoryRepo     *repository.CategoryRepository
+	productColorRepo *repository.ProductColourRepository
+	logger           *zap.Logger
 }
 
-func NewCategoryService(repo *repository.CategoryRepository, logger *zap.Logger) *CategoryService {
+func NewCategoryService(categoryRepo *repository.CategoryRepository, productColorRepo *repository.ProductColourRepository, logger *zap.Logger) *CategoryService {
 	return &CategoryService{
-		repo:   repo,
-		logger: logger,
+		categoryRepo:     categoryRepo,
+		productColorRepo: productColorRepo,
+		logger:           logger,
 	}
 }
 
@@ -54,7 +56,7 @@ func (s *CategoryService) CreateCategoryService(
 		ParentID: parentIDValue,
 	}
 
-	category, err := s.repo.CreateCategory(ctx, categoryParams)
+	category, err := s.categoryRepo.CreateCategory(ctx, categoryParams)
 	if err != nil {
 		s.logger.Error("failed to create category", zap.Error(err))
 		return database.Category{}, err
@@ -68,7 +70,7 @@ func (s *CategoryService) GetCategoryByIDService(ctx context.Context, id string)
 	// parse id to uuid
 	categoryID, err := uuid.Parse(id)
 
-	category, err := s.repo.GetCategoryByID(ctx, categoryID)
+	category, err := s.categoryRepo.GetCategoryByID(ctx, categoryID)
 	if err != nil {
 		s.logger.Error("failed to get category by ID", zap.Error(err))
 		return database.Category{}, err
@@ -79,7 +81,7 @@ func (s *CategoryService) GetCategoryByIDService(ctx context.Context, id string)
 
 // GetCategoriesService retrieves all categories
 func (s *CategoryService) GetCategoriesService(ctx context.Context) ([]database.Category, error) {
-	categories, err := s.repo.GetCategories(ctx)
+	categories, err := s.categoryRepo.GetCategories(ctx)
 	if err != nil {
 		s.logger.Error("failed to get categories", zap.Error(err))
 		return nil, err
@@ -94,6 +96,7 @@ func (s *CategoryService) UpdateCategoryService(
 	id string,
 	name string,
 	parentID string,
+	position int32,
 ) (database.Category, error) {
 	// parse id to uuid
 	categoryID, err := uuid.Parse(id)
@@ -121,7 +124,7 @@ func (s *CategoryService) UpdateCategoryService(
 		}
 	}
 
-	category, err := s.repo.UpdateCategory(ctx, categoryID, name, parentIDValue)
+	category, err := s.categoryRepo.UpdateCategory(ctx, categoryID, name, parentIDValue, position)
 	if err != nil {
 		s.logger.Error("failed to update category", zap.Error(err))
 		return database.Category{}, err
@@ -139,7 +142,7 @@ func (s *CategoryService) SoftDeleteCategoryService(ctx context.Context, id stri
 		return err
 	}
 
-	err = s.repo.SoftDeleteCategory(ctx, categoryID)
+	err = s.categoryRepo.SoftDeleteCategory(ctx, categoryID)
 	if err != nil {
 		s.logger.Error("failed to soft delete category", zap.Error(err))
 		return err
@@ -169,7 +172,7 @@ func (s *CategoryService) GetCategoriesByParentIDService(ctx context.Context, pa
 		}
 	}
 
-	categories, err := s.repo.GetCategoriesByParentID(ctx, parentIDValue)
+	categories, err := s.categoryRepo.GetCategoriesByParentID(ctx, parentIDValue)
 	if err != nil {
 		s.logger.Error("failed to get categories by parent ID", zap.Error(err))
 		return nil, err
@@ -180,7 +183,7 @@ func (s *CategoryService) GetCategoriesByParentIDService(ctx context.Context, pa
 
 // GetCategoriesWithProductsCountService retrieves categories along with the count of products in each category
 func (s *CategoryService) GetCategoriesWithProductsCountService(ctx context.Context) ([]database.GetCategoriesWithProductsCountRow, error) {
-	categoriesWithCount, err := s.repo.GetCategoriesWithProductsCount(ctx)
+	categoriesWithCount, err := s.categoryRepo.GetCategoriesWithProductsCount(ctx)
 	if err != nil {
 		s.logger.Error("failed to get categories with products count", zap.Error(err))
 		return nil, err
@@ -191,7 +194,7 @@ func (s *CategoryService) GetCategoriesWithProductsCountService(ctx context.Cont
 
 // GetCategoryTreeService retrieves the full category hierarchy
 func (s *CategoryService) GetCategoryTreeService(ctx context.Context) ([]database.GetCategoryTreeRow, error) {
-	categories, err := s.repo.GetCategoryTree(ctx)
+	categories, err := s.categoryRepo.GetCategoryTree(ctx)
 	if err != nil {
 		s.logger.Error("failed to get category tree", zap.Error(err))
 		return nil, err
@@ -209,7 +212,7 @@ func (s *CategoryService) CheckCategoryExistenceService(ctx context.Context, id 
 		return false, err
 	}
 
-	exists, err := s.repo.CheckCategoryExistence(ctx, categoryID)
+	exists, err := s.categoryRepo.CheckCategoryExistence(ctx, categoryID)
 	if err != nil {
 		s.logger.Error("failed to check category existence", zap.Error(err))
 		return false, err
@@ -220,7 +223,7 @@ func (s *CategoryService) CheckCategoryExistenceService(ctx context.Context, id 
 
 // GetCategoriesWithSubcategoryCountService retrieves categories along with the count of subcategories for each category
 func (s *CategoryService) GetCategoriesWithSubcategoryCountService(ctx context.Context) ([]database.GetCategoriesWithSubcategoryCountRow, error) {
-	categoriesWithCount, err := s.repo.GetCategoriesWithSubcategoryCount(ctx)
+	categoriesWithCount, err := s.categoryRepo.GetCategoriesWithSubcategoryCount(ctx)
 	if err != nil {
 		s.logger.Error("failed to get categories with subcategory count", zap.Error(err))
 		return nil, err
@@ -231,7 +234,7 @@ func (s *CategoryService) GetCategoriesWithSubcategoryCountService(ctx context.C
 
 // GetParentCategoriesService retrieves parent categories
 func (s *CategoryService) GetParentCategoriesService(ctx context.Context) ([]database.Category, error) {
-	categories, err := s.repo.GetParentCategories(ctx)
+	categories, err := s.categoryRepo.GetParentCategories(ctx)
 	if err != nil {
 		s.logger.Error("failed to get parent categories", zap.Error(err))
 		return nil, err
@@ -243,16 +246,23 @@ func (s *CategoryService) GetParentCategoriesService(ctx context.Context) ([]dat
 // GetCategoryByNameService retrieves a category by its name
 func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name string) (model.Category, error) {
 	// get category by name
-	category, err := s.repo.GetCategoryByName(ctx, name)
+	category, err := s.categoryRepo.GetCategoryByName(ctx, name)
 	if err != nil {
 		s.logger.Error("failed to get category by name", zap.Error(err))
 		return model.Category{}, err
 	}
 
 	// get categories by parent ID
-	categories, err := s.repo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+	categories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
 	if err != nil {
 		s.logger.Error("failed to get categories by parent ID", zap.Error(err))
+		return model.Category{}, err
+	}
+
+	// get available colors for the category
+	availableColors, err := s.productColorRepo.GetAvailableColorsByCategoryID(ctx, category.ID)
+	if err != nil {
+		s.logger.Error("failed to get available colors by category ID", zap.Error(err))
 		return model.Category{}, err
 	}
 
@@ -269,11 +279,12 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 	}
 
 	categoryModel := model.Category{
-		ID:            category.ID,
-		Name:          category.Name,
-		ParentID:      category.ParentID.UUID,
-		IsActive:      category.IsActive,
-		SubCategories: subCategories,
+		ID:              category.ID,
+		Name:            category.Name,
+		ParentID:        category.ParentID.UUID,
+		IsActive:        category.IsActive,
+		SubCategories:   subCategories,
+		AvailableColors: availableColors,
 	}
 
 	return categoryModel, nil

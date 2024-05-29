@@ -6,7 +6,7 @@ import (
 )
 
 type ProductImage struct {
-	ID        string    `json:"id"`
+	ID        uuid.UUID `json:"id"`
 	ProductID string    `json:"product_id"`
 	S3URL     string    `json:"s3_url"`
 	CreatedAt time.Time `json:"created_at"`
@@ -14,15 +14,15 @@ type ProductImage struct {
 }
 
 type Product struct {
-	ID          uuid.UUID
-	Name        string
-	Description string
-	Price       string
-	Stock       int32
-	CategoryID  uuid.UUID
-	IsActive    bool
-	Featured    bool
-	//Colors         []ProductColor
+	ID             uuid.UUID
+	Name           string
+	Description    string
+	Price          string
+	Stock          int32
+	CategoryID     uuid.UUID
+	IsActive       bool
+	Featured       bool
+	Colors         []ProductColor
 	Specifications []ProductSpecification
 	Variants       []ProductVariant
 	Images         []ProductImage

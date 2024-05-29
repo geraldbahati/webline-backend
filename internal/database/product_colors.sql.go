@@ -45,6 +45,46 @@ func (q *Queries) DeleteProductColor(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getAvailableColorsByParentCategoryID = `-- name: GetAvailableColorsByParentCategoryID :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id
+    FROM categories c
+             INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT pc.color_name
+FROM products p
+         JOIN product_colors pc ON p.id = pc.product_id
+         JOIN category_tree ct ON p.category_id = ct.id
+ORDER BY pc.color_name
+`
+
+func (q *Queries) GetAvailableColorsByParentCategoryID(ctx context.Context, id uuid.UUID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getAvailableColorsByParentCategoryID, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var color_name string
+		if err := rows.Scan(&color_name); err != nil {
+			return nil, err
+		}
+		items = append(items, color_name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getProductColorByID = `-- name: GetProductColorByID :one
 SELECT id, product_id, color_name, created_at, updated_at
 FROM product_colors
