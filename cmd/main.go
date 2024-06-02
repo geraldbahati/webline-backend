@@ -102,9 +102,10 @@ func main() {
 	productVariantHandler := handlers.NewProductVariantHandler(productService)
 	productImageHandler := handlers.NewProductImageHandler(productService, s3Client, cfg.AWSBucketName)
 	productSpecificationHandler := handlers.NewProductSpecificationHandler(productService)
+	productOptionHandler := handlers.NewProductOptionHandler(productService)
 
 	// Setup router
-	r := setupRouter(logger, userHandler, categoryHandler, productHandler, productVariantHandler, productImageHandler, productSpecificationHandler)
+	r := setupRouter(logger, userHandler, categoryHandler, productHandler, productVariantHandler, productImageHandler, productSpecificationHandler, productOptionHandler)
 
 	// Start server
 	serverAddress := ":" + cfg.Port
@@ -122,6 +123,7 @@ func setupRouter(
 	productVariantHandler *handlers.ProductVariantHandler,
 	productImageHandler *handlers.ProductImageHandler,
 	productSpecificationHandler *handlers.ProductSpecificationHandler,
+	productOptionHandler *handlers.ProductOptionHandler,
 ) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
@@ -197,6 +199,20 @@ func setupRouter(
 	productSpecificationRouter.HandleFunc("", productSpecificationHandler.CreateProductSpecificationHandler).Methods(http.MethodPost)
 	productSpecificationRouter.HandleFunc("", productSpecificationHandler.ListProductSpecificationsByProductIDHandler).Methods(http.MethodGet)
 	productSpecificationRouter.HandleFunc("/{id}", productSpecificationHandler.DeleteProductSpecificationHandler).Methods(http.MethodDelete)
+
+	// Product Option routes
+	productOptionRouter := r.PathPrefix("/api/product-options").Subrouter()
+	productOptionRouter.HandleFunc("", productOptionHandler.CreateProductOptionHandler).Methods(http.MethodPost)
+	productOptionRouter.HandleFunc("", productOptionHandler.ListProductOptionsByProductIDHandler).Methods(http.MethodGet)
+	productOptionRouter.HandleFunc("/{id}", productOptionHandler.DeleteProductOptionHandler).Methods(http.MethodDelete)
+	productOptionRouter.HandleFunc("/{id}", productOptionHandler.UpdateProductOptionHandler).Methods(http.MethodPut)
+
+	// Product Option Value routes
+	productOptionValueRouter := r.PathPrefix("/api/product-option-values").Subrouter()
+	productOptionValueRouter.HandleFunc("", productOptionHandler.CreateProductOptionValueHandler).Methods(http.MethodPost)
+	productOptionValueRouter.HandleFunc("", productOptionHandler.ListProductOptionValuesByOptionIDHandler).Methods(http.MethodGet)
+	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.DeleteProductOptionValueHandler).Methods(http.MethodDelete)
+	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.UpdateProductOptionValueHandler).Methods(http.MethodPut)
 
 	return r
 }

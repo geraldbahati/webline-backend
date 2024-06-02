@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type ProductImage struct {
@@ -26,6 +27,17 @@ type Product struct {
 	Specifications []ProductSpecification
 	Variants       []ProductVariant
 	Images         []ProductImage
+}
+
+type ProductSchema struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	Price       string
+	Stock       int32
+	CategoryID  uuid.UUID
+	IsActive    bool
+	Featured    bool
 }
 
 type ProductColor struct {

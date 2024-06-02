@@ -4,9 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"strconv"
 	"strings"
 	"weblineBackend/internal/appconfig"
@@ -14,6 +11,10 @@ import (
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
+
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type ProductService struct {
@@ -64,7 +65,7 @@ func (s *ProductService) CreateProduct(
 	price float64,
 	categoryID string,
 	stock int32,
-) (database.Product, error) {
+) (model.ProductSchema, error) {
 	// get user from context
 	userId, exists := ctx.Value("userId").(uuid.UUID)
 	if !exists {
@@ -98,38 +99,38 @@ func (s *ProductService) CreateProduct(
 	product, err := s.productRepo.CreateProduct(ctx, params)
 	if err != nil {
 		s.logger.Error("failed to create product", zap.Error(err))
-		return database.Product{}, err
+		return model.ProductSchema{}, fmt.Errorf("failed to create product: %w", err)
 	}
 
 	return product, nil
 }
 
 // GetProductByID retrieves a product by its ID
-func (s *ProductService) GetProductByID(ctx context.Context, productID string) (database.Product, error) {
+func (s *ProductService) GetProductByID(ctx context.Context, productID string) (model.ProductSchema, error) {
 	// Parse the product ID
 	id, err := uuid.Parse(productID)
 	if err != nil {
 		s.logger.Error("invalid product ID format", zap.String("productID", productID), zap.Error(err))
-		return database.Product{}, fmt.Errorf("invalid product ID format: %w", err)
+		return model.ProductSchema{}, fmt.Errorf("invalid product ID format: %w", err)
 	}
 
 	// Get the product from the repository
 	product, err := s.productRepo.GetProductByID(ctx, id)
 	if err != nil {
 		s.logger.Error("failed to get product by ID", zap.String("productID", productID), zap.Error(err))
-		return database.Product{}, fmt.Errorf("failed to get product by ID: %w", err)
+		return model.ProductSchema{}, fmt.Errorf("failed to get product by ID: %w", err)
 	}
 
 	return product, nil
 }
 
 // ListProducts retrieves all products from the database
-func (s *ProductService) ListProducts(ctx context.Context, page int32, pageSize int32) (model.PaginationResult[[]database.Product], error) {
+func (s *ProductService) ListProducts(ctx context.Context, page int32, pageSize int32) (model.PaginationResult[[]model.ProductSchema], error) {
 	// Get total number of products
 	totalProducts, err := s.productRepo.CountProducts(ctx)
 	if err != nil {
 		s.logger.Error("failed to count products", zap.Error(err))
-		return model.PaginationResult[[]database.Product]{}, fmt.Errorf("failed to count products: %w", err)
+		return model.PaginationResult[[]model.ProductSchema]{}, fmt.Errorf("failed to count products: %w", err)
 	}
 
 	// Get all products
@@ -138,7 +139,7 @@ func (s *ProductService) ListProducts(ctx context.Context, page int32, pageSize 
 		totalProducts,
 		page,
 		pageSize,
-		func(offset int32, limit int32) ([]database.Product, error) {
+		func(offset int32, limit int32) ([]model.ProductSchema, error) {
 			products, err := s.productRepo.ListProducts(ctx, limit, offset)
 			if err != nil {
 				s.logger.Error("failed to list products", zap.Error(err))
@@ -161,7 +162,7 @@ func (s *ProductService) UpdateProduct(
 	categoryID string,
 	stock int32,
 	featured bool,
-) (database.Product, error) {
+) (model.ProductSchema, error) {
 	// get user from context
 	userId, exists := ctx.Value("userId").(uuid.UUID)
 	if !exists {
@@ -206,7 +207,7 @@ func (s *ProductService) UpdateProduct(
 	productID, err := uuid.Parse(id)
 	if err != nil {
 		s.logger.Error("invalid product id", zap.Error(err))
-		return database.Product{}, fmt.Errorf("invalid product id: %w", err)
+		return model.ProductSchema{}, fmt.Errorf("invalid product id: %w", err)
 	}
 
 	params := database.UpdateProductParams{
@@ -224,7 +225,7 @@ func (s *ProductService) UpdateProduct(
 	updatedProduct, err := s.productRepo.UpdateProduct(ctx, params)
 	if err != nil {
 		s.logger.Error("failed to update product", zap.Error(err))
-		return database.Product{}, err
+		return model.ProductSchema{}, fmt.Errorf("failed to update product: %w", err)
 	}
 
 	return updatedProduct, nil
@@ -249,7 +250,7 @@ func (s *ProductService) SoftDeleteProduct(ctx context.Context, id string) error
 }
 
 // GetProductsByCategoryID retrieves products by their category ID
-func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]database.Product, error) {
+func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]model.ProductSchema, error) {
 	// Parse the category ID
 	categoryIDValue, err := uuid.Parse(categoryID)
 
@@ -264,12 +265,9 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 }
 
 // SearchProducts searches for products by name or description
-func (s *ProductService) SearchProducts(ctx context.Context, searchTerm string) ([]database.Product, error) {
-	// Parse the search term
-	searchTermValue := sql.NullString{String: searchTerm, Valid: searchTerm != ""}
-
+func (s *ProductService) SearchProducts(ctx context.Context, searchTerm string) ([]model.ProductSchema, error) {
 	// Fetch products by search term from the repository
-	products, err := s.productRepo.SearchProducts(ctx, searchTermValue)
+	products, err := s.productRepo.SearchProducts(ctx, searchTerm)
 	if err != nil {
 		s.logger.Error("failed to search products", zap.Error(err))
 		return nil, fmt.Errorf("failed to search products: %w", err)
@@ -755,12 +753,12 @@ func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, pare
 		products = append(products, model.Product{
 			ID:             product.ID,
 			Name:           product.Name,
-			Description:    product.Description.String,
+			Description:    product.Description,
 			Price:          product.Price,
-			Stock:          product.Stock.Int32,
-			CategoryID:     product.CategoryID.UUID,
-			IsActive:       product.IsActive.Bool,
-			Featured:       product.Featured.Bool,
+			Stock:          product.Stock,
+			CategoryID:     product.CategoryID,
+			IsActive:       product.IsActive,
+			Featured:       product.Featured,
 			Colors:         colors,
 			Specifications: specs,
 			Variants:       variants,

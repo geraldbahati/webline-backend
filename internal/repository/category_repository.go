@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"weblineBackend/internal/database"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"weblineBackend/internal/database"
 )
 
 type CategoryRepository struct {
@@ -126,7 +127,7 @@ func (r *CategoryRepository) SoftDeleteCategory(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-	err := r.Queries.SoftDeleteCategory(ctx)
+	err := r.Queries.SoftDeleteCategory(ctx, id)
 	if err != nil {
 		r.logger.Error("failed to soft delete category", zap.Error(err))
 		return fmt.Errorf("failed to soft delete category: %w", err)

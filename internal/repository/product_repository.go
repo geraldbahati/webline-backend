@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"weblineBackend/internal/database"
+	"weblineBackend/internal/model"
+	"weblineBackend/pkg/utils"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"weblineBackend/internal/database"
-	"weblineBackend/pkg/utils"
 )
 
 type ProductRepository struct {
@@ -51,19 +53,31 @@ func (r *ProductRepository) execTx(ctx context.Context, fn func(*database.Querie
 func (r *ProductRepository) CreateProduct(
 	ctx context.Context,
 	product database.CreateProductParams,
-) (database.Product, error) {
-	var createdProduct database.Product
+) (model.ProductSchema, error) {
+	var createdProduct model.ProductSchema
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
-		createdProduct, err = q.CreateProduct(ctx, product)
+		product, err := q.CreateProduct(ctx, product)
 		if err != nil {
 			return fmt.Errorf("failed to create product: %w", err)
 		}
+
+		createdProduct = model.ProductSchema{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			Price:       product.Price,
+			Stock:       product.Stock.Int32,
+			CategoryID:  product.CategoryID.UUID,
+			IsActive:    product.IsActive.Bool,
+			Featured:    product.Featured.Bool,
+		}
+
 		return nil
 	})
 	if err != nil {
 		r.logger.Error("failed to create product", zap.Error(err))
-		return database.Product{}, err
+		return model.ProductSchema{}, fmt.Errorf("failed to create product: %w", err)
 	}
 	return createdProduct, nil
 }
@@ -72,17 +86,27 @@ func (r *ProductRepository) CreateProduct(
 func (r *ProductRepository) GetProductByID(
 	ctx context.Context,
 	id uuid.UUID,
-) (database.Product, error) {
+) (model.ProductSchema, error) {
 	product, err := r.Queries.GetProductByID(ctx, id)
 	if err != nil {
 		r.logger.Error("failed to get product by ID", zap.Error(err))
-		return database.Product{}, fmt.Errorf("failed to get product by ID: %w", err)
+		return model.ProductSchema{}, fmt.Errorf("failed to get product by ID: %w", err)
 	}
-	return product, nil
+
+	return model.ProductSchema{
+		ID:          product.ID,
+		Name:        product.Name,
+		Description: product.Description.String,
+		Price:       product.Price,
+		Stock:       product.Stock.Int32,
+		CategoryID:  product.CategoryID.UUID,
+		IsActive:    product.IsActive.Bool,
+		Featured:    product.Featured.Bool,
+	}, nil
 }
 
 // ListProducts retrieves all products from the database
-func (r *ProductRepository) ListProducts(ctx context.Context, limit int32, offset int32) ([]database.Product, error) {
+func (r *ProductRepository) ListProducts(ctx context.Context, limit int32, offset int32) ([]model.ProductSchema, error) {
 	products, err := r.Queries.ListProducts(ctx, database.ListProductsParams{
 		Limit:  limit,
 		Offset: offset,
@@ -92,26 +116,53 @@ func (r *ProductRepository) ListProducts(ctx context.Context, limit int32, offse
 		r.logger.Error("failed to list products", zap.Error(err))
 		return nil, fmt.Errorf("failed to list products: %w", err)
 	}
-	return products, nil
+
+	var productSchemas []model.ProductSchema
+	for _, product := range products {
+		productSchemas = append(productSchemas, model.ProductSchema{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			Price:       product.Price,
+			Stock:       product.Stock.Int32,
+			CategoryID:  product.CategoryID.UUID,
+			IsActive:    product.IsActive.Bool,
+			Featured:    product.Featured.Bool,
+		})
+	}
+
+	return productSchemas, nil
 }
 
 // UpdateProduct updates a product in the database and returns the updated product
 func (r *ProductRepository) UpdateProduct(
 	ctx context.Context,
 	params database.UpdateProductParams,
-) (database.Product, error) {
-	var updatedProduct database.Product
+) (model.ProductSchema, error) {
+	var updatedProduct model.ProductSchema
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
-		updatedProduct, err = q.UpdateProduct(ctx, params)
+		product, err := q.UpdateProduct(ctx, params)
 		if err != nil {
 			return fmt.Errorf("failed to update product: %w", err)
 		}
+
+		updatedProduct = model.ProductSchema{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			Price:       product.Price,
+			Stock:       product.Stock.Int32,
+			CategoryID:  product.CategoryID.UUID,
+			IsActive:    product.IsActive.Bool,
+			Featured:    product.Featured.Bool,
+		}
+
 		return nil
 	})
 	if err != nil {
 		r.logger.Error("failed to update product", zap.Error(err))
-		return database.Product{}, err
+		return model.ProductSchema{}, fmt.Errorf("failed to update product: %w", err)
 	}
 	return updatedProduct, nil
 }
@@ -138,26 +189,56 @@ func (r *ProductRepository) SoftDeleteProduct(
 func (r *ProductRepository) GetProductsByCategoryID(
 	ctx context.Context,
 	categoryID uuid.UUID,
-) ([]database.Product, error) {
+) ([]model.ProductSchema, error) {
 	products, err := r.Queries.GetProductsByParentCategoryID(ctx, categoryID)
 	if err != nil {
 		r.logger.Error("failed to get products by category ID", zap.Error(err))
 		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
 	}
-	return products, nil
+
+	var productSchemas []model.ProductSchema
+	for _, product := range products {
+		productSchemas = append(productSchemas, model.ProductSchema{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			Price:       product.Price,
+			Stock:       product.Stock.Int32,
+			CategoryID:  product.CategoryID.UUID,
+			IsActive:    product.IsActive.Bool,
+			Featured:    product.Featured.Bool,
+		})
+	}
+
+	return productSchemas, nil
 }
 
 // SearchProducts searches for products by name or description
 func (r *ProductRepository) SearchProducts(
 	ctx context.Context,
-	searchTerm sql.NullString,
-) ([]database.Product, error) {
+	searchTerm string,
+) ([]model.ProductSchema, error) {
 	products, err := r.Queries.SearchProducts(ctx, searchTerm)
 	if err != nil {
 		r.logger.Error("failed to search products", zap.Error(err))
 		return nil, fmt.Errorf("failed to search products: %w", err)
 	}
-	return products, nil
+
+	var productSchemas []model.ProductSchema
+	for _, product := range products {
+		productSchemas = append(productSchemas, model.ProductSchema{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			Price:       product.Price,
+			Stock:       product.Stock.Int32,
+			CategoryID:  product.CategoryID.UUID,
+			IsActive:    product.IsActive.Bool,
+			Featured:    product.Featured.Bool,
+		})
+	}
+
+	return productSchemas, nil
 }
 
 // CountProducts returns the total number of products in the database
@@ -174,13 +255,28 @@ func (r *ProductRepository) CountProducts(ctx context.Context) (int64, error) {
 func (r *ProductRepository) GetProductsByParentCategoryID(
 	ctx context.Context,
 	parentCategoryID uuid.UUID,
-) ([]database.Product, error) {
+) ([]model.ProductSchema, error) {
 	products, err := r.Queries.GetProductsByParentCategoryID(ctx, parentCategoryID)
 	if err != nil {
 		r.logger.Error("failed to get products by parent category ID", zap.Error(err))
 		return nil, fmt.Errorf("failed to get products by parent category ID: %w", err)
 	}
-	return products, nil
+
+	var productSchemas []model.ProductSchema
+	for _, product := range products {
+		productSchemas = append(productSchemas, model.ProductSchema{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			Price:       product.Price,
+			Stock:       product.Stock.Int32,
+			CategoryID:  product.CategoryID.UUID,
+			IsActive:    product.IsActive.Bool,
+			Featured:    product.Featured.Bool,
+		})
+	}
+
+	return productSchemas, nil
 }
 
 // GetProductsByFilters retrieves products by their filters
@@ -200,18 +296,18 @@ func (r *ProductRepository) GetProductsByFilters(
 			FROM categories c
 			INNER JOIN category_tree ct ON ct.id = c.parent_id
 		)
-		SELECT DISTINCT 
-			p.id, 
-			p.name, 
-			p.description, 
-			p.price, 
-			p.stock, 
-			p.category_id, 
-			p.created_at, 
-			p.updated_at, 
-			p.is_active, 
-			p.created_by, 
-			p.updated_by, 
+		SELECT DISTINCT
+			p.id,
+			p.name,
+			p.description,
+			p.price,
+			p.stock,
+			p.category_id,
+			p.created_at,
+			p.updated_at,
+			p.is_active,
+			p.created_by,
+			p.updated_by,
 			p.featured
 		FROM products p
 		JOIN category_tree ct ON p.category_id = ct.id
