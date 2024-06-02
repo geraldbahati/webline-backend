@@ -29,6 +29,7 @@ func (s *CategoryService) CreateCategoryService(
 	ctx context.Context,
 	name string,
 	parentID string,
+	position int32,
 ) (database.Category, error) {
 
 	// parse parentID to null uuid
@@ -54,6 +55,7 @@ func (s *CategoryService) CreateCategoryService(
 	categoryParams := database.CreateCategoryParams{
 		Name:     name,
 		ParentID: parentIDValue,
+		Position: position,
 	}
 
 	category, err := s.categoryRepo.CreateCategory(ctx, categoryParams)
@@ -288,4 +290,55 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 	}
 
 	return categoryModel, nil
+}
+
+// GetCategoryHierarchyService retrieves the category hierarchy
+func (s *CategoryService) GetCategoryHierarchyService(ctx context.Context) ([]model.CategoryHierarchy, error) {
+	// get category tree
+	categories, err := s.categoryRepo.GetCategoryTree(ctx)
+	if err != nil {
+		s.logger.Error("failed to get category tree", zap.Error(err))
+		return nil, err
+	}
+
+	// build the category hierarchy
+	categoryHierarchy := buildCategoryHierarchy(categories)
+
+	return categoryHierarchy, nil
+}
+
+func buildCategoryHierarchy(categories []database.GetCategoryTreeRow) []model.CategoryHierarchy {
+	// create a map to store categories by their parent ID
+	categoryMap := make(map[uuid.UUID][]database.GetCategoryTreeRow)
+	for _, category := range categories {
+		categoryMap[category.ParentID.UUID] = append(categoryMap[category.ParentID.UUID], category)
+	}
+
+	// create a slice to store the top-level categories
+	var categoryHierarchy []model.CategoryHierarchy
+
+	// iterate over the categories and build the hierarchy
+	for _, category := range categoryMap[uuid.Nil] {
+		categoryHierarchy = append(categoryHierarchy, model.CategoryHierarchy{
+			Name:     category.Name,
+			Children: buildCategoryHierarchyRecursively(category.ID, categoryMap),
+		})
+	}
+
+	return categoryHierarchy
+}
+
+func buildCategoryHierarchyRecursively(parentID uuid.UUID, categoryMap map[uuid.UUID][]database.GetCategoryTreeRow) []model.CategoryHierarchy {
+	// create a slice to store the children of the current category
+	var children []model.CategoryHierarchy
+
+	// iterate over the children of the current category
+	for _, category := range categoryMap[parentID] {
+		children = append(children, model.CategoryHierarchy{
+			Name:     category.Name,
+			Children: buildCategoryHierarchyRecursively(category.ID, categoryMap),
+		})
+	}
+
+	return children
 }

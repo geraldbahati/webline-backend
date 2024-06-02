@@ -159,6 +159,8 @@ func setupRouter(
 	categoryRouter.HandleFunc("/parent/{parentId}/", categoryHandler.GetCategoriesByParentIDHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/products/count", categoryHandler.GetCategoriesWithProductsCountHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/tree", categoryHandler.GetCategoryTreeHandler).Methods(http.MethodGet)
+	categoryRouter.HandleFunc("/hierarchy", categoryHandler.GetCategoryHierarchyHandler).Methods(http.MethodGet)
+	categoryRouter.HandleFunc("/parent", categoryHandler.GetParentCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.CheckCategoryExistenceHandler).Methods(http.MethodHead)
 	categoryRouter.HandleFunc("/subcategories/count", categoryHandler.GetCategoriesWithSubcategoryCountHandler).Methods(http.MethodGet)
 

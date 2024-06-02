@@ -12,3 +12,8 @@ type Category struct {
 	SubCategories   []Category `json:"SubCategories"`
 	AvailableColors []string   `json:"AvailableColors"`
 }
+
+type CategoryHierarchy struct {
+	Name     string              `json:"Name"`
+	Children []CategoryHierarchy `json:"Children"`
+}

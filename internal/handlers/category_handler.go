@@ -23,6 +23,7 @@ func (h *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 	var params struct {
 		Name     string `json:"name"`
 		ParentID string `json:"parent_id"`
+		Position int32  `json:"position"`
 	}
 
 	// decode request body
@@ -32,7 +33,7 @@ func (h *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// create category
-	category, err := h.categoryService.CreateCategoryService(r.Context(), params.Name, params.ParentID)
+	category, err := h.categoryService.CreateCategoryService(r.Context(), params.Name, params.ParentID, params.Position)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create category")
 		return
@@ -214,4 +215,17 @@ func (h *CategoryHandler) GetCategoryByNameHandler(w http.ResponseWriter, r *htt
 
 	// respond with category
 	RespondWithJSON(w, http.StatusOK, category)
+}
+
+// GetCategoryHierarchyHandler retrieves the category hierarchy
+func (h *CategoryHandler) GetCategoryHierarchyHandler(w http.ResponseWriter, r *http.Request) {
+	// get category hierarchy
+	hierarchy, err := h.categoryService.GetCategoryHierarchyService(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get category hierarchy")
+		return
+	}
+
+	// respond with category hierarchy
+	RespondWithJSON(w, http.StatusOK, hierarchy)
 }

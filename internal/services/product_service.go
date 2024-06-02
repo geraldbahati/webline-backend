@@ -251,13 +251,7 @@ func (s *ProductService) SoftDeleteProduct(ctx context.Context, id string) error
 // GetProductsByCategoryID retrieves products by their category ID
 func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]database.Product, error) {
 	// Parse the category ID
-	var categoryIDValue uuid.NullUUID
-	if categoryID != "" {
-		categoryIDValue.UUID, _ = uuid.Parse(categoryID)
-		categoryIDValue.Valid = true
-	} else {
-		categoryIDValue.Valid = false
-	}
+	categoryIDValue, err := uuid.Parse(categoryID)
 
 	// Fetch products by category ID from the repository
 	products, err := s.productRepo.GetProductsByCategoryID(ctx, categoryIDValue)

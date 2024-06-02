@@ -137,9 +137,9 @@ func (r *ProductRepository) SoftDeleteProduct(
 // GetProductsByCategoryID retrieves products by their category ID
 func (r *ProductRepository) GetProductsByCategoryID(
 	ctx context.Context,
-	categoryID uuid.NullUUID,
+	categoryID uuid.UUID,
 ) ([]database.Product, error) {
-	products, err := r.Queries.GetProductsByCategoryID(ctx, categoryID)
+	products, err := r.Queries.GetProductsByParentCategoryID(ctx, categoryID)
 	if err != nil {
 		r.logger.Error("failed to get products by category ID", zap.Error(err))
 		return nil, fmt.Errorf("failed to get products by category ID: %w", err)

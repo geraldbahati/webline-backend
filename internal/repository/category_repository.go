@@ -126,7 +126,7 @@ func (r *CategoryRepository) SoftDeleteCategory(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-	err := r.Queries.SoftDeleteCategory(ctx, id)
+	err := r.Queries.SoftDeleteCategory(ctx)
 	if err != nil {
 		r.logger.Error("failed to soft delete category", zap.Error(err))
 		return fmt.Errorf("failed to soft delete category: %w", err)
@@ -220,4 +220,16 @@ func (r *CategoryRepository) GetCategoryByName(
 		return database.Category{}, fmt.Errorf("failed to get category by name: %w", err)
 	}
 	return category, nil
+}
+
+// GetCategoryHierarchy retrieves the category hierarchy
+func (r *CategoryRepository) GetCategoryHierarchy(
+	ctx context.Context,
+) ([]database.GetCategoryHierarchyRow, error) {
+	hierarchy, err := r.Queries.GetCategoryHierarchy(ctx)
+	if err != nil {
+		r.logger.Error("failed to get category hierarchy", zap.Error(err))
+		return nil, fmt.Errorf("failed to get category hierarchy: %w", err)
+	}
+	return hierarchy, nil
 }
