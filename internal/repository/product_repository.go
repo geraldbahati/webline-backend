@@ -218,7 +218,7 @@ func (r *ProductRepository) SearchProducts(
 	ctx context.Context,
 	searchTerm string,
 ) ([]model.ProductSchema, error) {
-	products, err := r.Queries.SearchProducts(ctx, searchTerm)
+	products, err := r.Queries.SearchProducts(ctx, sql.NullString{String: searchTerm, Valid: true})
 	if err != nil {
 		r.logger.Error("failed to search products", zap.Error(err))
 		return nil, fmt.Errorf("failed to search products: %w", err)

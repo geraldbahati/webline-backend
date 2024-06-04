@@ -35,24 +35,34 @@ ORDER BY name;
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
 FROM products
 WHERE
-    search_keyword @@ plainto_tsquery('english', $1)
-ORDER BY ts_rank(search_keyword, plainto_tsquery('english', $1)) DESC;
+    name ILIKE '%' || $1 || '%' OR
+    description ILIKE '%' || $1 || '%' OR
+    search_keyword @@ websearch_to_tsquery('english', $1)
+ORDER BY ts_rank(search_keyword, websearch_to_tsquery('english', $1)) DESC;
 
 -- name: CountProducts :one
 SELECT COUNT(*) AS count
 FROM products;
 
 -- name: GetProductsByParentCategoryID :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id,
+        c.position
     FROM categories c
     WHERE c.id = $1
     UNION ALL
-    SELECT c.id
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
+    SELECT
+        c2.id,
+        c2.name,
+        c2.parent_id,
+        c2.position
+    FROM categories c2
+             INNER JOIN category_hierarchy ch ON c2.parent_id = ch.id
 )
-SELECT p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured, p.search_keyword
+SELECT
+    p.*
 FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id;
-ORDER BY p.name;
+WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch);

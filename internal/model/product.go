@@ -58,3 +58,11 @@ type ProductVariant struct {
 	Price        string
 	Stock        int32
 }
+
+type ProductQueryResult struct {
+	ID       uuid.UUID
+	Name     string
+	Price    string
+	Stock    int32
+	ImageURL string
+}

@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
 	"weblineBackend/internal/services"
+
+	"github.com/gorilla/mux"
 )
 
 type ProductHandler struct {
@@ -185,6 +186,22 @@ func (h *ProductHandler) GetProductsByFiltersHandler(w http.ResponseWriter, r *h
 	products, err := h.productService.GetProductsByFilters(r.Context(), categoryID, subCategories, colors, priceFromStr, priceToStr, sortBy)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
+		return
+	}
+
+	// respond with products
+	RespondWithJSON(w, http.StatusOK, products)
+}
+
+// SearchProductsHandler searches products by name
+func (h *ProductHandler) SearchProductsHandler(w http.ResponseWriter, r *http.Request) {
+	// get query
+	query := r.URL.Query().Get("query")
+
+	// get products
+	products, err := h.productService.SearchProducts(r.Context(), query)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to search products")
 		return
 	}
 

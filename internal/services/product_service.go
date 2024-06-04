@@ -106,22 +106,111 @@ func (s *ProductService) CreateProduct(
 }
 
 // GetProductByID retrieves a product by its ID
-func (s *ProductService) GetProductByID(ctx context.Context, productID string) (model.ProductSchema, error) {
+func (s *ProductService) GetProductByID(ctx context.Context, productID string) (model.Product, error) {
 	// Parse the product ID
 	id, err := uuid.Parse(productID)
 	if err != nil {
 		s.logger.Error("invalid product ID format", zap.String("productID", productID), zap.Error(err))
-		return model.ProductSchema{}, fmt.Errorf("invalid product ID format: %w", err)
+		return model.Product{}, fmt.Errorf("invalid product ID format: %w", err)
 	}
 
 	// Get the product from the repository
 	product, err := s.productRepo.GetProductByID(ctx, id)
 	if err != nil {
 		s.logger.Error("failed to get product by ID", zap.String("productID", productID), zap.Error(err))
-		return model.ProductSchema{}, fmt.Errorf("failed to get product by ID: %w", err)
+		return model.Product{}, fmt.Errorf("failed to get product by ID: %w", err)
 	}
 
-	return product, nil
+	// Get the product specifications
+	productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to get product specifications", zap.Error(err))
+		return model.Product{}, fmt.Errorf("failed to get product specifications: %w", err)
+
+	}
+
+	// Get the product variants
+	productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to get product variants", zap.Error(err))
+		return model.Product{}, fmt.Errorf("failed to get product variants: %w", err)
+
+	}
+
+	// Get the product images
+	productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to get product images", zap.Error(err))
+		return model.Product{}, fmt.Errorf("failed to get product images: %w", err)
+
+	}
+
+	// Get the product colors
+	productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to get product colors", zap.Error(err))
+		return model.Product{}, fmt.Errorf("failed to get product colors: %w", err)
+
+	}
+
+	// Map the product to the model
+	var specs []model.ProductSpecification
+	for _, spec := range productSpecs {
+		specs = append(specs, model.ProductSpecification{
+			ID:        spec.ID,
+			SpecName:  spec.SpecName,
+			SpecValue: spec.SpecValue,
+		})
+
+	}
+
+	var variants []model.ProductVariant
+	for _, variant := range productVariants {
+		variants = append(variants, model.ProductVariant{
+			ID:           variant.ID,
+			VariantName:  variant.VariantName,
+			VariantValue: variant.VariantValue,
+			Price:        variant.Price,
+			Stock:        variant.Stock.Int32,
+		})
+
+	}
+
+	var images []model.ProductImage
+	for _, image := range productImages {
+		images = append(images, model.ProductImage{
+			ID:        image.ID,
+			ProductID: image.ProductID.UUID.String(),
+			S3URL:     s.constructS3URL(image.ImageUrl),
+			CreatedAt: image.CreatedAt.Time,
+			UpdatedAt: image.UpdatedAt.Time,
+		})
+	}
+
+	var colors []model.ProductColor
+	for _, color := range productColors {
+		colors = append(colors, model.ProductColor{
+			ID:        color.ID,
+			ColorName: color.ColorName,
+		})
+
+	}
+
+	return model.Product{
+		ID:             product.ID,
+		Name:           product.Name,
+		Description:    product.Description,
+		Price:          product.Price,
+		Stock:          product.Stock,
+		CategoryID:     product.CategoryID,
+		IsActive:       product.IsActive,
+		Featured:       product.Featured,
+		Colors:         colors,
+		Specifications: specs,
+		Variants:       variants,
+		Images:         images,
+	}, nil
+
 }
 
 // ListProducts retrieves all products from the database
@@ -250,22 +339,103 @@ func (s *ProductService) SoftDeleteProduct(ctx context.Context, id string) error
 }
 
 // GetProductsByCategoryID retrieves products by their category ID
-func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]model.ProductSchema, error) {
+func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]model.Product, error) {
 	// Parse the category ID
 	categoryIDValue, err := uuid.Parse(categoryID)
 
 	// Fetch products by category ID from the repository
-	products, err := s.productRepo.GetProductsByCategoryID(ctx, categoryIDValue)
+	productsByCategory, err := s.productRepo.GetProductsByCategoryID(ctx, categoryIDValue)
 	if err != nil {
 		s.logger.Error("failed to get products by category ID", zap.Error(err))
 		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
+	}
+
+	var products []model.Product
+	for _, product := range productsByCategory {
+		productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product specifications", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product specifications: %w", err)
+		}
+
+		productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product variants", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product variants: %w", err)
+		}
+
+		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product images", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product images: %w", err)
+		}
+
+		productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product colors", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product colors: %w", err)
+		}
+
+		var specs []model.ProductSpecification
+		for _, spec := range productSpecs {
+			specs = append(specs, model.ProductSpecification{
+				ID:        spec.ID,
+				SpecName:  spec.SpecName,
+				SpecValue: spec.SpecValue,
+			})
+		}
+
+		var variants []model.ProductVariant
+		for _, variant := range productVariants {
+			variants = append(variants, model.ProductVariant{
+				ID:           variant.ID,
+				VariantName:  variant.VariantName,
+				VariantValue: variant.VariantValue,
+				Price:        variant.Price,
+				Stock:        variant.Stock.Int32,
+			})
+		}
+
+		var images []model.ProductImage
+		for _, image := range productImages {
+			images = append(images, model.ProductImage{
+				ID:        image.ID,
+				ProductID: image.ProductID.UUID.String(),
+				S3URL:     s.constructS3URL(image.ImageUrl),
+				CreatedAt: image.CreatedAt.Time,
+				UpdatedAt: image.UpdatedAt.Time,
+			})
+		}
+
+		var colors []model.ProductColor
+		for _, color := range productColors {
+			colors = append(colors, model.ProductColor{
+				ID:        color.ID,
+				ColorName: color.ColorName,
+			})
+		}
+
+		products = append(products, model.Product{
+			ID:             product.ID,
+			Name:           product.Name,
+			Description:    product.Description,
+			Price:          product.Price,
+			Stock:          product.Stock,
+			CategoryID:     product.CategoryID,
+			IsActive:       product.IsActive,
+			Featured:       product.Featured,
+			Colors:         colors,
+			Specifications: specs,
+			Variants:       variants,
+			Images:         images,
+		})
 	}
 
 	return products, nil
 }
 
 // SearchProducts searches for products by name or description
-func (s *ProductService) SearchProducts(ctx context.Context, searchTerm string) ([]model.ProductSchema, error) {
+func (s *ProductService) SearchProducts(ctx context.Context, searchTerm string) ([]model.ProductQueryResult, error) {
 	// Fetch products by search term from the repository
 	products, err := s.productRepo.SearchProducts(ctx, searchTerm)
 	if err != nil {
@@ -273,7 +443,35 @@ func (s *ProductService) SearchProducts(ctx context.Context, searchTerm string) 
 		return nil, fmt.Errorf("failed to search products: %w", err)
 	}
 
-	return products, nil
+	var productsQueryResult []model.ProductQueryResult
+	for _, product := range products {
+		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product images", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product images: %w", err)
+		}
+
+		var images []model.ProductImage
+		for _, image := range productImages {
+			images = append(images, model.ProductImage{
+				ID:        image.ID,
+				ProductID: image.ProductID.UUID.String(),
+				S3URL:     s.constructS3URL(image.ImageUrl),
+				CreatedAt: image.CreatedAt.Time,
+				UpdatedAt: image.UpdatedAt.Time,
+			})
+		}
+
+		productsQueryResult = append(productsQueryResult, model.ProductQueryResult{
+			ID:       product.ID,
+			Name:     product.Name,
+			Price:    product.Price,
+			Stock:    product.Stock,
+			ImageURL: images[0].S3URL,
+		})
+	}
+
+	return productsQueryResult, nil
 }
 
 // CreateProductVariant creates a new product variant

@@ -81,12 +81,12 @@
                     <list>
                       <formDataParameterState>
                         <option name="key" value="product_id" />
-                        <option name="value" value="564ebd78-999d-4df7-ac6a-f67c5946822e" />
+                        <option name="value" value="7425ba85-fff4-4c72-a2ca-583e8462b5a5" />
                       </formDataParameterState>
                       <formDataParameterState>
                         <option name="key" value="image" />
                         <option name="type" value="FILE" />
-                        <option name="value" value="$USER_HOME$/Downloads/asus-3.png" />
+                        <option name="value" value="$USER_HOME$/Downloads/Dell OptiPlex 3000 Tower-3.png" />
                       </formDataParameterState>
                     </list>
                   </option>
@@ -174,7 +174,7 @@
             <requestState>
               <option name="body">
                 <bodyState>
-                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;Dell OptiPlex 7010 Plus MT&quot;,&#10;  &quot;description&quot;: &quot;Intel Core i7 13700, 8GB DDR5 4800, 512GB M.2 PCIe NVMe SSD, Ubuntu, DVD±RW, Wired Keyboard and Mouse, Black, 1 Year Warranty, Front Ports: One Universal Audio Jack, Two USB 2.0, One USB 3.2 Gen 2, USB 3.2 Gen 2x2 Type-C, Rear Ports: One Re-tasking Line Out/Line In audio, Three DisplayPort 1.4, One USB 3.2 Gen 2, Three USB 3.2 Gen 1, One RJ45 Ethernet, Kensington Lock Slot&quot;,&#10;  &quot;price&quot;: 110000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;666e8c8a-af94-4131-9b44-c7f3e7b06961&quot;&#10;}&#10;&#10;" />
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;Dell OptiPlex 3000 Tower&quot;,&#10;  &quot;description&quot;: &quot;Intel Core i5 12500, 4GB DDR4 3200, 256GB PCIe NVMe M.2 SSD, Ubuntu, DVD±RW, Wired Keyboard and Mouse, Black, 1 Year Warranty, Front Ports: One Universal Audio Jack, Two USB 2.0 Ports, Two USB 3.2 Gen 1 Ports, Rear Ports: Two USB 3.2 Gen 1 Ports, Two USB 2.0 Ports with Smart Power On, One RJ45 Ethernet Port, One DisplayPort 1.4 Port, One HDMI 1.4b Port, Kensington Security Slot - N015O3000MTAC_EM&quot;,&#10;  &quot;price&quot;: 60000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;d4b15a4c-8796-419b-9aba-92e19cd3f2bf&quot;&#10;}&#10;&#10;" />
                   <option name="type" value="JSON" />
                 </bodyState>
               </option>
@@ -195,7 +195,7 @@
             <requestState>
               <option name="body">
                 <bodyState>
-                  <option name="raw" value="{&#10;  &quot;product_id&quot;: &quot;1cdfe110-51de-4cf2-b0b6-a62224d3f272&quot;,&#10;  &quot;spec_name&quot;: &quot;Rear Ports&quot;,&#10;  &quot;spec_value&quot;: &quot;One Re-tasking Line Out/Line In audio, Three DisplayPort 1.4, One USB 3.2 Gen 2, Three USB 3.2 Gen 1, One RJ45 Ethernet, Kensington Lock Slot&quot;&#10;}" />
+                  <option name="raw" value="{&#10;  &quot;product_id&quot;: &quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&#10;  &quot;spec_name&quot;: &quot;Rear Ports&quot;,&#10;  &quot;spec_value&quot;: &quot;Two USB 3.2 Gen 1 Ports, Two USB 2.0 Ports with Smart Power On, One RJ45 Ethernet Port, One DisplayPort 1.4 Port, One HDMI 1.4b Port, Kensington Security Slot&quot;&#10;}" />
                   <option name="type" value="JSON" />
                 </bodyState>
               </option>
@@ -232,7 +232,7 @@
               <option name="method" value="GET" />
               <option name="name" value="get products" />
               <option name="sortWeight" value="11000000" />
-              <option name="url" value="http://localhost:8080/api/products" />
+              <option name="url" value="http://localhost:8080/api/products/5536e89e-4be2-4cd5-8959-2ccdfd323618" />
             </requestState>
             <requestState>
               <option name="body">
@@ -274,7 +274,7 @@
               <option name="method" value="GET" />
               <option name="name" value="get category by name" />
               <option name="sortWeight" value="13000000" />
-              <option name="url" value="qhttp://localhost:8080/api/categories/name/Laptops" />
+              <option name="url" value="qhttp://localhost:8080/api/categories/name/Computing" />
             </requestState>
             <requestState>
               <option name="body">
@@ -295,7 +295,7 @@
               <option name="method" value="GET" />
               <option name="name" value="get products by category" />
               <option name="sortWeight" value="14000000" />
-              <option name="url" value="http://localhost:8080/api/products/parent-category/9ee985c9-18d8-4c89-9e82-c4b35c9f58e2" />
+              <option name="url" value="http://localhost:8080/api/products/category/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
             </requestState>
             <requestState>
               <option name="body">
@@ -318,13 +318,29 @@
               <option name="queryParams">
                 <list>
                   <queryParamState>
-                    <option name="key" value="sub_categories" />
-                    <option name="value" value="Dell,HP" />
+                    <option name="key" value="sort" />
+                    <option name="value" value="none" />
+                  </queryParamState>
+                  <queryParamState>
+                    <option name="key" value="price-from" />
+                    <option name="value" value="0" />
+                  </queryParamState>
+                  <queryParamState>
+                    <option name="key" value="price-to" />
+                    <option name="value" value="150000" />
+                  </queryParamState>
+                  <queryParamState>
+                    <option name="key" value="color" />
+                    <option name="value" value="" />
+                  </queryParamState>
+                  <queryParamState>
+                    <option name="key" value="sub-category" />
+                    <option name="value" value="" />
                   </queryParamState>
                 </list>
               </option>
               <option name="sortWeight" value="15000000" />
-              <option name="url" value="http://localhost:8080/api/products/filter/9ee985c9-18d8-4c89-9e82-c4b35c9f58e2?sub_categories=Dell,HP" />
+              <option name="url" value="http://localhost:8080/api/products/filter/9a33d027-08b4-4b77-adb9-139c5175edb0?sort=none&amp;price-from=0&amp;price-to=150000&amp;color=&amp;sub-category=" />
             </requestState>
             <requestState>
               <option name="body">
@@ -430,6 +446,77 @@
               <option name="name" value="get products by category 1" />
               <option name="sortWeight" value="20000000" />
               <option name="url" value="http://localhost:8080/api/products/category/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;product_id&quot;: &quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&#10;  &quot;option_name&quot;: &quot;Storage&quot;&#10;}" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="47a6ef08-ab19-4c4a-bd73-5f9b7c6f9314" />
+              <option name="method" value="POST" />
+              <option name="name" value="create product option" />
+              <option name="sortWeight" value="21000000" />
+              <option name="url" value="http://localhost:8080/api/product-options" />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;option_id&quot;: &quot;3ea63479-c033-4733-b21d-82428ab2e234&quot;,  &#10;  &quot;option_value&quot;: &quot;256GB PCIe NVMe M.2 SSD&quot;,&#10;  &quot;additional_price&quot;: 0  &#10;}" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e41dcb37-78cf-4371-96a6-42acb89a268c" />
+              <option name="method" value="POST" />
+              <option name="name" value="create product option value" />
+              <option name="sortWeight" value="22000000" />
+              <option name="url" value="http://localhost:8080/api/product-option-values" />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="00c1bb5f-7a9a-49f9-9e8e-0369c36d66cc" />
+              <option name="method" value="GET" />
+              <option name="name" value="search products " />
+              <option name="queryParams">
+                <list>
+                  <queryParamState>
+                    <option name="key" value="query" />
+                    <option name="value" value="dell ins" />
+                  </queryParamState>
+                </list>
+              </option>
+              <option name="sortWeight" value="23000000" />
+              <option name="url" value="http://localhost:8080/api/products/actions/search?query=dell ins" />
             </requestState>
           </list>
         </option>

@@ -17,8 +17,8 @@ func NewProductOptionHandler(productOptionService *services.ProductService) *Pro
 // CreateProductOptionHandler creates a new product option
 func (h *ProductOptionHandler) CreateProductOptionHandler(w http.ResponseWriter, r *http.Request) {
 	var params struct {
-		Name  string `json:"name"`
-		Value string `json:"value"`
+		ProductID  string `json:"product_id"`
+		OptionName string `json:"option_name"`
 	}
 
 	// decode request body
@@ -28,7 +28,7 @@ func (h *ProductOptionHandler) CreateProductOptionHandler(w http.ResponseWriter,
 	}
 
 	// create product option
-	productOption, err := h.productOptionService.CreateProductOption(r.Context(), params.Name, params.Value)
+	productOption, err := h.productOptionService.CreateProductOption(r.Context(), params.ProductID, params.OptionName)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product option")
 		return

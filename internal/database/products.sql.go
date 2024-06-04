@@ -10,7 +10,6 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 const countProducts = `-- name: CountProducts :one
@@ -26,9 +25,9 @@ func (q *Queries) CountProducts(ctx context.Context) (int64, error) {
 }
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (name, description, price, stock, category_id, created_by, updated_by, is_active)
-VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
+INSERT INTO products (name, description, price, stock, category_id, created_by, updated_by, is_active, search_keyword)
+VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, to_tsvector('english', $1 || ' ' || $2))
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
 `
 
 type CreateProductParams struct {
@@ -41,22 +40,7 @@ type CreateProductParams struct {
 	UpdatedBy   uuid.NullUUID
 }
 
-type CreateProductRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (CreateProductRow, error) {
+func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
 	row := q.db.QueryRowContext(ctx, createProduct,
 		arg.Name,
 		arg.Description,
@@ -66,7 +50,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (C
 		arg.CreatedBy,
 		arg.UpdatedBy,
 	)
-	var i CreateProductRow
+	var i Product
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -80,113 +64,20 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (C
 		&i.CreatedBy,
 		&i.UpdatedBy,
 		&i.Featured,
+		&i.SearchKeyword,
 	)
 	return i, err
 }
 
-const getFilteredProductsByParentCategoryID = `-- name: GetFilteredProductsByParentCategoryID :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-)
-SELECT DISTINCT p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-        JOIN categories c2 on c2.id = p.category_id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-
-WHERE ($2::VARCHAR[] IS NULL OR c2.name ILIKE ANY ($2::VARCHAR[]))
-ORDER BY p.name
-`
-
-type GetFilteredProductsByParentCategoryIDParams struct {
-	ID      uuid.UUID
-	Column2 []string
-}
-
-type GetFilteredProductsByParentCategoryIDRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-// AND ($3 IS NULL OR pc.color_name ILIKE ANY ($3::VARCHAR[]))
-// WHERE ($2::DECIMAL IS NULL OR p.price >= $2::DECIMAL)
-// AND ($3::DECIMAL IS NULL OR p.price <= $3::DECIMAL)
-func (q *Queries) GetFilteredProductsByParentCategoryID(ctx context.Context, arg GetFilteredProductsByParentCategoryIDParams) ([]GetFilteredProductsByParentCategoryIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilteredProductsByParentCategoryID, arg.ID, pq.Array(arg.Column2))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilteredProductsByParentCategoryIDRow
-	for rows.Next() {
-		var i GetFilteredProductsByParentCategoryIDRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.Price,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.IsActive,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getProductByID = `-- name: GetProductByID :one
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
 FROM products
 WHERE id = $1
 `
 
-type GetProductByIDRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductByIDRow, error) {
+func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (Product, error) {
 	row := q.db.QueryRowContext(ctx, getProductByID, id)
-	var i GetProductByIDRow
+	var i Product
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -200,41 +91,27 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 		&i.CreatedBy,
 		&i.UpdatedBy,
 		&i.Featured,
+		&i.SearchKeyword,
 	)
 	return i, err
 }
 
 const getProductsByCategoryID = `-- name: GetProductsByCategoryID :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
 FROM products
 WHERE category_id = $1
 ORDER BY name
 `
 
-type GetProductsByCategoryIDRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.NullUUID) ([]GetProductsByCategoryIDRow, error) {
+func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.NullUUID) ([]Product, error) {
 	rows, err := q.db.QueryContext(ctx, getProductsByCategoryID, categoryID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetProductsByCategoryIDRow
+	var items []Product
 	for rows.Next() {
-		var i GetProductsByCategoryIDRow
+		var i Product
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -248,6 +125,7 @@ func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.N
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.SearchKeyword,
 		); err != nil {
 			return nil, err
 		}
@@ -263,45 +141,38 @@ func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.N
 }
 
 const getProductsByParentCategoryID = `-- name: GetProductsByParentCategoryID :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id,
+        c.position
     FROM categories c
     WHERE c.id = $1
     UNION ALL
-    SELECT c.id
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
+    SELECT
+        c2.id,
+        c2.name,
+        c2.parent_id,
+        c2.position
+    FROM categories c2
+             INNER JOIN category_hierarchy ch ON c2.parent_id = ch.id
 )
-SELECT p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured
+SELECT
+    p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured, p.search_keyword
 FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-ORDER BY p.name
+WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
 `
 
-type GetProductsByParentCategoryIDRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, id uuid.UUID) ([]GetProductsByParentCategoryIDRow, error) {
+func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, id uuid.UUID) ([]Product, error) {
 	rows, err := q.db.QueryContext(ctx, getProductsByParentCategoryID, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetProductsByParentCategoryIDRow
+	var items []Product
 	for rows.Next() {
-		var i GetProductsByParentCategoryIDRow
+		var i Product
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -315,6 +186,7 @@ func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, id uuid.UUI
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.SearchKeyword,
 		); err != nil {
 			return nil, err
 		}
@@ -330,7 +202,7 @@ func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, id uuid.UUI
 }
 
 const listProducts = `-- name: ListProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
 FROM products
 ORDER BY name
 LIMIT $1 OFFSET $2
@@ -341,30 +213,15 @@ type ListProductsParams struct {
 	Offset int32
 }
 
-type ListProductsRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error) {
+func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error) {
 	rows, err := q.db.QueryContext(ctx, listProducts, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListProductsRow
+	var items []Product
 	for rows.Next() {
-		var i ListProductsRow
+		var i Product
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -378,6 +235,7 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]L
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.SearchKeyword,
 		); err != nil {
 			return nil, err
 		}
@@ -393,37 +251,24 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]L
 }
 
 const searchProducts = `-- name: SearchProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
 FROM products
 WHERE
-    search_keyword @@ plainto_tsquery('english', $1)
-ORDER BY ts_rank(search_keyword, plainto_tsquery('english', $1)) DESC
+    name ILIKE '%' || $1 || '%' OR
+    description ILIKE '%' || $1 || '%' OR
+    search_keyword @@ websearch_to_tsquery('english', $1)
+ORDER BY ts_rank(search_keyword, websearch_to_tsquery('english', $1)) DESC
 `
 
-type SearchProductsRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-func (q *Queries) SearchProducts(ctx context.Context, plaintoTsquery string) ([]SearchProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, searchProducts, plaintoTsquery)
+func (q *Queries) SearchProducts(ctx context.Context, dollar_1 sql.NullString) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, searchProducts, dollar_1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SearchProductsRow
+	var items []Product
 	for rows.Next() {
-		var i SearchProductsRow
+		var i Product
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -437,6 +282,7 @@ func (q *Queries) SearchProducts(ctx context.Context, plaintoTsquery string) ([]
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.SearchKeyword,
 		); err != nil {
 			return nil, err
 		}
@@ -464,9 +310,9 @@ func (q *Queries) SoftDeleteProduct(ctx context.Context, id uuid.UUID) error {
 
 const updateProduct = `-- name: UpdateProduct :one
 UPDATE products
-SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8
+SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, search_keyword = to_tsvector('english', $2 || ' ' || $3)
 WHERE id = $1
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
 `
 
 type UpdateProductParams struct {
@@ -480,22 +326,7 @@ type UpdateProductParams struct {
 	Featured    sql.NullBool
 }
 
-type UpdateProductRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-}
-
-func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (UpdateProductRow, error) {
+func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
 	row := q.db.QueryRowContext(ctx, updateProduct,
 		arg.ID,
 		arg.Name,
@@ -506,7 +337,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (U
 		arg.UpdatedBy,
 		arg.Featured,
 	)
-	var i UpdateProductRow
+	var i Product
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -520,6 +351,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (U
 		&i.CreatedBy,
 		&i.UpdatedBy,
 		&i.Featured,
+		&i.SearchKeyword,
 	)
 	return i, err
 }
