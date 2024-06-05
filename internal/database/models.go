@@ -19,6 +19,7 @@ type CartItem struct {
 	Quantity       int32
 	CreatedAt      sql.NullTime
 	UpdatedAt      sql.NullTime
+	Price          string
 }
 
 type Category struct {
