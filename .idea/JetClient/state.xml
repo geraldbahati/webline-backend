@@ -463,10 +463,10 @@
                 </list>
               </option>
               <option name="id" value="47a6ef08-ab19-4c4a-bd73-5f9b7c6f9314" />
-              <option name="method" value="POST" />
+              <option name="method" value="DELETE" />
               <option name="name" value="create product option" />
               <option name="sortWeight" value="21000000" />
-              <option name="url" value="http://localhost:8080/api/product-options" />
+              <option name="url" value="http://localhost:8080/api/product-options/8267cb6f-262c-4043-939a-8f17d1a43f0c" />
             </requestState>
             <requestState>
               <option name="body">
@@ -484,10 +484,10 @@
                 </list>
               </option>
               <option name="id" value="e41dcb37-78cf-4371-96a6-42acb89a268c" />
-              <option name="method" value="POST" />
+              <option name="method" value="GET" />
               <option name="name" value="create product option value" />
               <option name="sortWeight" value="22000000" />
-              <option name="url" value="http://localhost:8080/api/product-option-values" />
+              <option name="url" value="http://localhost:8080/api/product-option-values/3ea63479-c033-4733-b21d-82428ab2e234" />
             </requestState>
             <requestState>
               <option name="body">

@@ -207,15 +207,15 @@ func setupRouter(
 
 	// Product Option routes
 	productOptionRouter := r.PathPrefix("/api/product-options").Subrouter()
-	productOptionRouter.HandleFunc("", productOptionHandler.CreateProductOptionHandler).Methods(http.MethodPost)
-	productOptionRouter.HandleFunc("", productOptionHandler.ListProductOptionsByProductIDHandler).Methods(http.MethodGet)
+	productOptionRouter.HandleFunc("/{id}", productOptionHandler.CreateProductOptionHandler).Methods(http.MethodPost)
+	productOptionRouter.HandleFunc("/{id}", productOptionHandler.ListProductOptionsByProductIDHandler).Methods(http.MethodGet)
 	productOptionRouter.HandleFunc("/{id}", productOptionHandler.DeleteProductOptionHandler).Methods(http.MethodDelete)
 	productOptionRouter.HandleFunc("/{id}", productOptionHandler.UpdateProductOptionHandler).Methods(http.MethodPut)
 
 	// Product Option Value routes
 	productOptionValueRouter := r.PathPrefix("/api/product-option-values").Subrouter()
-	productOptionValueRouter.HandleFunc("", productOptionHandler.CreateProductOptionValueHandler).Methods(http.MethodPost)
-	productOptionValueRouter.HandleFunc("", productOptionHandler.ListProductOptionValuesByOptionIDHandler).Methods(http.MethodGet)
+	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.CreateProductOptionValueHandler).Methods(http.MethodPost)
+	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.ListProductOptionValuesByOptionIDHandler).Methods(http.MethodGet)
 	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.DeleteProductOptionValueHandler).Methods(http.MethodDelete)
 	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.UpdateProductOptionValueHandler).Methods(http.MethodPut)
 

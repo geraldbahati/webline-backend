@@ -106,34 +106,26 @@ func (s *ProductService) CreateProduct(
 }
 
 // GetProductByID retrieves a product by its ID
-func (s *ProductService) GetProductByID(ctx context.Context, productID string) (model.Product, error) {
+func (s *ProductService) GetProductByID(ctx context.Context, productID string) (model.ProductDetail, error) {
 	// Parse the product ID
 	id, err := uuid.Parse(productID)
 	if err != nil {
 		s.logger.Error("invalid product ID format", zap.String("productID", productID), zap.Error(err))
-		return model.Product{}, fmt.Errorf("invalid product ID format: %w", err)
+		return model.ProductDetail{}, fmt.Errorf("invalid product ID format: %w", err)
 	}
 
 	// Get the product from the repository
 	product, err := s.productRepo.GetProductByID(ctx, id)
 	if err != nil {
 		s.logger.Error("failed to get product by ID", zap.String("productID", productID), zap.Error(err))
-		return model.Product{}, fmt.Errorf("failed to get product by ID: %w", err)
+		return model.ProductDetail{}, fmt.Errorf("failed to get product by ID: %w", err)
 	}
 
 	// Get the product specifications
 	productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 	if err != nil {
 		s.logger.Error("failed to get product specifications", zap.Error(err))
-		return model.Product{}, fmt.Errorf("failed to get product specifications: %w", err)
-
-	}
-
-	// Get the product variants
-	productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-	if err != nil {
-		s.logger.Error("failed to get product variants", zap.Error(err))
-		return model.Product{}, fmt.Errorf("failed to get product variants: %w", err)
+		return model.ProductDetail{}, fmt.Errorf("failed to get product specifications: %w", err)
 
 	}
 
@@ -141,7 +133,7 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 	productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 	if err != nil {
 		s.logger.Error("failed to get product images", zap.Error(err))
-		return model.Product{}, fmt.Errorf("failed to get product images: %w", err)
+		return model.ProductDetail{}, fmt.Errorf("failed to get product images: %w", err)
 
 	}
 
@@ -149,8 +141,15 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 	productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 	if err != nil {
 		s.logger.Error("failed to get product colors", zap.Error(err))
-		return model.Product{}, fmt.Errorf("failed to get product colors: %w", err)
+		return model.ProductDetail{}, fmt.Errorf("failed to get product colors: %w", err)
 
+	}
+
+	// Get the product options
+	productOptions, err := s.productOptionRepo.ListProductOptionsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+	if err != nil {
+		s.logger.Error("failed to get product options", zap.Error(err))
+		return model.ProductDetail{}, fmt.Errorf("failed to get product options: %w", err)
 	}
 
 	// Map the product to the model
@@ -164,16 +163,35 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 
 	}
 
-	var variants []model.ProductVariant
-	for _, variant := range productVariants {
-		variants = append(variants, model.ProductVariant{
-			ID:           variant.ID,
-			VariantName:  variant.VariantName,
-			VariantValue: variant.VariantValue,
-			Price:        variant.Price,
-			Stock:        variant.Stock.Int32,
-		})
+	var options []model.ProductOption
+	for _, option := range productOptions {
+		// get the option values
+		values, err := s.productOptionRepo.ListProductOptionValuesByOptionID(ctx, uuid.NullUUID{UUID: option.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product option values", zap.Error(err))
+			return model.ProductDetail{}, fmt.Errorf("failed to get product option values: %w", err)
+		}
 
+		var optionValues []model.ProductOptionValue
+		for _, value := range values {
+			additionalPrice, err := strconv.ParseFloat(value.AdditionalPrice.String, 64)
+			if err != nil {
+				s.logger.Error("failed to parse additional price", zap.Error(err))
+				return model.ProductDetail{}, fmt.Errorf("failed to parse additional price: %w", err)
+			}
+
+			optionValues = append(optionValues, model.ProductOptionValue{
+				ID:              value.ID,
+				ValueName:       value.ValueName,
+				AdditionalPrice: additionalPrice,
+			})
+		}
+
+		options = append(options, model.ProductOption{
+			ID:           option.ID,
+			OptionName:   option.OptionName,
+			OptionValues: optionValues,
+		})
 	}
 
 	var images []model.ProductImage
@@ -196,7 +214,7 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 
 	}
 
-	return model.Product{
+	return model.ProductDetail{
 		ID:             product.ID,
 		Name:           product.Name,
 		Description:    product.Description,
@@ -207,7 +225,7 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 		Featured:       product.Featured,
 		Colors:         colors,
 		Specifications: specs,
-		Variants:       variants,
+		Options:        options,
 		Images:         images,
 	}, nil
 
@@ -339,7 +357,7 @@ func (s *ProductService) SoftDeleteProduct(ctx context.Context, id string) error
 }
 
 // GetProductsByCategoryID retrieves products by their category ID
-func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]model.Product, error) {
+func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]model.ProductDetail, error) {
 	// Parse the category ID
 	categoryIDValue, err := uuid.Parse(categoryID)
 
@@ -350,18 +368,12 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
 	}
 
-	var products []model.Product
+	var products []model.ProductDetail
 	for _, product := range productsByCategory {
 		productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 		if err != nil {
 			s.logger.Error("failed to get product specifications", zap.Error(err))
 			return nil, fmt.Errorf("failed to get product specifications: %w", err)
-		}
-
-		productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product variants", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product variants: %w", err)
 		}
 
 		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
@@ -376,6 +388,13 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 			return nil, fmt.Errorf("failed to get product colors: %w", err)
 		}
 
+		// Get the product options
+		productOptions, err := s.productOptionRepo.ListProductOptionsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product options", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product options: %w", err)
+		}
+
 		var specs []model.ProductSpecification
 		for _, spec := range productSpecs {
 			specs = append(specs, model.ProductSpecification{
@@ -385,14 +404,34 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 			})
 		}
 
-		var variants []model.ProductVariant
-		for _, variant := range productVariants {
-			variants = append(variants, model.ProductVariant{
-				ID:           variant.ID,
-				VariantName:  variant.VariantName,
-				VariantValue: variant.VariantValue,
-				Price:        variant.Price,
-				Stock:        variant.Stock.Int32,
+		var options []model.ProductOption
+		for _, option := range productOptions {
+			// get the option values
+			values, err := s.productOptionRepo.ListProductOptionValuesByOptionID(ctx, uuid.NullUUID{UUID: option.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get product option values", zap.Error(err))
+				return nil, fmt.Errorf("failed to get product option values: %w", err)
+			}
+
+			var optionValues []model.ProductOptionValue
+			for _, value := range values {
+				additionalPrice, err := strconv.ParseFloat(value.AdditionalPrice.String, 64)
+				if err != nil {
+					s.logger.Error("failed to parse additional price", zap.Error(err))
+					return nil, fmt.Errorf("failed to parse additional price: %w", err)
+				}
+
+				optionValues = append(optionValues, model.ProductOptionValue{
+					ID:              value.ID,
+					ValueName:       value.ValueName,
+					AdditionalPrice: additionalPrice,
+				})
+			}
+
+			options = append(options, model.ProductOption{
+				ID:           option.ID,
+				OptionName:   option.OptionName,
+				OptionValues: optionValues,
 			})
 		}
 
@@ -415,7 +454,7 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 			})
 		}
 
-		products = append(products, model.Product{
+		products = append(products, model.ProductDetail{
 			ID:             product.ID,
 			Name:           product.Name,
 			Description:    product.Description,
@@ -426,7 +465,7 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 			Featured:       product.Featured,
 			Colors:         colors,
 			Specifications: specs,
-			Variants:       variants,
+			Options:        options,
 			Images:         images,
 		})
 	}
@@ -866,12 +905,12 @@ func (s *ProductService) DeleteProductSpecification(ctx context.Context, id stri
 }
 
 // GetProductsByParentCategoryID retrieves products by their parent category ID
-func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, parentCategoryID string) ([]model.Product, error) {
+func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, parentCategoryID string) ([]model.ProductDetail, error) {
 	// Parse the parent category ID
 	parentCategoryUUID, err := uuid.Parse(parentCategoryID)
 
 	// Get products by category ID
-	var products []model.Product
+	var products []model.ProductDetail
 
 	productsByCategory, err := s.productRepo.GetProductsByParentCategoryID(ctx, parentCategoryUUID)
 	if err != nil {
@@ -885,13 +924,6 @@ func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, pare
 		if err != nil {
 			s.logger.Error("failed to get product specifications", zap.Error(err))
 			return nil, fmt.Errorf("failed to get product specifications: %w", err)
-		}
-
-		// get the product variants
-		productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product variants", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product variants: %w", err)
 		}
 
 		// get the product images
@@ -908,6 +940,13 @@ func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, pare
 			return nil, fmt.Errorf("failed to get product colors: %w", err)
 		}
 
+		// get the product options
+		productOptions, err := s.productOptionRepo.ListProductOptionsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product options", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product options: %w", err)
+		}
+
 		// map the product to the model
 		var specs []model.ProductSpecification
 		for _, spec := range productSpecs {
@@ -918,14 +957,34 @@ func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, pare
 			})
 		}
 
-		var variants []model.ProductVariant
-		for _, variant := range productVariants {
-			variants = append(variants, model.ProductVariant{
-				ID:           variant.ID,
-				VariantName:  variant.VariantName,
-				VariantValue: variant.VariantValue,
-				Price:        variant.Price,
-				Stock:        variant.Stock.Int32,
+		var options []model.ProductOption
+		for _, option := range productOptions {
+			// get the option values
+			values, err := s.productOptionRepo.ListProductOptionValuesByOptionID(ctx, uuid.NullUUID{UUID: option.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get product option values", zap.Error(err))
+				return nil, fmt.Errorf("failed to get product option values: %w", err)
+			}
+
+			var optionValues []model.ProductOptionValue
+			for _, value := range values {
+				additionalPrice, err := strconv.ParseFloat(value.AdditionalPrice.String, 64)
+				if err != nil {
+					s.logger.Error("failed to parse additional price", zap.Error(err))
+					return nil, fmt.Errorf("failed to parse additional price: %w", err)
+				}
+
+				optionValues = append(optionValues, model.ProductOptionValue{
+					ID:              value.ID,
+					ValueName:       value.ValueName,
+					AdditionalPrice: additionalPrice,
+				})
+			}
+
+			options = append(options, model.ProductOption{
+				ID:           option.ID,
+				OptionName:   option.OptionName,
+				OptionValues: optionValues,
 			})
 		}
 
@@ -948,7 +1007,7 @@ func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, pare
 			})
 		}
 
-		products = append(products, model.Product{
+		products = append(products, model.ProductDetail{
 			ID:             product.ID,
 			Name:           product.Name,
 			Description:    product.Description,
@@ -959,7 +1018,7 @@ func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, pare
 			Featured:       product.Featured,
 			Colors:         colors,
 			Specifications: specs,
-			Variants:       variants,
+			Options:        options,
 			Images:         images,
 		})
 	}
@@ -1282,7 +1341,7 @@ func (s *ProductService) GetProductsByFilters(
 	priceFrom string,
 	priceTo string,
 	sortBy string,
-) ([]model.Product, error) {
+) ([]model.ProductDetail, error) {
 	parentCategoryUUID, err := uuid.Parse(parentCategoryID)
 	if err != nil {
 		s.logger.Error("invalid parent category ID", zap.Error(err))
@@ -1354,7 +1413,7 @@ func (s *ProductService) GetProductsByFilters(
 		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
 	}
 
-	var products []model.Product
+	var products []model.ProductDetail
 	for _, product := range productsByCategory {
 		productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 		if err != nil {
@@ -1362,10 +1421,10 @@ func (s *ProductService) GetProductsByFilters(
 			return nil, fmt.Errorf("failed to get product specifications: %w", err)
 		}
 
-		productVariants, err := s.productVariantRepo.ListProductVariantsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+		productOptions, err := s.productOptionRepo.ListProductOptionsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 		if err != nil {
-			s.logger.Error("failed to get product variants", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product variants: %w", err)
+			s.logger.Error("failed to get product options", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product options: %w", err)
 		}
 
 		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
@@ -1389,14 +1448,34 @@ func (s *ProductService) GetProductsByFilters(
 			})
 		}
 
-		var variants []model.ProductVariant
-		for _, variant := range productVariants {
-			variants = append(variants, model.ProductVariant{
-				ID:           variant.ID,
-				VariantName:  variant.VariantName,
-				VariantValue: variant.VariantValue,
-				Price:        variant.Price,
-				Stock:        variant.Stock.Int32,
+		var options []model.ProductOption
+		for _, option := range productOptions {
+			// get the option values
+			values, err := s.productOptionRepo.ListProductOptionValuesByOptionID(ctx, uuid.NullUUID{UUID: option.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get product option values", zap.Error(err))
+				return nil, fmt.Errorf("failed to get product option values: %w", err)
+			}
+
+			var optionValues []model.ProductOptionValue
+			for _, value := range values {
+				additionalPrice, err := strconv.ParseFloat(value.AdditionalPrice.String, 64)
+				if err != nil {
+					s.logger.Error("failed to parse additional price", zap.Error(err))
+					return nil, fmt.Errorf("failed to parse additional price: %w", err)
+				}
+
+				optionValues = append(optionValues, model.ProductOptionValue{
+					ID:              value.ID,
+					ValueName:       value.ValueName,
+					AdditionalPrice: additionalPrice,
+				})
+			}
+
+			options = append(options, model.ProductOption{
+				ID:           option.ID,
+				OptionName:   option.OptionName,
+				OptionValues: optionValues,
 			})
 		}
 
@@ -1419,7 +1498,7 @@ func (s *ProductService) GetProductsByFilters(
 			})
 		}
 
-		products = append(products, model.Product{
+		products = append(products, model.ProductDetail{
 			ID:             product.ID,
 			Name:           product.Name,
 			Description:    product.Description.String,
@@ -1430,7 +1509,7 @@ func (s *ProductService) GetProductsByFilters(
 			Featured:       product.Featured.Bool,
 			Colors:         colors,
 			Specifications: specs,
-			Variants:       variants,
+			Options:        options,
 			Images:         images,
 		})
 	}
