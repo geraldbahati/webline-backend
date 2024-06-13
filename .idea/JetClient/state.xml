@@ -86,7 +86,7 @@
                       <formDataParameterState>
                         <option name="key" value="image" />
                         <option name="type" value="FILE" />
-                        <option name="value" value="$USER_HOME$/Downloads/Dell OptiPlex 3000 Tower-3.png" />
+                        <option name="value" value="/Users/geraldbahati/Downloads/Dell OptiPlex 3000 Tower-3.png" />
                       </formDataParameterState>
                     </list>
                   </option>
@@ -148,7 +148,7 @@
               <option name="method" value="GET" />
               <option name="name" value="get categories" />
               <option name="sortWeight" value="7000000" />
-              <option name="url" value="http://localhost:8080/api/categories" />
+              <option name="url" value="http://localhost:8080/api/categories/parent" />
             </requestState>
             <requestState>
               <option name="body">
@@ -403,7 +403,7 @@
               <option name="method" value="DELETE" />
               <option name="name" value="delete category" />
               <option name="sortWeight" value="18000000" />
-              <option name="url" value="http://localhost:8080/api/categories/1f1df323-f3bd-41da-952e-e6c970f97cd6/" />
+              <option name="url" value="http://localhost:8080/api/categories/630daeb7-1113-463d-abe3-e4a84b9ecdb7/" />
             </requestState>
             <requestState>
               <option name="body">
@@ -523,6 +523,6 @@
       </draftsState>
     </option>
     <option name="id" value="361800ae-4928-4c76-b349-b73184cb0a5d" />
-    <option name="version" value="2" />
+    <option name="version" value="3" />
   </component>
 </project>
