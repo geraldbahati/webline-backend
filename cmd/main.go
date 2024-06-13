@@ -78,6 +78,7 @@ func main() {
 	productSpecificationRepo := repository.NewProductSpecificationRepository(conn, logger)
 	productColorRepo := repository.NewProductColourRepository(conn, logger)
 	productOptionRepo := repository.NewProductOptionRepository(conn, logger)
+	productSizeRepo := repository.NewProductSizeRepository(conn, logger)
 	cartRepo := repository.NewCartRepository(conn, logger)
 
 	// Initialize services
@@ -91,10 +92,12 @@ func main() {
 		categoryRepo,
 		productColorRepo,
 		productOptionRepo,
+		productSizeRepo,
 		logger,
 		&cfg,
 		s3Client,
 	)
+	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, cartRepo)
 
 	// Initialize handlers
@@ -105,10 +108,12 @@ func main() {
 	productImageHandler := handlers.NewProductImageHandler(productService, s3Client, cfg.AWSBucketName)
 	productSpecificationHandler := handlers.NewProductSpecificationHandler(productService)
 	productOptionHandler := handlers.NewProductOptionHandler(productService)
+	productColorHandler := handlers.NewProductColorHandler(productService)
+	productSizeHandler := handlers.NewProductSizeHandler(productSizeService)
 	cartHandler := handlers.NewCartHandler(cartService)
 
 	// Setup router
-	r := setupRouter(logger, userHandler, categoryHandler, productHandler, productVariantHandler, productImageHandler, productSpecificationHandler, productOptionHandler, cartHandler)
+	r := setupRouter(logger, userHandler, categoryHandler, productHandler, productVariantHandler, productImageHandler, productSpecificationHandler, productOptionHandler, productColorHandler, productSizeHandler, cartHandler)
 
 	// Start server
 	serverAddress := ":" + cfg.Port
@@ -127,6 +132,8 @@ func setupRouter(
 	productImageHandler *handlers.ProductImageHandler,
 	productSpecificationHandler *handlers.ProductSpecificationHandler,
 	productOptionHandler *handlers.ProductOptionHandler,
+	productColorHandler *handlers.ProductColorHandler,
+	productSizeHandler *handlers.ProductSizeHandler,
 	cartHandler *handlers.CartHandler,
 ) *mux.Router {
 	r := mux.NewRouter()
@@ -182,6 +189,7 @@ func setupRouter(
 	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodOptions)
 	productRouter.HandleFunc("/filter/{category_id}", productHandler.GetProductsByFiltersHandler).Methods(http.MethodGet)
+	productRouter.HandleFunc("/filter/all/options", productHandler.GetProductsByFilterOptionsHandler).Methods(http.MethodGet)
 
 	// Product Variant routes
 	productVariantRouter := r.PathPrefix("/api/product-variants").Subrouter()
@@ -219,6 +227,20 @@ func setupRouter(
 	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.DeleteProductOptionValueHandler).Methods(http.MethodDelete)
 	productOptionValueRouter.HandleFunc("/{id}", productOptionHandler.UpdateProductOptionValueHandler).Methods(http.MethodPut)
 
+	// Product Size routes
+	productSizeRouter := r.PathPrefix("/api/product-sizes").Subrouter()
+	productSizeRouter.HandleFunc("", productSizeHandler.CreateProductSizeHandler).Methods(http.MethodPost)
+	productSizeRouter.HandleFunc("/{id}", productSizeHandler.UpdateProductSizeHandler).Methods(http.MethodPut)
+	productSizeRouter.HandleFunc("/{id}", productSizeHandler.DeleteProductSizeHandler).Methods(http.MethodDelete)
+	productSizeRouter.HandleFunc("/product/{id}", productSizeHandler.ListProductSizesByProductIDHandler).Methods(http.MethodGet)
+
+	// Product Color routes
+	productColorRouter := r.PathPrefix("/api/product-colors").Subrouter()
+	productColorRouter.HandleFunc("", productColorHandler.CreateProductColorHandler).Methods(http.MethodPost)
+	productColorRouter.HandleFunc("/{id}", productColorHandler.UpdateProductColorHandler).Methods(http.MethodPut)
+	productColorRouter.HandleFunc("/{id}", productColorHandler.DeleteProductColorHandler).Methods(http.MethodDelete)
+	productColorRouter.HandleFunc("/product/{id}", productColorHandler.ListProductColorsByProductIDHandler).Methods(http.MethodGet)
+
 	// Cart routes
 	cartRouter := r.PathPrefix("/api/cart").Subrouter()
 	cartRouter.HandleFunc("/create", cartHandler.CreateShoppingCartHandler).Methods(http.MethodPost)
@@ -227,9 +249,9 @@ func setupRouter(
 	cartRouter.HandleFunc("/items/{cart_id}", cartHandler.GetCartItemsHandler).Methods(http.MethodGet)
 	cartRouter.HandleFunc("/clear/{cart_id}", cartHandler.ClearCartHandler).Methods(http.MethodPost)
 	cartRouter.HandleFunc("/total/{cart_id}", cartHandler.CalculateCartTotalHandler).Methods(http.MethodGet)
-	cartRouter.HandleFunc("/update/{cart_id}", cartHandler.UpdateCartItemQuantityHandler).Methods(http.MethodPost)
-	cartRouter.HandleFunc("/user", cartHandler.GetShoppingCartByUserIDHandler).Methods(http.MethodGet)
-	cartRouter.HandleFunc("/session", cartHandler.GetShoppingCartBySessionIDHandler).Methods(http.MethodGet)
+	cartRouter.HandleFunc("/items/{cart_id}/update-quantity", cartHandler.UpdateCartItemQuantityHandler).Methods(http.MethodPut)
+	cartRouter.HandleFunc("/user", cartHandler.GetShoppingCartByUserIDHandler).Methods(http.MethodPost)
+	cartRouter.HandleFunc("/session", cartHandler.GetShoppingCartBySessionIDHandler).Methods(http.MethodPost)
 	cartRouter.HandleFunc("/delete", cartHandler.DeleteShoppingCartHandler).Methods(http.MethodDelete)
 
 	return r
