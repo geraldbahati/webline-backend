@@ -10,7 +10,59 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
+
+const countFilteredProducts = `-- name: CountFilteredProducts :one
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT COUNT(*) AS total_count FROM filtered_products
+`
+
+type CountFilteredProductsParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+}
+
+func (q *Queries) CountFilteredProducts(ctx context.Context, arg CountFilteredProductsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countFilteredProducts, pq.Array(arg.Column1), arg.Price, arg.Price_2)
+	var total_count int64
+	err := row.Scan(&total_count)
+	return total_count, err
+}
 
 const countProducts = `-- name: CountProducts :one
 SELECT COUNT(*) AS count
@@ -19,6 +71,36 @@ FROM products
 
 func (q *Queries) CountProducts(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countProducts)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countProductsByParentCategoryID = `-- name: CountProductsByParentCategoryID :one
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id,
+        c.position
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT
+        c2.id,
+        c2.name,
+        c2.parent_id,
+        c2.position
+    FROM categories c2
+             INNER JOIN category_hierarchy ch ON c2.parent_id = ch.id
+)
+SELECT COUNT(*) AS count
+FROM products p
+WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
+`
+
+func (q *Queries) CountProductsByParentCategoryID(ctx context.Context, id uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProductsByParentCategoryID, id)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -67,6 +149,731 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.SearchKeyword,
 	)
 	return i, err
+}
+
+const getFilteredProducts = `-- name: GetFilteredProducts :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.created_at DESC
+LIMIT
+    $4 OFFSET
+    $5
+`
+
+type GetFilteredProductsParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Limit   int32
+	Offset  int32
+}
+
+type GetFilteredProductsRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description sql.NullString
+	Price       string
+	Stock       sql.NullInt32
+	CategoryID  uuid.NullUUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	IsActive    sql.NullBool
+	CreatedBy   uuid.NullUUID
+	UpdatedBy   uuid.NullUUID
+	Featured    sql.NullBool
+	Size        sql.NullString
+	ColorName   sql.NullString
+}
+
+func (q *Queries) GetFilteredProducts(ctx context.Context, arg GetFilteredProductsParams) ([]GetFilteredProductsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFilteredProducts,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFilteredProductsRow
+	for rows.Next() {
+		var i GetFilteredProductsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilteredProductsOrderByNameAsc = `-- name: GetFilteredProductsOrderByNameAsc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.name ASC
+LIMIT
+    $4 OFFSET
+    $5
+`
+
+type GetFilteredProductsOrderByNameAscParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Limit   int32
+	Offset  int32
+}
+
+type GetFilteredProductsOrderByNameAscRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description sql.NullString
+	Price       string
+	Stock       sql.NullInt32
+	CategoryID  uuid.NullUUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	IsActive    sql.NullBool
+	CreatedBy   uuid.NullUUID
+	UpdatedBy   uuid.NullUUID
+	Featured    sql.NullBool
+	Size        sql.NullString
+	ColorName   sql.NullString
+}
+
+func (q *Queries) GetFilteredProductsOrderByNameAsc(ctx context.Context, arg GetFilteredProductsOrderByNameAscParams) ([]GetFilteredProductsOrderByNameAscRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByNameAsc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFilteredProductsOrderByNameAscRow
+	for rows.Next() {
+		var i GetFilteredProductsOrderByNameAscRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilteredProductsOrderByNameDesc = `-- name: GetFilteredProductsOrderByNameDesc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.name DESC
+LIMIT
+    $4 OFFSET
+    $5
+`
+
+type GetFilteredProductsOrderByNameDescParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Limit   int32
+	Offset  int32
+}
+
+type GetFilteredProductsOrderByNameDescRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description sql.NullString
+	Price       string
+	Stock       sql.NullInt32
+	CategoryID  uuid.NullUUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	IsActive    sql.NullBool
+	CreatedBy   uuid.NullUUID
+	UpdatedBy   uuid.NullUUID
+	Featured    sql.NullBool
+	Size        sql.NullString
+	ColorName   sql.NullString
+}
+
+func (q *Queries) GetFilteredProductsOrderByNameDesc(ctx context.Context, arg GetFilteredProductsOrderByNameDescParams) ([]GetFilteredProductsOrderByNameDescRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByNameDesc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFilteredProductsOrderByNameDescRow
+	for rows.Next() {
+		var i GetFilteredProductsOrderByNameDescRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilteredProductsOrderByPriceAsc = `-- name: GetFilteredProductsOrderByPriceAsc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price ASC
+LIMIT
+    $4 OFFSET
+    $5
+`
+
+type GetFilteredProductsOrderByPriceAscParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Limit   int32
+	Offset  int32
+}
+
+type GetFilteredProductsOrderByPriceAscRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description sql.NullString
+	Price       string
+	Stock       sql.NullInt32
+	CategoryID  uuid.NullUUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	IsActive    sql.NullBool
+	CreatedBy   uuid.NullUUID
+	UpdatedBy   uuid.NullUUID
+	Featured    sql.NullBool
+	Size        sql.NullString
+	ColorName   sql.NullString
+}
+
+func (q *Queries) GetFilteredProductsOrderByPriceAsc(ctx context.Context, arg GetFilteredProductsOrderByPriceAscParams) ([]GetFilteredProductsOrderByPriceAscRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByPriceAsc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFilteredProductsOrderByPriceAscRow
+	for rows.Next() {
+		var i GetFilteredProductsOrderByPriceAscRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilteredProductsOrderByPriceDesc = `-- name: GetFilteredProductsOrderByPriceDesc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price DESC
+LIMIT
+    $4 OFFSET
+    $5
+`
+
+type GetFilteredProductsOrderByPriceDescParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Limit   int32
+	Offset  int32
+}
+
+type GetFilteredProductsOrderByPriceDescRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description sql.NullString
+	Price       string
+	Stock       sql.NullInt32
+	CategoryID  uuid.NullUUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	IsActive    sql.NullBool
+	CreatedBy   uuid.NullUUID
+	UpdatedBy   uuid.NullUUID
+	Featured    sql.NullBool
+	Size        sql.NullString
+	ColorName   sql.NullString
+}
+
+func (q *Queries) GetFilteredProductsOrderByPriceDesc(ctx context.Context, arg GetFilteredProductsOrderByPriceDescParams) ([]GetFilteredProductsOrderByPriceDescRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByPriceDesc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFilteredProductsOrderByPriceDescRow
+	for rows.Next() {
+		var i GetFilteredProductsOrderByPriceDescRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getProductByID = `-- name: GetProductByID :one
@@ -162,10 +969,17 @@ SELECT
     p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured, p.search_keyword
 FROM products p
 WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, id uuid.UUID) ([]Product, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByParentCategoryID, id)
+type GetProductsByParentCategoryIDParams struct {
+	ID     uuid.UUID
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, arg GetProductsByParentCategoryIDParams) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, getProductsByParentCategoryID, arg.ID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

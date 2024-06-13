@@ -90,3 +90,27 @@ type ProductOptionValue struct {
 	ValueName       string
 	AdditionalPrice float64
 }
+
+type ProductSize struct {
+	ID              uuid.UUID
+	ProductID       uuid.UUID
+	Size            string
+	AdditionalPrice string
+}
+
+type ProductCategoryFilterOption struct {
+	Title         string
+	Subcategories []ProductFilterOption
+}
+
+type ProductFilterOption struct {
+	ID   uuid.UUID
+	Name string
+}
+
+type ProductFilterOptions struct {
+	Categories    []ProductCategoryFilterOption
+	Colors        []ProductFilterOption
+	Sizes         []ProductFilterOption
+	TotalProducts int64
+}

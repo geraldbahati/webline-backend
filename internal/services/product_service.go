@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"weblineBackend/internal/appconfig"
@@ -25,6 +26,7 @@ type ProductService struct {
 	categoryRepo             *repository.CategoryRepository
 	productColorRepo         *repository.ProductColourRepository
 	productOptionRepo        *repository.ProductOptionRepository
+	productSizeRepo          *repository.ProductSizeRepository
 	logger                   *zap.Logger
 	config                   *appconfig.Config
 	s3Client                 *s3.Client
@@ -38,6 +40,7 @@ func NewProductService(
 	categoryRepo *repository.CategoryRepository,
 	productColorRepo *repository.ProductColourRepository,
 	productOptionRepo *repository.ProductOptionRepository,
+	productSizeRepo *repository.ProductSizeRepository,
 	logger *zap.Logger,
 	config *appconfig.Config,
 	s3Client *s3.Client,
@@ -51,6 +54,7 @@ func NewProductService(
 		categoryRepo:             categoryRepo,
 		productOptionRepo:        productOptionRepo,
 		productColorRepo:         productColorRepo,
+		productSizeRepo:          productSizeRepo,
 		logger:                   logger,
 		config:                   config,
 		s3Client:                 s3Client,
@@ -232,27 +236,125 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 }
 
 // ListProducts retrieves all products from the database
-func (s *ProductService) ListProducts(ctx context.Context, page int32, pageSize int32) (model.PaginationResult[[]model.ProductSchema], error) {
-	// Get total number of products
-	totalProducts, err := s.productRepo.CountProducts(ctx)
-	if err != nil {
-		s.logger.Error("failed to count products", zap.Error(err))
-		return model.PaginationResult[[]model.ProductSchema]{}, fmt.Errorf("failed to count products: %w", err)
+func (s *ProductService) ListProducts(
+	ctx context.Context,
+	page int32,
+	pageSize int32,
+	category []string,
+	size []string,
+	color []string,
+	sort string,
+	priceFromStr string,
+	priceToStr string,
+) (model.PaginationResult[[]model.Product], error) {
+	// validations
+	if len(category) == 0 {
+		parentCategories, err := s.categoryRepo.GetParentCategories(ctx)
+		if err != nil {
+			s.logger.Error("failed to get parent categories", zap.Error(err))
+			return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to get parent categories: %w", err)
+		}
+
+		for _, parentCategory := range parentCategories {
+			subcategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: parentCategory.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get subcategories", zap.Error(err))
+				return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to get subcategories: %w", err)
+			}
+
+			for _, subcategory := range subcategories {
+				category = append(category, subcategory.Name)
+			}
+		}
 	}
 
-	// Get all products
+	if len(size) == 0 {
+		sizes, err := s.productSizeRepo.GetAllSizes(ctx)
+		if err != nil {
+			s.logger.Error("failed to get product sizes", zap.Error(err))
+			return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to get product sizes: %w", err)
+		}
+
+		for _, s := range sizes {
+			size = append(size, s.Size)
+		}
+	}
+
+	if len(color) == 0 {
+		colors, err := s.productColorRepo.GetAllColors(ctx)
+		if err != nil {
+			s.logger.Error("failed to get product colors", zap.Error(err))
+			return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to get product colors: %w", err)
+		}
+
+		for _, c := range colors {
+			color = append(color, c.ColorName)
+		}
+	}
+
+	if priceFromStr == "" {
+		priceFromStr = "0"
+	}
+
+	if priceToStr == "" {
+		priceToStr = "1000000"
+	}
+
+	priceFrom, err := strconv.ParseFloat(priceFromStr, 64)
+	if err != nil {
+		s.logger.Error("failed to parse price from", zap.Error(err))
+		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to parse price from: %w", err)
+	}
+
+	priceTo, err := strconv.ParseFloat(priceToStr, 64)
+	if err != nil {
+		s.logger.Error("failed to parse price to", zap.Error(err))
+		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to parse price to: %w", err)
+	}
+
+	// Get total number of filtered products
+	totalProducts, err := s.productRepo.CountFilteredProducts(ctx, category, fmt.Sprint(priceFrom), fmt.Sprint(priceTo))
+	if err != nil {
+		s.logger.Error("failed to count filtered products", zap.Error(err))
+		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to count filtered products: %w", err)
+	}
+
+	// Get all filtered products
 	paginatedProducts, err := utils.Paginate(
 		s.config,
 		totalProducts,
 		page,
 		pageSize,
-		func(offset int32, limit int32) ([]model.ProductSchema, error) {
-			products, err := s.productRepo.ListProducts(ctx, limit, offset)
+		func(offset int32, limit int32) ([]model.Product, error) {
+			products, err := s.productRepo.ListProducts(ctx, limit, offset, sort, category, priceFromStr, priceToStr)
 			if err != nil {
 				s.logger.Error("failed to list products", zap.Error(err))
 				return nil, fmt.Errorf("failed to list products: %w", err)
 			}
-			return products, nil
+
+			var productSchemas []model.Product
+			for _, product := range products {
+				productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+				if err != nil {
+					s.logger.Error("failed to get product images", zap.Error(err))
+					return nil, fmt.Errorf("failed to get product images: %w", err)
+				}
+
+				productSchemas = append(productSchemas, model.Product{
+					ID:          product.ID,
+					Name:        product.Name,
+					Description: product.Description,
+					Price:       product.Price,
+					Stock:       product.Stock,
+					CategoryID:  product.CategoryID,
+					IsActive:    product.IsActive,
+					Featured:    product.Featured,
+					ImageURL:    s.constructS3URL(productImages[0].ImageUrl),
+				})
+			}
+
+			return productSchemas, nil
+
 		},
 	)
 
@@ -357,120 +459,66 @@ func (s *ProductService) SoftDeleteProduct(ctx context.Context, id string) error
 }
 
 // GetProductsByCategoryID retrieves products by their category ID
-func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string) ([]model.ProductDetail, error) {
+func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string, pageSize int32, page int32) (model.PaginationResult[[]model.Product], error) {
 	// Parse the category ID
 	categoryIDValue, err := uuid.Parse(categoryID)
 
-	// Fetch products by category ID from the repository
-	productsByCategory, err := s.productRepo.GetProductsByCategoryID(ctx, categoryIDValue)
+	// Get total number of products by category ID
+	totalProductsByCategory, err := s.productRepo.CountProductsByParentCategoryID(ctx, categoryIDValue)
 	if err != nil {
-		s.logger.Error("failed to get products by category ID", zap.Error(err))
-		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
+		s.logger.Error("failed to count products by category ID", zap.Error(err))
+		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to count products by category ID: %w", err)
 	}
 
-	var products []model.ProductDetail
-	for _, product := range productsByCategory {
-		productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product specifications", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product specifications: %w", err)
-		}
+	if totalProductsByCategory == 0 {
+		return model.PaginationResult[[]model.Product]{}, nil
+	}
 
-		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product images", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product images: %w", err)
-		}
-
-		productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product colors", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product colors: %w", err)
-		}
-
-		// Get the product options
-		productOptions, err := s.productOptionRepo.ListProductOptionsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product options", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product options: %w", err)
-		}
-
-		var specs []model.ProductSpecification
-		for _, spec := range productSpecs {
-			specs = append(specs, model.ProductSpecification{
-				ID:        spec.ID,
-				SpecName:  spec.SpecName,
-				SpecValue: spec.SpecValue,
-			})
-		}
-
-		var options []model.ProductOption
-		for _, option := range productOptions {
-			// get the option values
-			values, err := s.productOptionRepo.ListProductOptionValuesByOptionID(ctx, uuid.NullUUID{UUID: option.ID, Valid: true})
+	paginatedProductsByCategory, err := utils.Paginate(
+		s.config,
+		totalProductsByCategory,
+		page,
+		pageSize,
+		func(offset int32, limit int32) ([]model.Product, error) {
+			products, err := s.productRepo.GetProductsByCategoryID(ctx, categoryIDValue, limit, offset)
 			if err != nil {
-				s.logger.Error("failed to get product option values", zap.Error(err))
-				return nil, fmt.Errorf("failed to get product option values: %w", err)
+				s.logger.Error("failed to get products by category ID", zap.Error(err))
+				return nil, fmt.Errorf("failed to get products by category ID: %w", err)
 			}
 
-			var optionValues []model.ProductOptionValue
-			for _, value := range values {
-				additionalPrice, err := strconv.ParseFloat(value.AdditionalPrice.String, 64)
+			var productSchemas []model.Product
+			for _, product := range products {
+				productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 				if err != nil {
-					s.logger.Error("failed to parse additional price", zap.Error(err))
-					return nil, fmt.Errorf("failed to parse additional price: %w", err)
+					s.logger.Error("failed to get product images", zap.Error(err))
+					return nil, fmt.Errorf("failed to get product images: %w", err)
 				}
 
-				optionValues = append(optionValues, model.ProductOptionValue{
-					ID:              value.ID,
-					ValueName:       value.ValueName,
-					AdditionalPrice: additionalPrice,
+				productSchemas = append(productSchemas, model.Product{
+					ID:          product.ID,
+					Name:        product.Name,
+					Description: product.Description,
+					Price:       product.Price,
+					Stock:       product.Stock,
+					CategoryID:  product.CategoryID,
+					IsActive:    product.IsActive,
+					Featured:    product.Featured,
+					ImageURL:    s.constructS3URL(productImages[0].ImageUrl),
 				})
 			}
 
-			options = append(options, model.ProductOption{
-				ID:           option.ID,
-				OptionName:   option.OptionName,
-				OptionValues: optionValues,
-			})
-		}
+			return productSchemas, nil
 
-		var images []model.ProductImage
-		for _, image := range productImages {
-			images = append(images, model.ProductImage{
-				ID:        image.ID,
-				ProductID: image.ProductID.UUID.String(),
-				S3URL:     s.constructS3URL(image.ImageUrl),
-				CreatedAt: image.CreatedAt.Time,
-				UpdatedAt: image.UpdatedAt.Time,
-			})
-		}
+		},
+	)
 
-		var colors []model.ProductColor
-		for _, color := range productColors {
-			colors = append(colors, model.ProductColor{
-				ID:        color.ID,
-				ColorName: color.ColorName,
-			})
-		}
-
-		products = append(products, model.ProductDetail{
-			ID:             product.ID,
-			Name:           product.Name,
-			Description:    product.Description,
-			Price:          product.Price,
-			Stock:          product.Stock,
-			CategoryID:     product.CategoryID,
-			IsActive:       product.IsActive,
-			Featured:       product.Featured,
-			Colors:         colors,
-			Specifications: specs,
-			Options:        options,
-			Images:         images,
-		})
+	if err != nil {
+		s.logger.Error("failed to paginate products by category ID", zap.Error(err))
+		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to paginate products by category ID: %w", err)
 	}
 
-	return products, nil
+	return *paginatedProductsByCategory, nil
+
 }
 
 // SearchProducts searches for products by name or description
@@ -1029,7 +1077,7 @@ func (s *ProductService) GetProductsByParentCategoryID(ctx context.Context, pare
 // CreateProductColor creates a new product color
 func (s *ProductService) CreateProductColor(
 	ctx context.Context,
-	productID string,
+	productID,
 	color string,
 ) (database.ProductColor, error) {
 	// Parse the product ID
@@ -1341,7 +1389,7 @@ func (s *ProductService) GetProductsByFilters(
 	priceFrom string,
 	priceTo string,
 	sortBy string,
-) ([]model.ProductDetail, error) {
+) ([]model.Product, error) {
 	parentCategoryUUID, err := uuid.Parse(parentCategoryID)
 	if err != nil {
 		s.logger.Error("invalid parent category ID", zap.Error(err))
@@ -1356,6 +1404,7 @@ func (s *ProductService) GetProductsByFilters(
 		}
 
 		for _, category := range categories {
+			log.Printf("category: %v", category)
 			subCategories = append(subCategories, category.Name)
 		}
 	}
@@ -1413,19 +1462,8 @@ func (s *ProductService) GetProductsByFilters(
 		return nil, fmt.Errorf("failed to get products by category ID: %w", err)
 	}
 
-	var products []model.ProductDetail
+	var products []model.Product
 	for _, product := range productsByCategory {
-		productSpecs, err := s.productSpecificationRepo.ListProductSpecificationsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product specifications", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product specifications: %w", err)
-		}
-
-		productOptions, err := s.productOptionRepo.ListProductOptionsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product options", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product options: %w", err)
-		}
 
 		productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
 		if err != nil {
@@ -1433,86 +1471,96 @@ func (s *ProductService) GetProductsByFilters(
 			return nil, fmt.Errorf("failed to get product images: %w", err)
 		}
 
-		productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get product colors", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product colors: %w", err)
-		}
-
-		var specs []model.ProductSpecification
-		for _, spec := range productSpecs {
-			specs = append(specs, model.ProductSpecification{
-				ID:        spec.ID,
-				SpecName:  spec.SpecName,
-				SpecValue: spec.SpecValue,
-			})
-		}
-
-		var options []model.ProductOption
-		for _, option := range productOptions {
-			// get the option values
-			values, err := s.productOptionRepo.ListProductOptionValuesByOptionID(ctx, uuid.NullUUID{UUID: option.ID, Valid: true})
-			if err != nil {
-				s.logger.Error("failed to get product option values", zap.Error(err))
-				return nil, fmt.Errorf("failed to get product option values: %w", err)
-			}
-
-			var optionValues []model.ProductOptionValue
-			for _, value := range values {
-				additionalPrice, err := strconv.ParseFloat(value.AdditionalPrice.String, 64)
-				if err != nil {
-					s.logger.Error("failed to parse additional price", zap.Error(err))
-					return nil, fmt.Errorf("failed to parse additional price: %w", err)
-				}
-
-				optionValues = append(optionValues, model.ProductOptionValue{
-					ID:              value.ID,
-					ValueName:       value.ValueName,
-					AdditionalPrice: additionalPrice,
-				})
-			}
-
-			options = append(options, model.ProductOption{
-				ID:           option.ID,
-				OptionName:   option.OptionName,
-				OptionValues: optionValues,
-			})
-		}
-
-		var images []model.ProductImage
-		for _, image := range productImages {
-			images = append(images, model.ProductImage{
-				ID:        image.ID,
-				ProductID: image.ProductID.UUID.String(),
-				S3URL:     s.constructS3URL(image.ImageUrl),
-				CreatedAt: image.CreatedAt.Time,
-				UpdatedAt: image.UpdatedAt.Time,
-			})
-		}
-
-		var colors []model.ProductColor
-		for _, color := range productColors {
-			colors = append(colors, model.ProductColor{
-				ID:        color.ID,
-				ColorName: color.ColorName,
-			})
-		}
-
-		products = append(products, model.ProductDetail{
-			ID:             product.ID,
-			Name:           product.Name,
-			Description:    product.Description.String,
-			Price:          product.Price,
-			Stock:          product.Stock.Int32,
-			CategoryID:     product.CategoryID.UUID,
-			IsActive:       product.IsActive.Bool,
-			Featured:       product.Featured.Bool,
-			Colors:         colors,
-			Specifications: specs,
-			Options:        options,
-			Images:         images,
+		products = append(products, model.Product{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			Price:       product.Price,
+			Stock:       product.Stock.Int32,
+			CategoryID:  product.CategoryID.UUID,
+			IsActive:    product.IsActive.Bool,
+			Featured:    product.Featured.Bool,
+			ImageURL:    s.constructS3URL(productImages[0].ImageUrl),
 		})
 	}
 
 	return products, nil
+}
+
+// GetProductFilterOptions retrieves filter options for products
+func (s *ProductService) GetProductFilterOptions(ctx context.Context) (model.ProductFilterOptions, error) {
+	// get available category and its subcategories
+	categories, err := s.categoryRepo.GetParentCategories(ctx)
+	if err != nil {
+		s.logger.Error("failed to get parent categories", zap.Error(err))
+		return model.ProductFilterOptions{}, fmt.Errorf("failed to get parent categories: %w", err)
+	}
+
+	// get total number of products
+	count, err := s.productRepo.CountProducts(ctx)
+	if err != nil {
+		s.logger.Error("failed to get total products", zap.Error(err))
+		return model.ProductFilterOptions{}, fmt.Errorf("failed to get total products: %w", err)
+	}
+
+	var categoryOptions []model.ProductCategoryFilterOption
+	for _, category := range categories {
+		// get the sub categories of each parent category
+		subCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get subcategories", zap.Error(err))
+			return model.ProductFilterOptions{}, fmt.Errorf("failed to get subcategories: %w", err)
+		}
+
+		var subCategoryOptions []model.ProductFilterOption
+		for _, subCategory := range subCategories {
+			subCategoryOptions = append(subCategoryOptions, model.ProductFilterOption{
+				ID:   subCategory.ID,
+				Name: subCategory.Name,
+			})
+		}
+
+		categoryOptions = append(categoryOptions, model.ProductCategoryFilterOption{
+			Title:         category.Name,
+			Subcategories: subCategoryOptions,
+		})
+	}
+
+	// get available colors
+	colors, err := s.productColorRepo.GetAllAvailableColors(ctx)
+	if err != nil {
+		s.logger.Error("failed to get colors", zap.Error(err))
+		return model.ProductFilterOptions{}, fmt.Errorf("failed to get colors: %w", err)
+	}
+
+	var colorOptions []model.ProductFilterOption
+	for _, color := range colors {
+		colorOptions = append(colorOptions, model.ProductFilterOption{
+			ID:   color.ID,
+			Name: color.ColorName,
+		})
+	}
+
+	// get available sizes
+	sizes, err := s.productSizeRepo.GetAllSizes(ctx)
+	if err != nil {
+		s.logger.Error("failed to get sizes", zap.Error(err))
+		return model.ProductFilterOptions{}, fmt.Errorf("failed to get sizes: %w", err)
+	}
+
+	var sizeOptions []model.ProductFilterOption
+	for _, size := range sizes {
+		sizeOptions = append(sizeOptions, model.ProductFilterOption{
+			ID:   size.ID,
+			Name: size.Size,
+		})
+	}
+
+	return model.ProductFilterOptions{
+		Categories:    categoryOptions,
+		Colors:        colorOptions,
+		Sizes:         sizeOptions,
+		TotalProducts: count,
+	}, nil
+
 }
