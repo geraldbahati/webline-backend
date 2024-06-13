@@ -49,24 +49,29 @@ func (q *Queries) DeleteProductSize(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllSizes = `-- name: GetAllSizes :many
-SELECT DISTINCT size
+SELECT DISTINCT id, size
 FROM product_sizes
 ORDER BY size
 `
 
-func (q *Queries) GetAllSizes(ctx context.Context) ([]string, error) {
+type GetAllSizesRow struct {
+	ID   uuid.UUID
+	Size string
+}
+
+func (q *Queries) GetAllSizes(ctx context.Context) ([]GetAllSizesRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAllSizes)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []GetAllSizesRow
 	for rows.Next() {
-		var size string
-		if err := rows.Scan(&size); err != nil {
+		var i GetAllSizesRow
+		if err := rows.Scan(&i.ID, &i.Size); err != nil {
 			return nil, err
 		}
-		items = append(items, size)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
