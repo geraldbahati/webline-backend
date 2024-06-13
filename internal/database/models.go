@@ -154,6 +154,15 @@ type ProductReview struct {
 	UpdatedAt sql.NullTime
 }
 
+type ProductSize struct {
+	ID              uuid.UUID
+	ProductID       uuid.NullUUID
+	Size            string
+	AdditionalPrice sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+}
+
 type ProductSpecification struct {
 	ID        uuid.UUID
 	ProductID uuid.NullUUID
