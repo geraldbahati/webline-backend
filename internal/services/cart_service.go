@@ -128,23 +128,28 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, cartID, produc
 }
 
 // CreateShoppingCart creates a new shopping cart
-func (s *CartService) CreateShoppingCart(ctx context.Context, userID string) (string, error) {
+func (s *CartService) CreateShoppingCart(ctx context.Context, userID string) (*model.ShoppingCart, error) {
 	// Convert the string IDs to UUID
-	userUUID, err := uuid.Parse(userID)
-	if err != nil {
-		s.logger.Error("failed to parse user ID", zap.Error(err))
-		return "", fmt.Errorf("parse user ID: %w", err)
-	}
+	var userNullUUID uuid.NullUUID
 
-	userNullUUID := uuid.NullUUID{UUID: userUUID, Valid: true}
+	if userID == "" {
+		userNullUUID = uuid.NullUUID{UUID: uuid.Nil, Valid: false}
+	} else {
+		userUUID, err := uuid.Parse(userID)
+		if err != nil {
+			s.logger.Error("failed to parse user ID", zap.Error(err))
+			return nil, fmt.Errorf("parse user ID: %w", err)
+		}
+		userNullUUID = uuid.NullUUID{UUID: userUUID, Valid: true}
+	}
 
 	cart, err := s.cartRepository.CreateShoppingCart(ctx, userNullUUID)
 	if err != nil {
 		s.logger.Error("failed to create shopping cart", zap.Error(err))
-		return "", fmt.Errorf("create shopping cart: %w", err)
+		return nil, fmt.Errorf("create shopping cart: %w", err)
 	}
 
-	return cart.SessionID.String(), nil
+	return &cart, nil
 }
 
 // GetShoppingCartByUserID returns the shopping cart of a user

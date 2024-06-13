@@ -37,39 +37,6 @@ func (q *Queries) ClearCart(ctx context.Context, shoppingCartID uuid.NullUUID) e
 	return err
 }
 
-const createShoppingCart = `-- name: CreateShoppingCart :one
-INSERT INTO shopping_carts (id, user_id, session_id, total_items, total_price, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, gen_random_uuid(), 0, 0.0, NOW(), NOW())
-RETURNING id, user_id, session_id, total_items, total_price, created_at, updated_at
-`
-
-// Create a new shopping cart
-func (q *Queries) CreateShoppingCart(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error) {
-	row := q.db.QueryRowContext(ctx, createShoppingCart, userID)
-	var i ShoppingCart
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.SessionID,
-		&i.TotalItems,
-		&i.TotalPrice,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const deleteShoppingCart = `-- name: DeleteShoppingCart :exec
-DELETE FROM shopping_carts
-WHERE id = $1
-`
-
-// Delete a shopping cart
-func (q *Queries) DeleteShoppingCart(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteShoppingCart, id)
-	return err
-}
-
 const getAllCartItems = `-- name: GetAllCartItems :many
 SELECT id, shopping_cart_id, product_id, quantity, price, created_at, updated_at
 FROM cart_items
@@ -133,58 +100,11 @@ type GetCartItemRow struct {
 	Quantity int32
 }
 
+// Get a cart item
 func (q *Queries) GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCartItemRow, error) {
 	row := q.db.QueryRowContext(ctx, getCartItem, arg.ShoppingCartID, arg.ProductID)
 	var i GetCartItemRow
 	err := row.Scan(&i.ID, &i.Quantity)
-	return i, err
-}
-
-const getShoppingCartBySessionID = `-- name: GetShoppingCartBySessionID :one
-SELECT id, user_id, session_id, total_items, total_price, created_at, updated_at
-FROM shopping_carts
-WHERE session_id = $1
-ORDER BY created_at DESC
-LIMIT 1
-`
-
-// Get a shopping cart by session ID
-func (q *Queries) GetShoppingCartBySessionID(ctx context.Context, sessionID uuid.NullUUID) (ShoppingCart, error) {
-	row := q.db.QueryRowContext(ctx, getShoppingCartBySessionID, sessionID)
-	var i ShoppingCart
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.SessionID,
-		&i.TotalItems,
-		&i.TotalPrice,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getShoppingCartByUserID = `-- name: GetShoppingCartByUserID :one
-SELECT id, user_id, session_id, total_items, total_price, created_at, updated_at
-FROM shopping_carts
-WHERE user_id = $1
-ORDER BY created_at DESC
-LIMIT 1
-`
-
-// Get a shopping cart by user ID
-func (q *Queries) GetShoppingCartByUserID(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error) {
-	row := q.db.QueryRowContext(ctx, getShoppingCartByUserID, userID)
-	var i ShoppingCart
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.SessionID,
-		&i.TotalItems,
-		&i.TotalPrice,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
 	return i, err
 }
 

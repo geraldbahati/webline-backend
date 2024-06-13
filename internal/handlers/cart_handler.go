@@ -178,10 +178,18 @@ func (h *CartHandler) CreateShoppingCartHandler(w http.ResponseWriter, r *http.R
 // GetShoppingCartByUserIDHandler returns the shopping cart by user ID
 func (h *CartHandler) GetShoppingCartByUserIDHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body
-	userID := r.URL.Query().Get("user_id")
+	var params struct {
+		UserID string `json:"user_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "failed to parse request body")
+		return
+
+	}
 
 	// Call the service
-	cart, err := h.cartService.GetShoppingCartByUserID(r.Context(), userID)
+	cart, err := h.cartService.GetShoppingCartByUserID(r.Context(), params.UserID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "failed to get shopping cart")
 		return
@@ -199,10 +207,17 @@ func (h *CartHandler) GetShoppingCartByUserIDHandler(w http.ResponseWriter, r *h
 // GetShoppingCartBySessionIDHandler returns the shopping cart by session ID
 func (h *CartHandler) GetShoppingCartBySessionIDHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body
-	sessionID := r.URL.Query().Get("session_id")
+	var params struct {
+		SessionID string `json:"session_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "failed to parse request body")
+		return
+	}
 
 	// Call the service
-	cart, err := h.cartService.GetShoppingCartBySessionID(r.Context(), sessionID)
+	cart, err := h.cartService.GetShoppingCartBySessionID(r.Context(), params.SessionID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "failed to get shopping cart")
 		return
