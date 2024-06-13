@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"weblineBackend/internal/database"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"weblineBackend/internal/database"
 )
 
 type ProductColourRepository struct {
@@ -71,9 +72,9 @@ func (r *ProductColourRepository) CreateProductColor(
 // GetProductColorByID retrieves a product colour by its ID
 func (r *ProductColourRepository) GetProductColorByID(
 	ctx context.Context,
-	id int,
+	id uuid.UUID,
 ) (database.ProductColor, error) {
-	productColour, err := r.GetProductColorByID(ctx, id)
+	productColour, err := r.Queries.GetProductColorByID(ctx, id)
 	if err != nil {
 		r.logger.Error("failed to get product colour", zap.Error(err))
 		return database.ProductColor{}, err
@@ -86,7 +87,7 @@ func (r *ProductColourRepository) GetProductColorsByProductID(
 	ctx context.Context,
 	productID uuid.NullUUID,
 ) ([]database.ProductColor, error) {
-	productColours, err := r.ListProductColorsByProductID(ctx, productID)
+	productColours, err := r.Queries.ListProductColorsByProductID(ctx, productID)
 	if err != nil {
 		r.logger.Error("failed to get product colours", zap.Error(err))
 		return nil, err
@@ -139,6 +140,18 @@ func (r *ProductColourRepository) GetAvailableColorsByCategoryID(
 	categoryID uuid.UUID,
 ) ([]string, error) {
 	productColours, err := r.GetAvailableColorsByParentCategoryID(ctx, categoryID)
+	if err != nil {
+		r.logger.Error("failed to get available colours", zap.Error(err))
+		return nil, err
+	}
+	return productColours, nil
+}
+
+// GetAllAvailableColors retrieves all available colours
+func (r *ProductColourRepository) GetAllAvailableColors(
+	ctx context.Context,
+) ([]database.GetAllColorsRow, error) {
+	productColours, err := r.Queries.GetAllColors(ctx)
 	if err != nil {
 		r.logger.Error("failed to get available colours", zap.Error(err))
 		return nil, err

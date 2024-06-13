@@ -45,6 +45,40 @@ func (q *Queries) DeleteProductColor(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getAllColors = `-- name: GetAllColors :many
+SELECT DISTINCT id, color_name
+FROM product_colors
+ORDER BY color_name
+`
+
+type GetAllColorsRow struct {
+	ID        uuid.UUID
+	ColorName string
+}
+
+func (q *Queries) GetAllColors(ctx context.Context) ([]GetAllColorsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllColors)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllColorsRow
+	for rows.Next() {
+		var i GetAllColorsRow
+		if err := rows.Scan(&i.ID, &i.ColorName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAvailableColorsByParentCategoryID = `-- name: GetAvailableColorsByParentCategoryID :many
 WITH RECURSIVE category_tree AS (
     SELECT c.id

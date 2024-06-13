@@ -39,3 +39,8 @@ FROM products p
          JOIN product_colors pc ON p.id = pc.product_id
          JOIN category_tree ct ON p.category_id = ct.id
 ORDER BY pc.color_name;
+
+-- name: GetAllColors :many
+SELECT DISTINCT id, color_name
+FROM product_colors
+ORDER BY color_name;
