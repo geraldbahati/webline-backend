@@ -16,3 +16,8 @@ WHERE order_id = $1;
 -- name: GetAllPayments :many
 SELECT id, order_id, payment_id, payment_method_id, payment_status_id, amount, created_at
 FROM order_payments;
+
+-- name: UpdatePaymentID :exec
+UPDATE order_payments
+SET payment_id = $1, updated_at = NOW()
+WHERE id = $2;

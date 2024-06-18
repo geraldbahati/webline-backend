@@ -150,6 +150,22 @@ func (q *Queries) GetPaymentsByOrderID(ctx context.Context, orderID uuid.NullUUI
 	return items, nil
 }
 
+const updatePaymentID = `-- name: UpdatePaymentID :exec
+UPDATE order_payments
+SET payment_id = $1, updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdatePaymentIDParams struct {
+	PaymentID string
+	ID        uuid.UUID
+}
+
+func (q *Queries) UpdatePaymentID(ctx context.Context, arg UpdatePaymentIDParams) error {
+	_, err := q.db.ExecContext(ctx, updatePaymentID, arg.PaymentID, arg.ID)
+	return err
+}
+
 const updatePaymentStatus = `-- name: UpdatePaymentStatus :exec
 UPDATE order_payments
 SET payment_status_id = $1, updated_at = NOW()
