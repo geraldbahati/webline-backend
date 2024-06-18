@@ -1,9 +1,5 @@
 -- +goose Up
--- +goose StatementBegin
-SELECT 'up SQL query';
--- +goose StatementEnd
+ALTER TABLE orders DROP COLUMN IF EXISTS guest_email;
 
 -- +goose Down
--- +goose StatementBegin
-SELECT 'down SQL query';
--- +goose StatementEnd
+ALTER TABLE orders ADD COLUMN guest_email VARCHAR(255);

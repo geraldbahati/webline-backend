@@ -518,6 +518,27 @@
               <option name="sortWeight" value="23000000" />
               <option name="url" value="http://localhost:8080/api/products/actions/search?query=dell ins" />
             </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;first_name&quot;: &quot;John&quot;,&#10;  &quot;last_name&quot;: &quot;Doe&quot;,&#10;  &quot;street_address&quot;: &quot;123 Main St&quot;,&#10;  &quot;city&quot;: &quot;Springfield&quot;,&#10;  &quot;state&quot;: &quot;IL&quot;,&#10;  &quot;country&quot;: &quot;USA&quot;,&#10;  &quot;phone&quot;: &quot;555-1234&quot;,&#10;  &quot;email&quot;: &quot;john.doe@example.com&quot;,&#10;  &quot;shipping_option&quot;: &quot;standard&quot;,&#10;  &quot;order_items&quot;: [&#10;    {&#10;      &quot;product_id&quot;: &quot;b5f5a1d6-3f6a-4e8d-b8d1-0c6383fa7a67&quot;,&#10;      &quot;product_option_id&quot;: [&quot;option1-id&quot;, &quot;option2-id&quot;],&#10;      &quot;color_id&quot;: &quot;a34b1d56-2a76-4c7b-9f14-0c9b9a1f85e6&quot;,&#10;      &quot;size_id&quot;: &quot;d9b8f3e5-4a6a-4b7a-8f3a-0c7b9b1f85e7&quot;,&#10;      &quot;quantity&quot;: 2,&#10;      &quot;price&quot;: 49.99&#10;    },&#10;    {&#10;      &quot;product_id&quot;: &quot;c6e6b2f7-4f6b-4e8e-b9d2-0d7394fa8a78&quot;,&#10;      &quot;product_option_id&quot;: [],&#10;      &quot;color_id&quot;: &quot;&quot;,&#10;      &quot;size_id&quot;: &quot;&quot;,&#10;      &quot;quantity&quot;: 1,&#10;      &quot;price&quot;: 19.99&#10;    }&#10;  ],&#10;  &quot;total&quot;: 119.97&#10;}&#10;&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/orders" />
+            </requestState>
           </list>
         </option>
       </draftsState>

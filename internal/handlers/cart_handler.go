@@ -79,12 +79,6 @@ func (h *CartHandler) GetCartItemsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Write the response
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "failed to encode response")
-		return
-	}
-
 	RespondWithJSON(w, http.StatusOK, items)
 }
 
@@ -111,12 +105,6 @@ func (h *CartHandler) CalculateCartTotalHandler(w http.ResponseWriter, r *http.R
 	total, err := h.cartService.CalculateCartTotal(r.Context(), cartID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "failed to calculate cart total")
-		return
-	}
-
-	// Write the response
-	if err := json.NewEncoder(w).Encode(total); err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "failed to encode response")
 		return
 	}
 
@@ -160,19 +148,13 @@ func (h *CartHandler) CreateShoppingCartHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// Call the service
-	cartID, err := h.cartService.CreateShoppingCart(r.Context(), req.UserID)
+	cart, err := h.cartService.CreateShoppingCart(r.Context(), req.UserID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "failed to create shopping cart")
 		return
 	}
 
-	// Write the response
-	if err := json.NewEncoder(w).Encode(cartID); err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "failed to encode response")
-		return
-	}
-
-	RespondWithJSON(w, http.StatusCreated, cartID)
+	RespondWithJSON(w, http.StatusCreated, cart)
 }
 
 // GetShoppingCartByUserIDHandler returns the shopping cart by user ID
@@ -195,12 +177,6 @@ func (h *CartHandler) GetShoppingCartByUserIDHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Write the response
-	if err := json.NewEncoder(w).Encode(cart); err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "failed to encode response")
-		return
-	}
-
 	RespondWithJSON(w, http.StatusOK, cart)
 }
 
@@ -220,12 +196,6 @@ func (h *CartHandler) GetShoppingCartBySessionIDHandler(w http.ResponseWriter, r
 	cart, err := h.cartService.GetShoppingCartBySessionID(r.Context(), params.SessionID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "failed to get shopping cart")
-		return
-	}
-
-	// Write the response
-	if err := json.NewEncoder(w).Encode(cart); err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "failed to encode response")
 		return
 	}
 

@@ -80,6 +80,9 @@ func main() {
 	productOptionRepo := repository.NewProductOptionRepository(conn, logger)
 	productSizeRepo := repository.NewProductSizeRepository(conn, logger)
 	cartRepo := repository.NewCartRepository(conn, logger)
+	orderRepo := repository.NewOrderRepository(conn, logger)
+	guestCheckoutRepo := repository.NewGuestCheckoutRepository(conn, logger)
+	orderItemRepo := repository.NewOrderItemRepository(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
@@ -98,7 +101,8 @@ func main() {
 		s3Client,
 	)
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
-	cartService := services.NewCartService(logger, cartRepo)
+	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
+	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, userRepo)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
@@ -111,9 +115,23 @@ func main() {
 	productColorHandler := handlers.NewProductColorHandler(productService)
 	productSizeHandler := handlers.NewProductSizeHandler(productSizeService)
 	cartHandler := handlers.NewCartHandler(cartService)
+	orderHandler := handlers.NewOrderHandler(orderService)
 
 	// Setup router
-	r := setupRouter(logger, userHandler, categoryHandler, productHandler, productVariantHandler, productImageHandler, productSpecificationHandler, productOptionHandler, productColorHandler, productSizeHandler, cartHandler)
+	r := setupRouter(
+		logger,
+		userHandler,
+		categoryHandler,
+		productHandler,
+		productVariantHandler,
+		productImageHandler,
+		productSpecificationHandler,
+		productOptionHandler,
+		productColorHandler,
+		productSizeHandler,
+		cartHandler,
+		orderHandler,
+	)
 
 	// Start server
 	serverAddress := ":" + cfg.Port
@@ -135,6 +153,7 @@ func setupRouter(
 	productColorHandler *handlers.ProductColorHandler,
 	productSizeHandler *handlers.ProductSizeHandler,
 	cartHandler *handlers.CartHandler,
+	orderHandler *handlers.OrderHandler,
 ) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
@@ -245,7 +264,7 @@ func setupRouter(
 	cartRouter := r.PathPrefix("/api/cart").Subrouter()
 	cartRouter.HandleFunc("/create", cartHandler.CreateShoppingCartHandler).Methods(http.MethodPost)
 	cartRouter.HandleFunc("/add/{cart_id}", cartHandler.AddToCartHandler).Methods(http.MethodPost)
-	cartRouter.HandleFunc("/remove/{cart_id}", cartHandler.RemoveFromCartHandler).Methods(http.MethodPost)
+	cartRouter.HandleFunc("/remove/{cart_id}", cartHandler.RemoveFromCartHandler).Methods(http.MethodDelete)
 	cartRouter.HandleFunc("/items/{cart_id}", cartHandler.GetCartItemsHandler).Methods(http.MethodGet)
 	cartRouter.HandleFunc("/clear/{cart_id}", cartHandler.ClearCartHandler).Methods(http.MethodPost)
 	cartRouter.HandleFunc("/total/{cart_id}", cartHandler.CalculateCartTotalHandler).Methods(http.MethodGet)
@@ -253,6 +272,11 @@ func setupRouter(
 	cartRouter.HandleFunc("/user", cartHandler.GetShoppingCartByUserIDHandler).Methods(http.MethodPost)
 	cartRouter.HandleFunc("/session", cartHandler.GetShoppingCartBySessionIDHandler).Methods(http.MethodPost)
 	cartRouter.HandleFunc("/delete", cartHandler.DeleteShoppingCartHandler).Methods(http.MethodDelete)
+
+	// Order routes
+	orderRouter := r.PathPrefix("/api/orders").Subrouter()
+	orderRouter.HandleFunc("", orderHandler.CreateOrder).Methods(http.MethodPost)
+	orderRouter.HandleFunc("", orderHandler.ListOrders).Methods(http.MethodGet)
 
 	return r
 }

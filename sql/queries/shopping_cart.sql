@@ -24,3 +24,13 @@ FROM shopping_carts
 WHERE session_id = $1
 ORDER BY created_at DESC
 LIMIT 1;
+
+-- name: UpdateCartTotals :exec
+UPDATE shopping_carts sc
+SET total_price = (SELECT COALESCE(SUM(ci.price * ci.quantity), 0)
+    FROM cart_items ci
+    WHERE ci.shopping_cart_id = sc.id),
+    total_items = (SELECT COALESCE(SUM(ci.quantity), 0)
+                   FROM cart_items ci
+                   WHERE ci.shopping_cart_id = sc.id)
+WHERE sc.id = $1;

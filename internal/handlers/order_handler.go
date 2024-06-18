@@ -1,0 +1,167 @@
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"weblineBackend/internal/model"
+	"weblineBackend/internal/services"
+
+	"github.com/google/uuid"
+)
+
+type OrderHandler struct {
+	orderService *services.OrderService
+}
+
+func NewOrderHandler(orderService *services.OrderService) *OrderHandler {
+	return &OrderHandler{
+		orderService: orderService,
+	}
+}
+
+// CreateOrder creates a new order
+type CreateOrderRequest struct {
+	FirstName      string                  `json:"first_name"`
+	LastName       string                  `json:"last_name"`
+	StreetAddress  string                  `json:"street_address"`
+	City           string                  `json:"city"`
+	State          string                  `json:"state"`
+	Country        string                  `json:"country"`
+	Phone          string                  `json:"phone"`
+	Email          string                  `json:"email"`
+	ShippingOption string                  `json:"shipping_option"`
+	OrderItems     []CreateOrderItemParams `json:"order_items"`
+	Total          float64                 `json:"total"`
+}
+
+type CreateOrderItemParams struct {
+	ProductID        string   `json:"product_id"`
+	ProductOptionIDs []string `json:"product_option_id"`
+	ColorID          string   `json:"color_id"`
+	SizeID           string   `json:"size_id"`
+	Quantity         int32    `json:"quantity"`
+	Price            float64  `json:"price"`
+}
+
+func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	// Parse request
+	var req CreateOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	// Create order Params
+	orderParams := &model.CreateOrderParams{
+		GuestCheckoutID: uuid.NullUUID{UUID: uuid.Nil, Valid: false},
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		StreetAddress:   req.StreetAddress,
+		City:            req.City,
+		State:           req.State,
+		Country:         req.Country,
+		Phone:           req.Phone,
+		Email:           req.Email,
+		ShippingOption:  req.ShippingOption,
+		Total:           req.Total,
+	}
+
+	// Create order items
+	var orderItems []model.CreateOrderItemParams
+	for _, item := range req.OrderItems {
+		if item.ProductID == "" {
+			RespondWithError(w, http.StatusBadRequest, "Product ID is required")
+			return
+		}
+
+		productID, err := uuid.Parse(item.ProductID)
+		if err != nil {
+			RespondWithError(w, http.StatusBadRequest, "Invalid product ID")
+			return
+		}
+
+		var productOptionIDs []uuid.NullUUID
+		for _, optionID := range item.ProductOptionIDs {
+			if optionID == "" {
+				productOptionIDs = append(productOptionIDs, uuid.NullUUID{UUID: uuid.Nil, Valid: false})
+				continue
+			}
+
+			optionUUID, err := uuid.Parse(optionID)
+			if err != nil {
+				RespondWithError(w, http.StatusBadRequest, "Invalid product option ID")
+				return
+			}
+
+			productOptionIDs = append(productOptionIDs, uuid.NullUUID{UUID: optionUUID, Valid: true})
+		}
+
+		var colorID *uuid.NullUUID
+		if item.ColorID == "" {
+			colorID = &uuid.NullUUID{UUID: uuid.Nil, Valid: false}
+		} else {
+			colorUUID, err := uuid.Parse(item.ColorID)
+			if err != nil {
+				RespondWithError(w, http.StatusBadRequest, "Invalid color ID")
+				return
+			}
+			colorID = &uuid.NullUUID{UUID: colorUUID, Valid: true}
+		}
+
+		var sizeID *uuid.NullUUID
+		if item.SizeID == "" {
+			sizeID = &uuid.NullUUID{UUID: uuid.Nil, Valid: false}
+		} else {
+			sizeUUID, err := uuid.Parse(item.SizeID)
+			if err != nil {
+				RespondWithError(w, http.StatusBadRequest, "Invalid size ID")
+				return
+			}
+			sizeID = &uuid.NullUUID{UUID: sizeUUID, Valid: true}
+		}
+
+		orderItems = append(orderItems, model.CreateOrderItemParams{
+			ProductID:        productID,
+			ProductOptionIDs: productOptionIDs,
+			ColorID:          *colorID,
+			SizeID:           *sizeID,
+			Quantity:         item.Quantity,
+			Price:            strconv.FormatFloat(item.Price, 'f', -1, 64),
+		})
+	}
+
+	// Create order
+	orderID, err := h.orderService.CreateOrder(r.Context(), orderParams, orderItems)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Write response
+	RespondWithJSON(w, http.StatusCreated, orderID)
+}
+
+// ListOrders lists all orders for authenticated user
+func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context
+	userID := r.Context().Value("userId").(uuid.UUID)
+
+	if userID == uuid.Nil {
+		log.Println("Unauthorized")
+		RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Get orders
+	orders, err := h.orderService.ListOrders(r.Context(), userID)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list orders: %v", err))
+		return
+	}
+
+	// Write response
+	RespondWithJSON(w, http.StatusOK, orders)
+}

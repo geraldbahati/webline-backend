@@ -137,30 +137,30 @@ CREATE TABLE order_payments (
                                 order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
                                 payment_id VARCHAR(255) NOT NULL,
                                 status VARCHAR(50) NOT NULL, -- pending, paid, failed
-                                method VARCHAR(50) NOT NULL, -- cash, credit_card, debit_card, paypal
+                                method VARCHAR(50) NOT NULL, -- cash, credit_card, debit_card, paypal, mpesa
                                 amount DECIMAL(10, 2) NOT NULL,
                                 created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Order Shipments Table
 CREATE TABLE order_shipments (
-                                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                                 order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-                                 tracking_id VARCHAR(255) NOT NULL,
-                                 status VARCHAR(50) NOT NULL, -- pending, shipped, delivered
-                                 created_at TIMESTAMPTZ DEFAULT NOW()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    tracking_id VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL, -- pending, shipped, delivered
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Shopping Carts Table
 CREATE TABLE shopping_carts (
-                                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-                                session_id UUID DEFAULT gen_random_uuid(),
-                                total_items INT NOT NULL DEFAULT 0,
-                                total_price DECIMAL(10, 2) NOT NULL DEFAULT 0.0,
-                                created_at TIMESTAMPTZ DEFAULT NOW(),
-                                updated_at TIMESTAMPTZ DEFAULT NOW(),
-                                UNIQUE (user_id, session_id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    session_id UUID DEFAULT gen_random_uuid(),
+    total_items INT NOT NULL DEFAULT 0,
+    total_price DECIMAL(10, 2) NOT NULL DEFAULT 0.0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (user_id, session_id)
 );
 
 -- Cart Items Table

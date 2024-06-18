@@ -11,9 +11,11 @@ type ShoppingCart struct {
 }
 
 type CartItem struct {
-	ID             uuid.UUID `json:"id"`
-	ShoppingCartID uuid.UUID `json:"shoppingCartID"`
-	ProductID      uuid.UUID `json:"productID"`
-	Quantity       int32     `json:"quantity"`
-	Price          string    `json:"price"`
+	ID          uuid.UUID `json:"id"`
+	ProductID   uuid.UUID `json:"productID"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Quantity    int32     `json:"quantity"`
+	Price       string    `json:"price"`
+	ImageURL    string    `json:"imageURL"`
 }

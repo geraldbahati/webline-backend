@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"weblineBackend/internal/database"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"weblineBackend/internal/database"
 )
 
 type UserRepository struct {
@@ -69,7 +70,6 @@ func (r *UserRepository) CreateUser(
 	r.logger.Info("User created successfully", zap.String("userID", createdUser.ID.String()))
 	return database.User{
 		ID:              createdUser.ID,
-		Username:        createdUser.Username,
 		Email:           createdUser.Email,
 		FirstName:       createdUser.FirstName,
 		LastName:        createdUser.LastName,
@@ -93,31 +93,6 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (databas
 
 	return database.User{
 		ID:              user.ID,
-		Username:        user.Username,
-		Email:           user.Email,
-		FirstName:       user.FirstName,
-		LastName:        user.LastName,
-		PhoneNumber:     user.PhoneNumber,
-		ProfileImageUrl: user.ProfileImageUrl,
-		DateOfBirth:     user.DateOfBirth,
-		IsActive:        user.IsActive,
-		CreatedAt:       user.CreatedAt,
-		UpdatedAt:       user.UpdatedAt,
-		LastLogin:       user.LastLogin,
-	}, nil
-}
-
-// GetUserByUsername retrieves a user by username
-func (r *UserRepository) GetUserByUsername(ctx context.Context, username string) (database.User, error) {
-	user, err := r.Queries.GetUserByUsername(ctx, username)
-	if err != nil {
-		r.logger.Error("failed to get user by username", zap.Error(err))
-		return database.User{}, err
-	}
-
-	return database.User{
-		ID:              user.ID,
-		Username:        user.Username,
 		Email:           user.Email,
 		FirstName:       user.FirstName,
 		LastName:        user.LastName,
@@ -141,7 +116,6 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (data
 
 	return database.User{
 		ID:              user.ID,
-		Username:        user.Username,
 		Email:           user.Email,
 		FirstName:       user.FirstName,
 		LastName:        user.LastName,
@@ -169,7 +143,6 @@ func (r *UserRepository) UpdateUserProfile(
 	r.logger.Info("User profile updated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
-		Username:        updatedUser.Username,
 		Email:           updatedUser.Email,
 		FirstName:       updatedUser.FirstName,
 		LastName:        updatedUser.LastName,
@@ -197,7 +170,6 @@ func (r *UserRepository) UpdateUserPassword(
 	r.logger.Info("User password updated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
-		Username:        updatedUser.Username,
 		Email:           updatedUser.Email,
 		FirstName:       updatedUser.FirstName,
 		LastName:        updatedUser.LastName,
@@ -222,7 +194,6 @@ func (r *UserRepository) UpdateUserLastLogin(ctx context.Context, id uuid.UUID) 
 	r.logger.Info("User last login updated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
-		Username:        updatedUser.Username,
 		Email:           updatedUser.Email,
 		FirstName:       updatedUser.FirstName,
 		LastName:        updatedUser.LastName,
@@ -247,7 +218,6 @@ func (r *UserRepository) DeactivateUser(ctx context.Context, id uuid.UUID) (data
 	r.logger.Info("User deactivated successfully", zap.String("userID", updatedUser.ID.String()))
 	return database.User{
 		ID:              updatedUser.ID,
-		Username:        updatedUser.Username,
 		Email:           updatedUser.Email,
 		FirstName:       updatedUser.FirstName,
 		LastName:        updatedUser.LastName,
@@ -288,7 +258,6 @@ func (r *UserRepository) ListUsers(ctx context.Context, limit int32, offset int3
 	for i, user := range users {
 		userList[i] = database.User{
 			ID:              user.ID,
-			Username:        user.Username,
 			Email:           user.Email,
 			FirstName:       user.FirstName,
 			LastName:        user.LastName,
@@ -303,17 +272,6 @@ func (r *UserRepository) ListUsers(ctx context.Context, limit int32, offset int3
 	}
 
 	return userList, nil
-}
-
-// CountUsersByUsername retrieves a count of users by username
-func (r *UserRepository) CountUsersByUsername(ctx context.Context, username string) (int64, error) {
-	count, err := r.Queries.CountAllUsersByUsername(ctx, username)
-	if err != nil {
-		r.logger.Error("failed to count users by username", zap.Error(err))
-		return 0, err
-	}
-
-	return count, nil
 }
 
 // CountAllUsers gets the total number of users

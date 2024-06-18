@@ -2446,6 +2446,696 @@
           </option>
           <option name="workspaceId" value="drafts" />
         </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718350899076" />
+          <option name="id" value="ff54e89d-1e1e-41db-b321-cf1d112bf324" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;,&#10;  &quot;user_id&quot;:&quot;&quot;,&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/cart/create" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJpZCI6IjA5YTdlMWU1LTFjOWEtNDllNS1iZWQzLTQ4NDE3ZTFiZGI0YSIsInVzZXJJRCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMCIsInNlc3Npb25JRCI6ImQzNzdjNGE3LTgyODItNGVhZC1hYjcxLTY2NjQ4NzY1MDBiNiIsInRvdGFsSXRlbXMiOjAsInRvdGFsUHJpY2UiOjB9CnsiaWQiOiIwOWE3ZTFlNS0xYzlhLTQ5ZTUtYmVkMy00ODQxN2UxYmRiNGEiLCJ1c2VySUQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJzZXNzaW9uSUQiOiJkMzc3YzRhNy04MjgyLTRlYWQtYWI3MS02NjY0ODc2NTAwYjYiLCJ0b3RhbEl0ZW1zIjowLCJ0b3RhbFByaWNlIjowfQ==" />
+              <option name="bodyString" value="{&quot;id&quot;:&quot;09a7e1e5-1c9a-49e5-bed3-48417e1bdb4a&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;d377c4a7-8282-4ead-ab71-6664876500b6&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}&#10;{&quot;id&quot;:&quot;09a7e1e5-1c9a-49e5-bed3-48417e1bdb4a&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;d377c4a7-8282-4ead-ab71-6664876500b6&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}" />
+              <option name="code" value="200" />
+              <option name="contentType" value="text/plain; charset=utf-8" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Fri, 14 Jun 2024 07:41:39 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="349" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="text/plain; charset=utf-8" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="ff54e89d-1e1e-41db-b321-cf1d112bf324" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="TEXT" />
+              <option name="rawBodyString" value="{&quot;id&quot;:&quot;09a7e1e5-1c9a-49e5-bed3-48417e1bdb4a&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;d377c4a7-8282-4ead-ab71-6664876500b6&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}&#10;{&quot;id&quot;:&quot;09a7e1e5-1c9a-49e5-bed3-48417e1bdb4a&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;d377c4a7-8282-4ead-ab71-6664876500b6&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}" />
+              <option name="size" value="349" />
+              <option name="time" value="17" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718351073024" />
+          <option name="id" value="ae904693-8b65-40c4-9b2f-0dd4e130b065" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;,&#10;  &quot;user_id&quot;:&quot;&quot;,&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/cart/create" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJpZCI6IjE1ZTkwYmU3LTdlYmMtNDc2Yi1hMTJiLTNkNzIzZTJlMzAzYyIsInVzZXJJRCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMCIsInNlc3Npb25JRCI6IjllZDQ4MDdlLTllYzctNDNiZi04NTAyLWRkMzFhZWYxZjA4MiIsInRvdGFsSXRlbXMiOjAsInRvdGFsUHJpY2UiOjB9CnsiaWQiOiIxNWU5MGJlNy03ZWJjLTQ3NmItYTEyYi0zZDcyM2UyZTMwM2MiLCJ1c2VySUQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJzZXNzaW9uSUQiOiI5ZWQ0ODA3ZS05ZWM3LTQzYmYtODUwMi1kZDMxYWVmMWYwODIiLCJ0b3RhbEl0ZW1zIjowLCJ0b3RhbFByaWNlIjowfQ==" />
+              <option name="bodyString" value="{&quot;id&quot;:&quot;15e90be7-7ebc-476b-a12b-3d723e2e303c&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;9ed4807e-9ec7-43bf-8502-dd31aef1f082&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}&#10;{&quot;id&quot;:&quot;15e90be7-7ebc-476b-a12b-3d723e2e303c&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;9ed4807e-9ec7-43bf-8502-dd31aef1f082&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}" />
+              <option name="code" value="200" />
+              <option name="contentType" value="text/plain; charset=utf-8" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Fri, 14 Jun 2024 07:44:33 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="349" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="text/plain; charset=utf-8" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="ae904693-8b65-40c4-9b2f-0dd4e130b065" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="TEXT" />
+              <option name="rawBodyString" value="{&quot;id&quot;:&quot;15e90be7-7ebc-476b-a12b-3d723e2e303c&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;9ed4807e-9ec7-43bf-8502-dd31aef1f082&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}&#10;{&quot;id&quot;:&quot;15e90be7-7ebc-476b-a12b-3d723e2e303c&quot;,&quot;userID&quot;:&quot;00000000-0000-0000-0000-000000000000&quot;,&quot;sessionID&quot;:&quot;9ed4807e-9ec7-43bf-8502-dd31aef1f082&quot;,&quot;totalItems&quot;:0,&quot;totalPrice&quot;:0}" />
+              <option name="size" value="349" />
+              <option name="time" value="6" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718374279885" />
+          <option name="id" value="39669e9d-96eb-4feb-b196-2a5c9cbca50d" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;,&#10;  &quot;user_id&quot;:&quot;&quot;,&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="GET" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/cart/items/c302c948-7bcc-412f-b9a7-38aefb67bfb9" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="W3siaWQiOiI3Nzc2N2MyZS05MWMzLTQ5NzktOWFlMy02MjI0MzUwYWFmOGQiLCJwcm9kdWN0SUQiOiI1NTM2ZTg5ZS00YmUyLTRjZDUtODk1OS0yY2NkZmQzMjM2MTgiLCJuYW1lIjoiQVNVUyBFNDEwTUEtQlYxNTE3IiwiZGVzY3JpcHRpb24iOiJJbnRlbCBDZWxlcm9uIE40MDIwLCA0R0IgRERSNCAyNjY2LCAyNTZHQiBNLjIgTlZNZSBQQ0llIDMuMCBTU0QsIE5vIE9TLCAxNFwiIEhELCBObyBPREQsIFdpLUZpIDUgKDgwMi4xMWFjKSAoRHVhbCBiYW5kKSAxKjEgKyBCbHVldG9vdGggNS4xLCBXZWJjYW0sIENoaWNsZXQgS2V5Ym9hcmQsIFN0YXIgQmxhY2ssIDEgWWVhciBXYXJyYW50eSwgUG9ydHM6IE9uZSBVU0IgMi4wIFR5cGUtQSwgT25lIFVTQiAzLjIgR2VuIDEgVHlwZS1BLCBPbmUgVVNCIDMuMiBHZW4gMSBUeXBlLUMsIE9uZSBIRE1JIDEuNCwgT25lIEhlYWRwaG9uZS9IZWFkc2V0IC0gOTBOQjBRMTUtTTAwN0UwIiwicXVhbnRpdHkiOjcsInByaWNlIjoiMjcwMDAuMDAiLCJpbWFnZVVSTCI6Imh0dHBzOi8vd2VibGluZWJ1Y2tldC5zMy51cy1lYXN0LTEuYW1hem9uYXdzLmNvbS9wcm9kdWN0LWltYWdlcy8xNzE3MzkzMzUzLWFzdXMtMS5wbmcifSx7ImlkIjoiYjlkOGZlZDAtNTIwMy00Yzk2LWEwZTEtMDIyMjVkMmZlNGFhIiwicHJvZHVjdElEIjoiNzQyNWJhODUtZmZmNC00YzcyLWEyY2EtNTgzZTg0NjJiNWE1IiwibmFtZSI6IkRlbGwgT3B0aVBsZXggMzAwMCBUb3dlciIsImRlc2NyaXB0aW9uIjoiSW50ZWwgQ29yZSBpNSAxMjUwMCwgNEdCIEREUjQgMzIwMCwgMjU2R0IgUENJZSBOVk1lIE0uMiBTU0QsIFVidW50dSwgRFZEwrFSVywgV2lyZWQgS2V5Ym9hcmQgYW5kIE1vdXNlLCBCbGFjaywgMSBZZWFyIFdhcnJhbnR5LCBGcm9udCBQb3J0czogT25lIFVuaXZlcnNhbCBBdWRpbyBKYWNrLCBUd28gVVNCIDIuMCBQb3J0cywgVHdvIFVTQiAzLjIgR2VuIDEgUG9ydHMsIFJlYXIgUG9ydHM6IFR3byBVU0IgMy4yIEdlbiAxIFBvcnRzLCBUd28gVVNCIDIuMCBQb3J0cyB3aXRoIFNtYXJ0IFBvd2VyIE9uLCBPbmUgUko0NSBFdGhlcm5ldCBQb3J0LCBPbmUgRGlzcGxheVBvcnQgMS40IFBvcnQsIE9uZSBIRE1JIDEuNGIgUG9ydCwgS2Vuc2luZ3RvbiBTZWN1cml0eSBTbG90IC0gTjAxNU8zMDAwTVRBQ19FTSIsInF1YW50aXR5Ijo2LCJwcmljZSI6IjYwMDAwLjAwIiwiaW1hZ2VVUkwiOiJodHRwczovL3dlYmxpbmVidWNrZXQuczMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vcHJvZHVjdC1pbWFnZXMvMTcxNzM5NTA2NC1EZWxsIE9wdGlQbGV4IDMwMDAgVG93ZXItMS5wbmcifSx7ImlkIjoiNDliYjJjZDUtNDg4Yi00ZWFmLWE2YTktNzUwZGMzZTI3YWFhIiwicHJvZHVjdElEIjoiNzRkZjFmNTUtZmUzMi00ZjkwLWFmMDQtNGUwOTYwNmVjOGQ4IiwibmFtZSI6IkRlbGwgSW5zcGlyb24gMTQgNzQzMCAyLWluLTEiLCJkZXNjcmlwdGlvbiI6IkludGVsIENvcmUgaTcgMTM1NVUsIDE2R0IgTFBERFI1IDQ4MDAgKG9uYm9hcmQpLCAxVEIgTS4yIFBDSWUgTlZNZSBTU0QsIFdpbmRvd3MgMTEgSG9tZSwgMTRcIiBGSEQrIFRvdWNoIFNjcmVlbiwgTm8gT0RELCBJbnRlbCBXaS1GaSA2RSBBWDIxMSAyeDIgODAyLjExYXggYW5kIEJsdWV0b290aCB3aXJlbGVzcyBjYXJkLCBJbnRlZ3JhdGVkIFdpZGVzY3JlZW4gRkhEICgxMDgwcCkgV2ViY2FtIHdpdGggRHVhbCBEaWdpdGFsIE1pY3JvcGhvbmUgQXJyYXkgd2l0aCBUZW1wb3JhbCBOb2lzZSBSZWR1Y3Rpb24gZW5hYmxlZCwgU3BlYWtlcnMsIEZpbmdlcnByaW50IFJlYWRlciwgQmFja2xpdCBLZXlib2FyZCwgUGxhdGludW0gU2lsdmVyLCAxIFllYXIgV2FycmFudHkgZnJvbSBTZWxsZXIsIFBvcnRzOiBUd28gVGh1bmRlcmJvbHQgNCwgT25lIFVTQiAzLjIgR2VuIDEgVHlwZS1BLCBPbmUgSERNSSAxLjQsIE9uZSBVbml2ZXJzYWwgQXVkaW8gSmFjaywgT25lIFN0YW5kYXJkIFNEIGNhcmQgcmVhZGVyIiwicXVhbnRpdHkiOjEsInByaWNlIjoiMTMwMDAwLjAwIiwiaW1hZ2VVUkwiOiJodHRwczovL3dlYmxpbmVidWNrZXQuczMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vcHJvZHVjdC1pbWFnZXMvMTcxNzM5NDY2NS1EZWxsIEluc3Bpcm9uLTMucG5nIn1d" />
+              <option name="bodyString" value="[&#10;  {&#10;    &quot;id&quot;: &quot;77767c2e-91c3-4979-9ae3-6224350aaf8d&quot;,&#10;    &quot;productID&quot;: &quot;5536e89e-4be2-4cd5-8959-2ccdfd323618&quot;,&#10;    &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;    &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty, Ports: One USB 2.0 Type-A, One USB 3.2 Gen 1 Type-A, One USB 3.2 Gen 1 Type-C, One HDMI 1.4, One Headphone/Headset - 90NB0Q15-M007E0&quot;,&#10;    &quot;quantity&quot;: 7,&#10;    &quot;price&quot;: &quot;27000.00&quot;,&#10;    &quot;imageURL&quot;: &quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717393353-asus-1.png&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;b9d8fed0-5203-4c96-a0e1-02225d2fe4aa&quot;,&#10;    &quot;productID&quot;: &quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&#10;    &quot;name&quot;: &quot;Dell OptiPlex 3000 Tower&quot;,&#10;    &quot;description&quot;: &quot;Intel Core i5 12500, 4GB DDR4 3200, 256GB PCIe NVMe M.2 SSD, Ubuntu, DVD±RW, Wired Keyboard and Mouse, Black, 1 Year Warranty, Front Ports: One Universal Audio Jack, Two USB 2.0 Ports, Two USB 3.2 Gen 1 Ports, Rear Ports: Two USB 3.2 Gen 1 Ports, Two USB 2.0 Ports with Smart Power On, One RJ45 Ethernet Port, One DisplayPort 1.4 Port, One HDMI 1.4b Port, Kensington Security Slot - N015O3000MTAC_EM&quot;,&#10;    &quot;quantity&quot;: 6,&#10;    &quot;price&quot;: &quot;60000.00&quot;,&#10;    &quot;imageURL&quot;: &quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717395064-Dell OptiPlex 3000 Tower-1.png&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;49bb2cd5-488b-4eaf-a6a9-750dc3e27aaa&quot;,&#10;    &quot;productID&quot;: &quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&#10;    &quot;name&quot;: &quot;Dell Inspiron 14 7430 2-in-1&quot;,&#10;    &quot;description&quot;: &quot;Intel Core i7 1355U, 16GB LPDDR5 4800 (onboard), 1TB M.2 PCIe NVMe SSD, Windows 11 Home, 14\&quot; FHD+ Touch Screen, No ODD, Intel Wi-Fi 6E AX211 2x2 802.11ax and Bluetooth wireless card, Integrated Widescreen FHD (1080p) Webcam with Dual Digital Microphone Array with Temporal Noise Reduction enabled, Speakers, Fingerprint Reader, Backlit Keyboard, Platinum Silver, 1 Year Warranty from Seller, Ports: Two Thunderbolt 4, One USB 3.2 Gen 1 Type-A, One HDMI 1.4, One Universal Audio Jack, One Standard SD card reader&quot;,&#10;    &quot;quantity&quot;: 1,&#10;    &quot;price&quot;: &quot;130000.00&quot;,&#10;    &quot;imageURL&quot;: &quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717394665-Dell Inspiron-3.png&quot;&#10;  }&#10;]" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Fri, 14 Jun 2024 14:11:19 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Transfer-Encoding" />
+                    <option name="value" value="chunked" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="39669e9d-96eb-4feb-b196-2a5c9cbca50d" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="[{&quot;id&quot;:&quot;77767c2e-91c3-4979-9ae3-6224350aaf8d&quot;,&quot;productID&quot;:&quot;5536e89e-4be2-4cd5-8959-2ccdfd323618&quot;,&quot;name&quot;:&quot;ASUS E410MA-BV1517&quot;,&quot;description&quot;:&quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty, Ports: One USB 2.0 Type-A, One USB 3.2 Gen 1 Type-A, One USB 3.2 Gen 1 Type-C, One HDMI 1.4, One Headphone/Headset - 90NB0Q15-M007E0&quot;,&quot;quantity&quot;:7,&quot;price&quot;:&quot;27000.00&quot;,&quot;imageURL&quot;:&quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717393353-asus-1.png&quot;},{&quot;id&quot;:&quot;b9d8fed0-5203-4c96-a0e1-02225d2fe4aa&quot;,&quot;productID&quot;:&quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&quot;name&quot;:&quot;Dell OptiPlex 3000 Tower&quot;,&quot;description&quot;:&quot;Intel Core i5 12500, 4GB DDR4 3200, 256GB PCIe NVMe M.2 SSD, Ubuntu, DVD±RW, Wired Keyboard and Mouse, Black, 1 Year Warranty, Front Ports: One Universal Audio Jack, Two USB 2.0 Ports, Two USB 3.2 Gen 1 Ports, Rear Ports: Two USB 3.2 Gen 1 Ports, Two USB 2.0 Ports with Smart Power On, One RJ45 Ethernet Port, One DisplayPort 1.4 Port, One HDMI 1.4b Port, Kensington Security Slot - N015O3000MTAC_EM&quot;,&quot;quantity&quot;:6,&quot;price&quot;:&quot;60000.00&quot;,&quot;imageURL&quot;:&quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717395064-Dell OptiPlex 3000 Tower-1.png&quot;},{&quot;id&quot;:&quot;49bb2cd5-488b-4eaf-a6a9-750dc3e27aaa&quot;,&quot;productID&quot;:&quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&quot;name&quot;:&quot;Dell Inspiron 14 7430 2-in-1&quot;,&quot;description&quot;:&quot;Intel Core i7 1355U, 16GB LPDDR5 4800 (onboard), 1TB M.2 PCIe NVMe SSD, Windows 11 Home, 14\&quot; FHD+ Touch Screen, No ODD, Intel Wi-Fi 6E AX211 2x2 802.11ax and Bluetooth wireless card, Integrated Widescreen FHD (1080p) Webcam with Dual Digital Microphone Array with Temporal Noise Reduction enabled, Speakers, Fingerprint Reader, Backlit Keyboard, Platinum Silver, 1 Year Warranty from Seller, Ports: Two Thunderbolt 4, One USB 3.2 Gen 1 Type-A, One HDMI 1.4, One Universal Audio Jack, One Standard SD card reader&quot;,&quot;quantity&quot;:1,&quot;price&quot;:&quot;130000.00&quot;,&quot;imageURL&quot;:&quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717394665-Dell Inspiron-3.png&quot;}]" />
+              <option name="size" value="2106" />
+              <option name="time" value="20" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718374781533" />
+          <option name="id" value="52591745-7c79-4f70-9352-0fcf402f5ce7" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;,&#10;  &quot;user_id&quot;:&quot;&quot;,&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="GET" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/cart/items/c302c948-7bcc-412f-b9a7-38aefb67bfb9" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="W3siaWQiOiJiOWQ4ZmVkMC01MjAzLTRjOTYtYTBlMS0wMjIyNWQyZmU0YWEiLCJwcm9kdWN0SUQiOiI3NDI1YmE4NS1mZmY0LTRjNzItYTJjYS01ODNlODQ2MmI1YTUiLCJuYW1lIjoiRGVsbCBPcHRpUGxleCAzMDAwIFRvd2VyIiwiZGVzY3JpcHRpb24iOiJJbnRlbCBDb3JlIGk1IDEyNTAwLCA0R0IgRERSNCAzMjAwLCAyNTZHQiBQQ0llIE5WTWUgTS4yIFNTRCwgVWJ1bnR1LCBEVkTCsVJXLCBXaXJlZCBLZXlib2FyZCBhbmQgTW91c2UsIEJsYWNrLCAxIFllYXIgV2FycmFudHksIEZyb250IFBvcnRzOiBPbmUgVW5pdmVyc2FsIEF1ZGlvIEphY2ssIFR3byBVU0IgMi4wIFBvcnRzLCBUd28gVVNCIDMuMiBHZW4gMSBQb3J0cywgUmVhciBQb3J0czogVHdvIFVTQiAzLjIgR2VuIDEgUG9ydHMsIFR3byBVU0IgMi4wIFBvcnRzIHdpdGggU21hcnQgUG93ZXIgT24sIE9uZSBSSjQ1IEV0aGVybmV0IFBvcnQsIE9uZSBEaXNwbGF5UG9ydCAxLjQgUG9ydCwgT25lIEhETUkgMS40YiBQb3J0LCBLZW5zaW5ndG9uIFNlY3VyaXR5IFNsb3QgLSBOMDE1TzMwMDBNVEFDX0VNIiwicXVhbnRpdHkiOjcsInByaWNlIjoiNjAwMDAuMDAiLCJpbWFnZVVSTCI6Imh0dHBzOi8vd2VibGluZWJ1Y2tldC5zMy51cy1lYXN0LTEuYW1hem9uYXdzLmNvbS9wcm9kdWN0LWltYWdlcy8xNzE3Mzk1MDY0LURlbGwgT3B0aVBsZXggMzAwMCBUb3dlci0xLnBuZyJ9LHsiaWQiOiI0OWJiMmNkNS00ODhiLTRlYWYtYTZhOS03NTBkYzNlMjdhYWEiLCJwcm9kdWN0SUQiOiI3NGRmMWY1NS1mZTMyLTRmOTAtYWYwNC00ZTA5NjA2ZWM4ZDgiLCJuYW1lIjoiRGVsbCBJbnNwaXJvbiAxNCA3NDMwIDItaW4tMSIsImRlc2NyaXB0aW9uIjoiSW50ZWwgQ29yZSBpNyAxMzU1VSwgMTZHQiBMUEREUjUgNDgwMCAob25ib2FyZCksIDFUQiBNLjIgUENJZSBOVk1lIFNTRCwgV2luZG93cyAxMSBIb21lLCAxNFwiIEZIRCsgVG91Y2ggU2NyZWVuLCBObyBPREQsIEludGVsIFdpLUZpIDZFIEFYMjExIDJ4MiA4MDIuMTFheCBhbmQgQmx1ZXRvb3RoIHdpcmVsZXNzIGNhcmQsIEludGVncmF0ZWQgV2lkZXNjcmVlbiBGSEQgKDEwODBwKSBXZWJjYW0gd2l0aCBEdWFsIERpZ2l0YWwgTWljcm9waG9uZSBBcnJheSB3aXRoIFRlbXBvcmFsIE5vaXNlIFJlZHVjdGlvbiBlbmFibGVkLCBTcGVha2VycywgRmluZ2VycHJpbnQgUmVhZGVyLCBCYWNrbGl0IEtleWJvYXJkLCBQbGF0aW51bSBTaWx2ZXIsIDEgWWVhciBXYXJyYW50eSBmcm9tIFNlbGxlciwgUG9ydHM6IFR3byBUaHVuZGVyYm9sdCA0LCBPbmUgVVNCIDMuMiBHZW4gMSBUeXBlLUEsIE9uZSBIRE1JIDEuNCwgT25lIFVuaXZlcnNhbCBBdWRpbyBKYWNrLCBPbmUgU3RhbmRhcmQgU0QgY2FyZCByZWFkZXIiLCJxdWFudGl0eSI6MiwicHJpY2UiOiIxMzAwMDAuMDAiLCJpbWFnZVVSTCI6Imh0dHBzOi8vd2VibGluZWJ1Y2tldC5zMy51cy1lYXN0LTEuYW1hem9uYXdzLmNvbS9wcm9kdWN0LWltYWdlcy8xNzE3Mzk0NjY1LURlbGwgSW5zcGlyb24tMy5wbmcifV0=" />
+              <option name="bodyString" value="[&#10;  {&#10;    &quot;id&quot;: &quot;b9d8fed0-5203-4c96-a0e1-02225d2fe4aa&quot;,&#10;    &quot;productID&quot;: &quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&#10;    &quot;name&quot;: &quot;Dell OptiPlex 3000 Tower&quot;,&#10;    &quot;description&quot;: &quot;Intel Core i5 12500, 4GB DDR4 3200, 256GB PCIe NVMe M.2 SSD, Ubuntu, DVD±RW, Wired Keyboard and Mouse, Black, 1 Year Warranty, Front Ports: One Universal Audio Jack, Two USB 2.0 Ports, Two USB 3.2 Gen 1 Ports, Rear Ports: Two USB 3.2 Gen 1 Ports, Two USB 2.0 Ports with Smart Power On, One RJ45 Ethernet Port, One DisplayPort 1.4 Port, One HDMI 1.4b Port, Kensington Security Slot - N015O3000MTAC_EM&quot;,&#10;    &quot;quantity&quot;: 7,&#10;    &quot;price&quot;: &quot;60000.00&quot;,&#10;    &quot;imageURL&quot;: &quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717395064-Dell OptiPlex 3000 Tower-1.png&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;49bb2cd5-488b-4eaf-a6a9-750dc3e27aaa&quot;,&#10;    &quot;productID&quot;: &quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&#10;    &quot;name&quot;: &quot;Dell Inspiron 14 7430 2-in-1&quot;,&#10;    &quot;description&quot;: &quot;Intel Core i7 1355U, 16GB LPDDR5 4800 (onboard), 1TB M.2 PCIe NVMe SSD, Windows 11 Home, 14\&quot; FHD+ Touch Screen, No ODD, Intel Wi-Fi 6E AX211 2x2 802.11ax and Bluetooth wireless card, Integrated Widescreen FHD (1080p) Webcam with Dual Digital Microphone Array with Temporal Noise Reduction enabled, Speakers, Fingerprint Reader, Backlit Keyboard, Platinum Silver, 1 Year Warranty from Seller, Ports: Two Thunderbolt 4, One USB 3.2 Gen 1 Type-A, One HDMI 1.4, One Universal Audio Jack, One Standard SD card reader&quot;,&#10;    &quot;quantity&quot;: 2,&#10;    &quot;price&quot;: &quot;130000.00&quot;,&#10;    &quot;imageURL&quot;: &quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717394665-Dell Inspiron-3.png&quot;&#10;  }&#10;]" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Fri, 14 Jun 2024 14:19:41 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="1505" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="52591745-7c79-4f70-9352-0fcf402f5ce7" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="[{&quot;id&quot;:&quot;b9d8fed0-5203-4c96-a0e1-02225d2fe4aa&quot;,&quot;productID&quot;:&quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&quot;name&quot;:&quot;Dell OptiPlex 3000 Tower&quot;,&quot;description&quot;:&quot;Intel Core i5 12500, 4GB DDR4 3200, 256GB PCIe NVMe M.2 SSD, Ubuntu, DVD±RW, Wired Keyboard and Mouse, Black, 1 Year Warranty, Front Ports: One Universal Audio Jack, Two USB 2.0 Ports, Two USB 3.2 Gen 1 Ports, Rear Ports: Two USB 3.2 Gen 1 Ports, Two USB 2.0 Ports with Smart Power On, One RJ45 Ethernet Port, One DisplayPort 1.4 Port, One HDMI 1.4b Port, Kensington Security Slot - N015O3000MTAC_EM&quot;,&quot;quantity&quot;:7,&quot;price&quot;:&quot;60000.00&quot;,&quot;imageURL&quot;:&quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717395064-Dell OptiPlex 3000 Tower-1.png&quot;},{&quot;id&quot;:&quot;49bb2cd5-488b-4eaf-a6a9-750dc3e27aaa&quot;,&quot;productID&quot;:&quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&quot;name&quot;:&quot;Dell Inspiron 14 7430 2-in-1&quot;,&quot;description&quot;:&quot;Intel Core i7 1355U, 16GB LPDDR5 4800 (onboard), 1TB M.2 PCIe NVMe SSD, Windows 11 Home, 14\&quot; FHD+ Touch Screen, No ODD, Intel Wi-Fi 6E AX211 2x2 802.11ax and Bluetooth wireless card, Integrated Widescreen FHD (1080p) Webcam with Dual Digital Microphone Array with Temporal Noise Reduction enabled, Speakers, Fingerprint Reader, Backlit Keyboard, Platinum Silver, 1 Year Warranty from Seller, Ports: Two Thunderbolt 4, One USB 3.2 Gen 1 Type-A, One HDMI 1.4, One Universal Audio Jack, One Standard SD card reader&quot;,&quot;quantity&quot;:2,&quot;price&quot;:&quot;130000.00&quot;,&quot;imageURL&quot;:&quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717394665-Dell Inspiron-3.png&quot;}]" />
+              <option name="size" value="1505" />
+              <option name="time" value="6" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718526032689" />
+          <option name="id" value="71518af6-2f37-42a2-b746-29ae5989e936" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;first_name&quot;: &quot;John&quot;,&#10;  &quot;last_name&quot;: &quot;Doe&quot;,&#10;  &quot;street_address&quot;: &quot;123 Main St&quot;,&#10;  &quot;city&quot;: &quot;Springfield&quot;,&#10;  &quot;state&quot;: &quot;IL&quot;,&#10;  &quot;country&quot;: &quot;USA&quot;,&#10;  &quot;phone&quot;: &quot;555-1234&quot;,&#10;  &quot;email&quot;: &quot;john.doe@example.com&quot;,&#10;  &quot;shipping_option&quot;: &quot;standard&quot;,&#10;  &quot;order_items&quot;: [&#10;    {&#10;      &quot;product_id&quot;: &quot;b5f5a1d6-3f6a-4e8d-b8d1-0c6383fa7a67&quot;,&#10;      &quot;product_option_id&quot;: [&quot;option1-id&quot;, &quot;option2-id&quot;],&#10;      &quot;color_id&quot;: &quot;a34b1d56-2a76-4c7b-9f14-0c9b9a1f85e6&quot;,&#10;      &quot;size_id&quot;: &quot;d9b8f3e5-4a6a-4b7a-8f3a-0c7b9b1f85e7&quot;,&#10;      &quot;quantity&quot;: 2,&#10;      &quot;price&quot;: 49.99&#10;    },&#10;    {&#10;      &quot;product_id&quot;: &quot;c6e6b2f7-4f6b-4e8e-b9d2-0d7394fa8a78&quot;,&#10;      &quot;product_option_id&quot;: [],&#10;      &quot;color_id&quot;: &quot;&quot;,&#10;      &quot;size_id&quot;: &quot;&quot;,&#10;      &quot;quantity&quot;: 1,&#10;      &quot;price&quot;: 19.99&#10;    }&#10;  ],&#10;  &quot;total&quot;: 119.97&#10;}&#10;&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/orders" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJlcnJvciI6IkludmFsaWQgcmVxdWVzdCBwYXlsb2FkIn0=" />
+              <option name="bodyString" value="{&#10;  &quot;error&quot;: &quot;Invalid request payload&quot;&#10;}" />
+              <option name="code" value="400" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Sun, 16 Jun 2024 08:20:32 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="35" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="71518af6-2f37-42a2-b746-29ae5989e936" />
+              <option name="message" value="Bad Request" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;error&quot;:&quot;Invalid request payload&quot;}" />
+              <option name="size" value="35" />
+              <option name="time" value="3" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718526118508" />
+          <option name="id" value="567467a6-ca88-4dd2-818b-6e01b6934cc5" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;first_name&quot;: &quot;John&quot;,&#10;  &quot;last_name&quot;: &quot;Doe&quot;,&#10;  &quot;street_address&quot;: &quot;123 Main St&quot;,&#10;  &quot;city&quot;: &quot;Springfield&quot;,&#10;  &quot;state&quot;: &quot;IL&quot;,&#10;  &quot;country&quot;: &quot;USA&quot;,&#10;  &quot;phone&quot;: &quot;555-1234&quot;,&#10;  &quot;email&quot;: &quot;john.doe@example.com&quot;,&#10;  &quot;shipping_option&quot;: &quot;standard&quot;,&#10;  &quot;order_items&quot;: [&#10;    {&#10;      &quot;product_id&quot;: &quot;b5f5a1d6-3f6a-4e8d-b8d1-0c6383fa7a67&quot;,&#10;      &quot;product_option_id&quot;: [&quot;option1-id&quot;, &quot;option2-id&quot;],&#10;      &quot;color_id&quot;: &quot;a34b1d56-2a76-4c7b-9f14-0c9b9a1f85e6&quot;,&#10;      &quot;size_id&quot;: &quot;d9b8f3e5-4a6a-4b7a-8f3a-0c7b9b1f85e7&quot;,&#10;      &quot;quantity&quot;: 2,&#10;      &quot;price&quot;: &quot;49.99&quot;&#10;    },&#10;    {&#10;      &quot;product_id&quot;: &quot;c6e6b2f7-4f6b-4e8e-b9d2-0d7394fa8a78&quot;,&#10;      &quot;product_option_id&quot;: [],&#10;      &quot;color_id&quot;: &quot;&quot;,&#10;      &quot;size_id&quot;: &quot;&quot;,&#10;      &quot;quantity&quot;: 1,&#10;      &quot;price&quot;: &quot;19.99&quot;&#10;    }&#10;  ],&#10;  &quot;total&quot;: 119.97&#10;}&#10;&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/orders" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJlcnJvciI6IkludmFsaWQgcHJvZHVjdCBvcHRpb24gSUQifQ==" />
+              <option name="bodyString" value="{&#10;  &quot;error&quot;: &quot;Invalid product option ID&quot;&#10;}" />
+              <option name="code" value="400" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Sun, 16 Jun 2024 08:21:58 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="37" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="567467a6-ca88-4dd2-818b-6e01b6934cc5" />
+              <option name="message" value="Bad Request" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;error&quot;:&quot;Invalid product option ID&quot;}" />
+              <option name="size" value="37" />
+              <option name="time" value="10" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718526119146" />
+          <option name="id" value="32ea00fd-73e5-4285-a1af-0f999d29e3aa" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;first_name&quot;: &quot;John&quot;,&#10;  &quot;last_name&quot;: &quot;Doe&quot;,&#10;  &quot;street_address&quot;: &quot;123 Main St&quot;,&#10;  &quot;city&quot;: &quot;Springfield&quot;,&#10;  &quot;state&quot;: &quot;IL&quot;,&#10;  &quot;country&quot;: &quot;USA&quot;,&#10;  &quot;phone&quot;: &quot;555-1234&quot;,&#10;  &quot;email&quot;: &quot;john.doe@example.com&quot;,&#10;  &quot;shipping_option&quot;: &quot;standard&quot;,&#10;  &quot;order_items&quot;: [&#10;    {&#10;      &quot;product_id&quot;: &quot;b5f5a1d6-3f6a-4e8d-b8d1-0c6383fa7a67&quot;,&#10;      &quot;product_option_id&quot;: [&quot;option1-id&quot;, &quot;option2-id&quot;],&#10;      &quot;color_id&quot;: &quot;a34b1d56-2a76-4c7b-9f14-0c9b9a1f85e6&quot;,&#10;      &quot;size_id&quot;: &quot;d9b8f3e5-4a6a-4b7a-8f3a-0c7b9b1f85e7&quot;,&#10;      &quot;quantity&quot;: 2,&#10;      &quot;price&quot;: &quot;49.99&quot;&#10;    },&#10;    {&#10;      &quot;product_id&quot;: &quot;c6e6b2f7-4f6b-4e8e-b9d2-0d7394fa8a78&quot;,&#10;      &quot;product_option_id&quot;: [],&#10;      &quot;color_id&quot;: &quot;&quot;,&#10;      &quot;size_id&quot;: &quot;&quot;,&#10;      &quot;quantity&quot;: 1,&#10;      &quot;price&quot;: &quot;19.99&quot;&#10;    }&#10;  ],&#10;  &quot;total&quot;: 119.97&#10;}&#10;&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/orders" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJlcnJvciI6IkludmFsaWQgcHJvZHVjdCBvcHRpb24gSUQifQ==" />
+              <option name="bodyString" value="{&#10;  &quot;error&quot;: &quot;Invalid product option ID&quot;&#10;}" />
+              <option name="code" value="400" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Sun, 16 Jun 2024 08:21:59 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="37" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="32ea00fd-73e5-4285-a1af-0f999d29e3aa" />
+              <option name="message" value="Bad Request" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;error&quot;:&quot;Invalid product option ID&quot;}" />
+              <option name="size" value="37" />
+              <option name="time" value="4" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718526119334" />
+          <option name="id" value="a32fc2d1-a13b-4a4c-8749-4468f8864f15" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;first_name&quot;: &quot;John&quot;,&#10;  &quot;last_name&quot;: &quot;Doe&quot;,&#10;  &quot;street_address&quot;: &quot;123 Main St&quot;,&#10;  &quot;city&quot;: &quot;Springfield&quot;,&#10;  &quot;state&quot;: &quot;IL&quot;,&#10;  &quot;country&quot;: &quot;USA&quot;,&#10;  &quot;phone&quot;: &quot;555-1234&quot;,&#10;  &quot;email&quot;: &quot;john.doe@example.com&quot;,&#10;  &quot;shipping_option&quot;: &quot;standard&quot;,&#10;  &quot;order_items&quot;: [&#10;    {&#10;      &quot;product_id&quot;: &quot;b5f5a1d6-3f6a-4e8d-b8d1-0c6383fa7a67&quot;,&#10;      &quot;product_option_id&quot;: [&quot;option1-id&quot;, &quot;option2-id&quot;],&#10;      &quot;color_id&quot;: &quot;a34b1d56-2a76-4c7b-9f14-0c9b9a1f85e6&quot;,&#10;      &quot;size_id&quot;: &quot;d9b8f3e5-4a6a-4b7a-8f3a-0c7b9b1f85e7&quot;,&#10;      &quot;quantity&quot;: 2,&#10;      &quot;price&quot;: &quot;49.99&quot;&#10;    },&#10;    {&#10;      &quot;product_id&quot;: &quot;c6e6b2f7-4f6b-4e8e-b9d2-0d7394fa8a78&quot;,&#10;      &quot;product_option_id&quot;: [],&#10;      &quot;color_id&quot;: &quot;&quot;,&#10;      &quot;size_id&quot;: &quot;&quot;,&#10;      &quot;quantity&quot;: 1,&#10;      &quot;price&quot;: &quot;19.99&quot;&#10;    }&#10;  ],&#10;  &quot;total&quot;: 119.97&#10;}&#10;&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/orders" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJlcnJvciI6IkludmFsaWQgcHJvZHVjdCBvcHRpb24gSUQifQ==" />
+              <option name="bodyString" value="{&#10;  &quot;error&quot;: &quot;Invalid product option ID&quot;&#10;}" />
+              <option name="code" value="400" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Sun, 16 Jun 2024 08:21:59 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="37" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="a32fc2d1-a13b-4a4c-8749-4468f8864f15" />
+              <option name="message" value="Bad Request" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;error&quot;:&quot;Invalid product option ID&quot;}" />
+              <option name="size" value="37" />
+              <option name="time" value="2" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718526296797" />
+          <option name="id" value="8e884421-bb5f-4097-90dc-3f1eb9615654" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;first_name&quot;: &quot;John&quot;,&#10;  &quot;last_name&quot;: &quot;Doe&quot;,&#10;  &quot;street_address&quot;: &quot;123 Main St&quot;,&#10;  &quot;city&quot;: &quot;Springfield&quot;,&#10;  &quot;state&quot;: &quot;IL&quot;,&#10;  &quot;country&quot;: &quot;USA&quot;,&#10;  &quot;phone&quot;: &quot;555-1234&quot;,&#10;  &quot;email&quot;: &quot;john.doe@example.com&quot;,&#10;  &quot;shipping_option&quot;: &quot;standard&quot;,&#10;  &quot;order_items&quot;: [&#10;    {&#10;      &quot;product_id&quot;: &quot;b5f5a1d6-3f6a-4e8d-b8d1-0c6383fa7a67&quot;,&#10;      &quot;product_option_id&quot;: [&quot;option1-id&quot;, &quot;option2-id&quot;],&#10;      &quot;color_id&quot;: &quot;a34b1d56-2a76-4c7b-9f14-0c9b9a1f85e6&quot;,&#10;      &quot;size_id&quot;: &quot;d9b8f3e5-4a6a-4b7a-8f3a-0c7b9b1f85e7&quot;,&#10;      &quot;quantity&quot;: 2,&#10;      &quot;price&quot;: 49.99&#10;    },&#10;    {&#10;      &quot;product_id&quot;: &quot;c6e6b2f7-4f6b-4e8e-b9d2-0d7394fa8a78&quot;,&#10;      &quot;product_option_id&quot;: [],&#10;      &quot;color_id&quot;: &quot;&quot;,&#10;      &quot;size_id&quot;: &quot;&quot;,&#10;      &quot;quantity&quot;: 1,&#10;      &quot;price&quot;: 19.99&#10;    }&#10;  ],&#10;  &quot;total&quot;: 119.97&#10;}&#10;&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/orders" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJlcnJvciI6IkludmFsaWQgcmVxdWVzdCBwYXlsb2FkIn0=" />
+              <option name="bodyString" value="{&#10;  &quot;error&quot;: &quot;Invalid request payload&quot;&#10;}" />
+              <option name="code" value="400" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Sun, 16 Jun 2024 08:24:56 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="35" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="8e884421-bb5f-4097-90dc-3f1eb9615654" />
+              <option name="message" value="Bad Request" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;error&quot;:&quot;Invalid request payload&quot;}" />
+              <option name="size" value="35" />
+              <option name="time" value="9" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1718526403509" />
+          <option name="id" value="f8cdecce-443e-42c8-b49d-d2eb203fa675" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;first_name&quot;: &quot;John&quot;,&#10;  &quot;last_name&quot;: &quot;Doe&quot;,&#10;  &quot;street_address&quot;: &quot;123 Main St&quot;,&#10;  &quot;city&quot;: &quot;Springfield&quot;,&#10;  &quot;state&quot;: &quot;IL&quot;,&#10;  &quot;country&quot;: &quot;USA&quot;,&#10;  &quot;phone&quot;: &quot;555-1234&quot;,&#10;  &quot;email&quot;: &quot;john.doe@example.com&quot;,&#10;  &quot;shipping_option&quot;: &quot;standard&quot;,&#10;  &quot;order_items&quot;: [&#10;    {&#10;      &quot;product_id&quot;: &quot;b5f5a1d6-3f6a-4e8d-b8d1-0c6383fa7a67&quot;,&#10;      &quot;product_option_id&quot;: [&quot;option1-id&quot;, &quot;option2-id&quot;],&#10;      &quot;color_id&quot;: &quot;a34b1d56-2a76-4c7b-9f14-0c9b9a1f85e6&quot;,&#10;      &quot;size_id&quot;: &quot;d9b8f3e5-4a6a-4b7a-8f3a-0c7b9b1f85e7&quot;,&#10;      &quot;quantity&quot;: 2,&#10;      &quot;price&quot;: 49.99&#10;    },&#10;    {&#10;      &quot;product_id&quot;: &quot;c6e6b2f7-4f6b-4e8e-b9d2-0d7394fa8a78&quot;,&#10;      &quot;product_option_id&quot;: [],&#10;      &quot;color_id&quot;: &quot;&quot;,&#10;      &quot;size_id&quot;: &quot;&quot;,&#10;      &quot;quantity&quot;: 1,&#10;      &quot;price&quot;: 19.99&#10;    }&#10;  ],&#10;  &quot;total&quot;: 119.97&#10;}&#10;&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
+              <option name="method" value="POST" />
+              <option name="name" value="create cart" />
+              <option name="sortWeight" value="24000000" />
+              <option name="url" value="http://localhost:8080/api/orders" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJlcnJvciI6IkludmFsaWQgcHJvZHVjdCBvcHRpb24gSUQifQ==" />
+              <option name="bodyString" value="{&#10;  &quot;error&quot;: &quot;Invalid product option ID&quot;&#10;}" />
+              <option name="code" value="400" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Sun, 16 Jun 2024 08:26:43 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="37" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="f8cdecce-443e-42c8-b49d-d2eb203fa675" />
+              <option name="message" value="Bad Request" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;error&quot;:&quot;Invalid product option ID&quot;}" />
+              <option name="size" value="37" />
+              <option name="time" value="27" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
       </list>
     </option>
   </component>

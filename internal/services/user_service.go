@@ -3,11 +3,8 @@ package services
 import (
 	"context"
 	"database/sql"
-	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 	"log"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 	"weblineBackend/internal/appconfig"
@@ -15,6 +12,9 @@ import (
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
+
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
@@ -43,15 +43,8 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 		return database.User{}, err
 	}
 
-	// generate username
-	username, err := generateUsername(ctx, s.userRepository, registerUserParams.FirstName, registerUserParams.LastName)
-	if err != nil {
-		return database.User{}, err
-	}
-
 	// create user
 	newUser := database.CreateUserParams{
-		Username:       username,
 		Email:          registerUserParams.Email,
 		HashedPassword: string(hashedPassword),
 		FirstName: sql.NullString{
@@ -79,41 +72,6 @@ func sanitizeUsername(username string) string {
 	return reg.ReplaceAllString(username, "")
 }
 
-// generateUsername generates a username from the given first and last name
-func generateUsername(ctx context.Context, userRepo *repository.UserRepository, firstName string, lastName string) (string, error) {
-	// generate username from first and last name
-	baseUsername := strings.ToLower(sanitizeUsername(firstName + lastName))
-	log.Printf("baseUsername: %v", baseUsername)
-	username := baseUsername
-	const maxUsernameLength = 20
-
-	// trim username to max length
-	if len(baseUsername) > maxUsernameLength {
-		baseUsername = baseUsername[:maxUsernameLength]
-		username = baseUsername
-	}
-
-	for suffix := 1; ; suffix++ {
-		// check if username is available
-		count, err := userRepo.CountUsersByUsername(ctx, username)
-		if err != nil {
-			return "", err
-		}
-		if count == 0 {
-			return username, nil
-		}
-
-		// append suffix to username
-		suffixStr := strconv.Itoa(suffix)
-		cutOffLength := maxUsernameLength - len(suffixStr)
-		if cutOffLength < len(baseUsername) {
-			username = baseUsername[:cutOffLength]
-		}
-
-		username += suffixStr
-	}
-}
-
 // GetUserByEmail returns the user with the given email
 func (s *UserService) GetUserByEmail(ctx context.Context, email string) (database.User, error) {
 	user, err := s.userRepository.GetUserByEmail(ctx, email)
@@ -136,7 +94,7 @@ func (s *UserService) LoginUser(ctx context.Context, params model.LoginParams) (
 		return model.LoginResponse{}, err
 	}
 
-	accessToken, refreshToken, expireTime, err := utils.GenerateTokens(user.ID, user.Username, user.Email)
+	accessToken, refreshToken, expireTime, err := utils.GenerateTokens(user.ID, user.Email)
 	if err != nil {
 		return model.LoginResponse{}, err
 	}

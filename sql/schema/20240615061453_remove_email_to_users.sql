@@ -1,9 +1,18 @@
 -- +goose Up
+-- Modifying users table: removing username and making email unique
+
 -- +goose StatementBegin
-SELECT 'up SQL query';
+ALTER TABLE users
+    DROP COLUMN IF EXISTS username,
+    ADD CONSTRAINT unique_email UNIQUE (email);
 -- +goose StatementEnd
 
+
 -- +goose Down
+-- Reverting changes to users table: adding username and removing unique constraint on email
+
 -- +goose StatementBegin
-SELECT 'down SQL query';
+ALTER TABLE users
+    ADD COLUMN username VARCHAR(255),
+    DROP CONSTRAINT IF EXISTS unique_email;
 -- +goose StatementEnd

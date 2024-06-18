@@ -91,3 +91,19 @@ func (q *Queries) GetShoppingCartByUserID(ctx context.Context, userID uuid.NullU
 	)
 	return i, err
 }
+
+const updateCartTotals = `-- name: UpdateCartTotals :exec
+UPDATE shopping_carts sc
+SET total_price = (SELECT COALESCE(SUM(ci.price * ci.quantity), 0)
+    FROM cart_items ci
+    WHERE ci.shopping_cart_id = sc.id),
+    total_items = (SELECT COALESCE(SUM(ci.quantity), 0)
+                   FROM cart_items ci
+                   WHERE ci.shopping_cart_id = sc.id)
+WHERE sc.id = $1
+`
+
+func (q *Queries) UpdateCartTotals(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, updateCartTotals, id)
+	return err
+}

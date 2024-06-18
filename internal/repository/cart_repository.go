@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"weblineBackend/internal/database"
@@ -57,7 +58,7 @@ func (r *CartRepository) AddToCart(ctx context.Context, cartID, productID uuid.N
 			ShoppingCartID: cartID,
 			ProductID:      productID,
 		})
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("get cart item: %w", err)
 		}
 
@@ -94,24 +95,13 @@ func (r *CartRepository) RemoveFromCart(ctx context.Context, cartID, productID u
 }
 
 // GetCartItems retrieves all items in the cart
-func (r *CartRepository) GetCartItems(ctx context.Context, cartID uuid.NullUUID) ([]model.CartItem, error) {
+func (r *CartRepository) GetCartItems(ctx context.Context, cartID uuid.NullUUID) ([]database.GetAllCartItemsRow, error) {
 	items, err := r.GetAllCartItems(ctx, cartID)
 	if err != nil {
 		return nil, fmt.Errorf("get cart items: %w", err)
 	}
 
-	var cartItems []model.CartItem
-	for _, item := range items {
-		cartItems = append(cartItems, model.CartItem{
-			ID:             item.ID,
-			ShoppingCartID: item.ShoppingCartID.UUID,
-			ProductID:      item.ProductID.UUID,
-			Quantity:       item.Quantity,
-			Price:          item.Price,
-		})
-	}
-
-	return cartItems, nil
+	return items, nil
 }
 
 // UpdateCartItemQuantity updates the quantity of an item in the cart
@@ -240,6 +230,19 @@ func (r *CartRepository) DeleteShoppingCart(ctx context.Context, cartID uuid.UUI
 		}
 
 		r.logger.Info("deleted shopping cart", zap.String("cartID", cartID.String()))
+		return nil
+	})
+}
+
+// UpdateCartTotals updates the total price and number of items in the cart
+func (r *CartRepository) UpdateCartTotals(ctx context.Context, cartID uuid.UUID) error {
+	return r.execTx(ctx, func(q *database.Queries) error {
+		err := q.UpdateCartTotals(ctx, cartID)
+		if err != nil {
+			return fmt.Errorf("update cart totals: %w", err)
+		}
+
+		r.logger.Info("updated cart totals", zap.String("cartID", cartID.String()))
 		return nil
 	})
 }

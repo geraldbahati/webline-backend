@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
+	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 
@@ -11,14 +13,20 @@ import (
 )
 
 type CartService struct {
-	logger         *zap.Logger
-	cartRepository *repository.CartRepository
+	logger                 *zap.Logger
+	config                 *appconfig.Config
+	cartRepository         *repository.CartRepository
+	productRepository      *repository.ProductRepository
+	productImageRepository *repository.ProductImageRepository
 }
 
-func NewCartService(logger *zap.Logger, cartRepository *repository.CartRepository) *CartService {
+func NewCartService(logger *zap.Logger, config *appconfig.Config, cartRepository *repository.CartRepository, productRepository *repository.ProductRepository, productImageRepository *repository.ProductImageRepository) *CartService {
 	return &CartService{
-		logger:         logger,
-		cartRepository: cartRepository,
+		logger:                 logger,
+		config:                 config,
+		cartRepository:         cartRepository,
+		productRepository:      productRepository,
+		productImageRepository: productImageRepository,
 	}
 }
 
@@ -39,6 +47,8 @@ func (s *CartService) AddToCart(ctx context.Context, cartID, productID string, q
 
 	cartNullUUID := uuid.NullUUID{UUID: cartUUID, Valid: true}
 	productNullUUID := uuid.NullUUID{UUID: productUUID, Valid: true}
+
+	log.Printf("Adding product with ID: %s to cart with ID: %s", productNullUUID.UUID.String(), cartNullUUID.UUID.String())
 
 	return s.cartRepository.AddToCart(ctx, cartNullUUID, productNullUUID, quantity, price)
 }
@@ -61,6 +71,8 @@ func (s *CartService) RemoveFromCart(ctx context.Context, cartID, productID stri
 	cartNullUUID := uuid.NullUUID{UUID: cartUUID, Valid: true}
 	productNullUUID := uuid.NullUUID{UUID: productUUID, Valid: true}
 
+	log.Printf("Removing product with ID: %s from cart with ID: %s", productNullUUID.UUID.String(), cartNullUUID.UUID.String())
+
 	return s.cartRepository.RemoveFromCart(ctx, cartNullUUID, productNullUUID)
 }
 
@@ -75,7 +87,44 @@ func (s *CartService) GetCartItems(ctx context.Context, cartID string) ([]model.
 
 	cartNullUUID := uuid.NullUUID{UUID: cartUUID, Valid: true}
 
-	return s.cartRepository.GetCartItems(ctx, cartNullUUID)
+	items, err := s.cartRepository.GetCartItems(ctx, cartNullUUID)
+	if err != nil {
+		s.logger.Error("failed to get cart items", zap.Error(err))
+		return nil, fmt.Errorf("get cart items: %w", err)
+	}
+
+	var cartItems []model.CartItem
+	for _, item := range items {
+		// fetch the product
+		product, err := s.productRepository.GetProductByID(ctx, item.ProductID.UUID)
+		if err != nil {
+			s.logger.Error("failed to get product by ID", zap.Error(err))
+			return nil, fmt.Errorf("get product by ID: %w", err)
+
+		}
+
+		// fetch the product image
+		productImage, err := s.productImageRepository.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: item.ProductID.UUID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get product image by product ID", zap.Error(err))
+			return nil, fmt.Errorf("get product image by product ID: %w", err)
+		}
+
+		// create the cart item
+		cartItem := model.CartItem{
+			ID:          item.ID,
+			ProductID:   item.ProductID.UUID,
+			Name:        product.Name,
+			Description: product.Description,
+			Quantity:    item.Quantity,
+			Price:       item.Price,
+			ImageURL:    s.constructS3URL(productImage[0].ImageUrl),
+		}
+
+		cartItems = append(cartItems, cartItem)
+
+	}
+	return cartItems, nil
 }
 
 // ClearCart removes all items from the cart
@@ -128,7 +177,7 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, cartID, produc
 }
 
 // CreateShoppingCart creates a new shopping cart
-func (s *CartService) CreateShoppingCart(ctx context.Context, userID string) (*model.ShoppingCart, error) {
+func (s *CartService) CreateShoppingCart(ctx context.Context, userID string) (model.ShoppingCart, error) {
 	// Convert the string IDs to UUID
 	var userNullUUID uuid.NullUUID
 
@@ -138,7 +187,7 @@ func (s *CartService) CreateShoppingCart(ctx context.Context, userID string) (*m
 		userUUID, err := uuid.Parse(userID)
 		if err != nil {
 			s.logger.Error("failed to parse user ID", zap.Error(err))
-			return nil, fmt.Errorf("parse user ID: %w", err)
+			return model.ShoppingCart{}, fmt.Errorf("parse user ID: %w", err)
 		}
 		userNullUUID = uuid.NullUUID{UUID: userUUID, Valid: true}
 	}
@@ -146,10 +195,12 @@ func (s *CartService) CreateShoppingCart(ctx context.Context, userID string) (*m
 	cart, err := s.cartRepository.CreateShoppingCart(ctx, userNullUUID)
 	if err != nil {
 		s.logger.Error("failed to create shopping cart", zap.Error(err))
-		return nil, fmt.Errorf("create shopping cart: %w", err)
+		return model.ShoppingCart{}, fmt.Errorf("create shopping cart: %w", err)
 	}
 
-	return &cart, nil
+	log.Printf("Created shopping cart with ID: %s", cart.ID.String())
+
+	return cart, nil
 }
 
 // GetShoppingCartByUserID returns the shopping cart of a user
@@ -202,4 +253,9 @@ func (s *CartService) DeleteShoppingCart(ctx context.Context, cartID string) err
 	}
 
 	return s.cartRepository.DeleteShoppingCart(ctx, cartUUID)
+}
+
+// constructS3URL constructs the S3 URL for a given file path
+func (s *CartService) constructS3URL(filePath string) string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)
 }

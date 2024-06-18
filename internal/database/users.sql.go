@@ -23,27 +23,14 @@ func (q *Queries) CountAllUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const countAllUsersByUsername = `-- name: CountAllUsersByUsername :one
-SELECT COUNT(*) FROM users
-WHERE username = $1
-`
-
-func (q *Queries) CountAllUsersByUsername(ctx context.Context, username string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAllUsersByUsername, username)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, username, email, hashed_password, first_name, last_name, phone_number, profile_image_url,
+INSERT INTO users (id, email, hashed_password, first_name, last_name, phone_number, profile_image_url,
                    date_of_birth, is_active, created_at, updated_at, last_login)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, TRUE, NOW(), NOW(),
-        NULL) RETURNING id, username, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(),
+        NULL) RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
 `
 
 type CreateUserParams struct {
-	Username        string
 	Email           string
 	HashedPassword  string
 	FirstName       sql.NullString
@@ -51,11 +38,11 @@ type CreateUserParams struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
+	IsActive        bool
 }
 
 type CreateUserRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -70,7 +57,6 @@ type CreateUserRow struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
-		arg.Username,
 		arg.Email,
 		arg.HashedPassword,
 		arg.FirstName,
@@ -78,11 +64,11 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		arg.PhoneNumber,
 		arg.ProfileImageUrl,
 		arg.DateOfBirth,
+		arg.IsActive,
 	)
 	var i CreateUserRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
@@ -101,12 +87,11 @@ const deactivateUser = `-- name: DeactivateUser :one
 UPDATE users
 SET is_active  = FALSE,
     updated_at = NOW()
-WHERE id = $1 RETURNING id, username, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
+WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
 `
 
 type DeactivateUserRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -124,7 +109,6 @@ func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID) (DeactivateU
 	var i DeactivateUserRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
@@ -152,7 +136,6 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id,
-       username,
        email,
        first_name,
        last_name,
@@ -169,7 +152,6 @@ WHERE email = $1
 
 type GetUserByEmailRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -187,7 +169,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
@@ -204,7 +185,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id,
-       username,
        email,
        first_name,
        last_name,
@@ -221,7 +201,6 @@ WHERE id = $1
 
 type GetUserByIDRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -239,59 +218,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
-		&i.Email,
-		&i.FirstName,
-		&i.LastName,
-		&i.PhoneNumber,
-		&i.ProfileImageUrl,
-		&i.DateOfBirth,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.LastLogin,
-	)
-	return i, err
-}
-
-const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id,
-       username,
-       email,
-       first_name,
-       last_name,
-       phone_number,
-       profile_image_url,
-       date_of_birth,
-       is_active,
-       created_at,
-       updated_at,
-       last_login
-FROM users
-WHERE username = $1
-`
-
-type GetUserByUsernameRow struct {
-	ID              uuid.UUID
-	Username        string
-	Email           string
-	FirstName       sql.NullString
-	LastName        sql.NullString
-	PhoneNumber     sql.NullString
-	ProfileImageUrl sql.NullString
-	DateOfBirth     sql.NullTime
-	IsActive        bool
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-	LastLogin       sql.NullTime
-}
-
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
-	var i GetUserByUsernameRow
-	err := row.Scan(
-		&i.ID,
-		&i.Username,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
@@ -308,7 +234,6 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUs
 
 const listUsers = `-- name: ListUsers :many
 SELECT id,
-       username,
        email,
        first_name,
        last_name,
@@ -331,7 +256,6 @@ type ListUsersParams struct {
 
 type ListUsersRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -355,7 +279,6 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 		var i ListUsersRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Username,
 			&i.Email,
 			&i.FirstName,
 			&i.LastName,
@@ -383,12 +306,11 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 const updateUserLastLogin = `-- name: UpdateUserLastLogin :one
 UPDATE users
 SET last_login = NOW()
-WHERE id = $1 RETURNING id, username, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
+WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
 `
 
 type UpdateUserLastLoginRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -406,7 +328,6 @@ func (q *Queries) UpdateUserLastLogin(ctx context.Context, id uuid.UUID) (Update
 	var i UpdateUserLastLoginRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
@@ -425,7 +346,7 @@ const updateUserPassword = `-- name: UpdateUserPassword :one
 UPDATE users
 SET hashed_password = $2,
     updated_at      = NOW()
-WHERE id = $1 RETURNING id, username, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
+WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
 `
 
 type UpdateUserPasswordParams struct {
@@ -435,7 +356,6 @@ type UpdateUserPasswordParams struct {
 
 type UpdateUserPasswordRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -453,7 +373,6 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 	var i UpdateUserPasswordRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
@@ -476,7 +395,7 @@ SET first_name        = $2,
     profile_image_url = $5,
     date_of_birth     = $6,
     updated_at        = NOW()
-WHERE id = $1 RETURNING id, username, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
+WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
 `
 
 type UpdateUserProfileParams struct {
@@ -490,7 +409,6 @@ type UpdateUserProfileParams struct {
 
 type UpdateUserProfileRow struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
@@ -515,7 +433,6 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	var i UpdateUserProfileRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,

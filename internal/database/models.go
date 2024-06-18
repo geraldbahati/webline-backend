@@ -42,24 +42,49 @@ type Discount struct {
 	UpdatedAt          sql.NullTime
 }
 
+type GuestCheckout struct {
+	ID            uuid.UUID
+	Email         string
+	FirstName     string
+	LastName      string
+	Phone         sql.NullString
+	StreetAddress string
+	City          string
+	State         string
+	Country       string
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+}
+
 type Order struct {
+	ID              uuid.UUID
+	UserID          uuid.NullUUID
+	Status          string
+	Total           string
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	PaymentStatus   string
+	GuestCheckoutID uuid.NullUUID
+}
+
+type OrderItem struct {
 	ID        uuid.UUID
-	UserID    uuid.NullUUID
-	Status    string
-	Total     string
+	OrderID   uuid.NullUUID
+	ProductID uuid.NullUUID
+	Quantity  int32
+	Price     string
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
 }
 
-type OrderItem struct {
-	ID               uuid.UUID
-	OrderID          uuid.NullUUID
-	ProductID        uuid.NullUUID
-	ProductVariantID uuid.NullUUID
-	Quantity         int32
-	Price            string
-	CreatedAt        sql.NullTime
-	UpdatedAt        sql.NullTime
+type OrderItemOption struct {
+	ID              uuid.UUID
+	OrderItemID     uuid.NullUUID
+	OptionType      string
+	OptionValue     string
+	AdditionalPrice sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
 }
 
 type OrderPayment struct {
@@ -226,7 +251,6 @@ type ShoppingCart struct {
 
 type User struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	HashedPassword  string
 	FirstName       sql.NullString
