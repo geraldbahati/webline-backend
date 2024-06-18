@@ -88,13 +88,13 @@ type OrderItemOption struct {
 }
 
 type OrderPayment struct {
-	ID        uuid.UUID
-	OrderID   uuid.NullUUID
-	PaymentID string
-	Status    string
-	Method    string
-	Amount    string
-	CreatedAt sql.NullTime
+	ID              uuid.UUID
+	OrderID         uuid.NullUUID
+	PaymentID       string
+	Amount          string
+	CreatedAt       sql.NullTime
+	PaymentMethodID sql.NullInt32
+	PaymentStatusID sql.NullInt32
 }
 
 type OrderShipment struct {
@@ -110,6 +110,16 @@ type OrderStatusHistory struct {
 	OrderID   uuid.NullUUID
 	Status    string
 	CreatedAt sql.NullTime
+}
+
+type PaymentMethod struct {
+	ID     int32
+	Method string
+}
+
+type PaymentStatus struct {
+	ID     int32
+	Status string
 }
 
 type Product struct {
