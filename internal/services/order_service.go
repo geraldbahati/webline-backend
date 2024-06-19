@@ -19,15 +19,17 @@ type OrderService struct {
 	guestCheckoutRepo   *repository.GuestCheckoutRepository
 	orderRepository     *repository.OrderRepository
 	orderItemRepository *repository.OrderItemRepository
+	paymentRepository   *repository.PaymentRepository
 	userRepo            *repository.UserRepository
 }
 
-func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, userRepo *repository.UserRepository) *OrderService {
+func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository) *OrderService {
 	return &OrderService{
 		logger:              logger,
 		guestCheckoutRepo:   guestCheckoutRepo,
 		orderRepository:     orderRepository,
 		orderItemRepository: orderItemRepository,
+		paymentRepository:   paymentRepository,
 		userRepo:            userRepo,
 	}
 }
@@ -202,7 +204,22 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 		}
 	}
 
-	return orderID, nil
+	// Create payment intent
+	payment := &database.CreatePaymentParams{
+		OrderID:         uuid.NullUUID{UUID: *orderID, Valid: true},
+		Amount:          strconv.FormatFloat(orderParams.Total, 'f', -1, 64),
+		PaymentMethodID: sql.NullInt32{Int32: 1, Valid: false},
+		PaymentStatusID: sql.NullInt32{Int32: 1, Valid: true},
+		PaymentID:       uuid.New().String(),
+	}
+
+	orderPayment, err := s.paymentRepository.CreatePayment(ctx, payment)
+	if err != nil {
+		s.logger.Error("Failed to create payment", zap.Error(err), zap.Any("paymentParams", payment))
+		return nil, err
+	}
+
+	return &orderPayment.OrderID, nil
 }
 
 // ListOrders lists all orders

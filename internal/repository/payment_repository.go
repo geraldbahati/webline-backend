@@ -75,6 +75,8 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *database
 		r.logger.Error("Failed to create payment", zap.Error(err), zap.Any("paymentParams", payment))
 		return nil, err
 	}
+
+	r.logger.Info("Payment created successfully", zap.String("paymentID", orderPayment.PaymentID))
 	return orderPayment, nil
 }
 
@@ -106,33 +108,38 @@ func (r *PaymentRepository) UpdatePaymentID(ctx context.Context, orderID uuid.UU
 			ID:        orderID,
 			PaymentID: paymentID,
 		}); err != nil {
-			r.logger.Error("Failed to update payment ID", zap.Error(err), zap.String("orderID", orderID), zap.String("paymentID", paymentID))
+			r.logger.Error("Failed to update payment ID", zap.Error(err), zap.String("orderID", orderID.String()), zap.String("paymentID", paymentID))
 			return fmt.Errorf("update payment ID: %w", err)
 		}
 		return nil
 	}); err != nil {
-		r.logger.Error("Failed to update payment ID", zap.Error(err), zap.String("orderID", orderID), zap.String("paymentID", paymentID))
+		r.logger.Error("Failed to update payment ID", zap.Error(err), zap.String("orderID", orderID.String()), zap.String("paymentID", paymentID))
 		return err
 	}
 	return nil
 }
 
 // GetPaymentsByOrderID returns payments by order ID
-func (r *PaymentRepository) GetPaymentsByOrderID(ctx context.Context, orderID uuid.UUID) ([]model.OrderPaymentResponse, error) {
-	payments, err := r.GetPaymentsByOrderID(ctx, orderID)
+func (r *PaymentRepository) GetPaymentsByOrderID(ctx context.Context, orderID uuid.UUID) ([]model.OrderPayment, error) {
+	payments, err := r.Queries.GetPaymentsByOrderID(ctx, uuid.NullUUID{
+		UUID:  orderID,
+		Valid: true,
+	})
 	if err != nil {
 		r.logger.Error("Failed to get payments by order ID", zap.Error(err), zap.String("orderID", orderID.String()))
 		return nil, fmt.Errorf("get payments by order ID: %w", err)
 	}
 
-	var orderPayments []model.OrderPaymentResponse
+	var orderPayments []model.OrderPayment
 	for _, payment := range payments {
-		orderPayments = append(orderPayments, model.OrderPaymentResponse{
-			ID:             payment.ID,
-			OrderNumber:    payment.OrderNumber,
-			OrderCreatedAt: payment.OrderCreatedAt.Time,
-			CustomerName:   payment.CustomerName,
-			Amount:         payment.Amount,
+		orderPayments = append(orderPayments, model.OrderPayment{
+			ID:              payment.ID,
+			OrderID:         payment.OrderID.UUID,
+			PaymentID:       payment.PaymentID,
+			Amount:          payment.Amount,
+			CreatedAt:       payment.CreatedAt.Time,
+			PaymentMethodID: payment.PaymentMethodID.Int32,
+			PaymentStatusID: payment.PaymentStatusID.Int32,
 		})
 	}
 
@@ -140,22 +147,25 @@ func (r *PaymentRepository) GetPaymentsByOrderID(ctx context.Context, orderID uu
 }
 
 // GetAllPayments returns all payments
-func (r *PaymentRepository) GetAllPayments(ctx context.Context) ([]model.OrderPaymentResponse, error) {
-	payments, err := r.GetAllPayments(ctx)
+func (r *PaymentRepository) GetAllPayments(ctx context.Context) ([]model.OrderPayment, error) {
+	payments, err := r.Queries.GetAllPayments(ctx)
 	if err != nil {
 		r.logger.Error("Failed to get all payments", zap.Error(err))
 		return nil, fmt.Errorf("get all payments: %w", err)
 	}
 
-	var orderPayments []model.OrderPaymentResponse
+	var orderPayments []model.OrderPayment
 	for _, payment := range payments {
-		orderPayments = append(orderPayments, model.OrderPaymentResponse{
-			ID:             payment.ID,
-			OrderNumber:    payment.OrderNumber,
-			OrderCreatedAt: payment.OrderCreatedAt,
-			CustomerName:   payment.CustomerName,
-			Amount:         payment.Amount,
+		orderPayments = append(orderPayments, model.OrderPayment{
+			ID:              payment.ID,
+			OrderID:         payment.OrderID.UUID,
+			PaymentID:       payment.PaymentID,
+			Amount:          payment.Amount,
+			CreatedAt:       payment.CreatedAt.Time,
+			PaymentMethodID: payment.PaymentMethodID.Int32,
+			PaymentStatusID: payment.PaymentStatusID.Int32,
 		})
+
 	}
 
 	return orderPayments, nil

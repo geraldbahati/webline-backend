@@ -24,17 +24,20 @@ func NewOrderHandler(orderService *services.OrderService) *OrderHandler {
 
 // CreateOrder creates a new order
 type CreateOrderRequest struct {
-	FirstName      string                  `json:"first_name"`
-	LastName       string                  `json:"last_name"`
-	StreetAddress  string                  `json:"street_address"`
-	City           string                  `json:"city"`
-	State          string                  `json:"state"`
-	Country        string                  `json:"country"`
-	Phone          string                  `json:"phone"`
-	Email          string                  `json:"email"`
-	ShippingOption string                  `json:"shipping_option"`
-	OrderItems     []CreateOrderItemParams `json:"order_items"`
-	Total          float64                 `json:"total"`
+	FirstName        string                  `json:"first_name"`
+	LastName         string                  `json:"last_name"`
+	StreetAddress    string                  `json:"street_address"`
+	City             string                  `json:"city"`
+	State            string                  `json:"state"`
+	Country          string                  `json:"country"`
+	Phone            string                  `json:"phone"`
+	Email            string                  `json:"email"`
+	ShippingOption   string                  `json:"shipping_option"`
+	OrderItems       []CreateOrderItemParams `json:"order_items"`
+	Total            float64                 `json:"total"`
+	PaymentMethod    int32                   `json:"payment_method"`
+	ShippingLocation string                  `json:"shipping_location"`
+	ShippingCost     float64                 `json:"shipping_cost"`
 }
 
 type CreateOrderItemParams struct {
@@ -56,17 +59,20 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	// Create order Params
 	orderParams := &model.CreateOrderParams{
-		GuestCheckoutID: uuid.NullUUID{UUID: uuid.Nil, Valid: false},
-		FirstName:       req.FirstName,
-		LastName:        req.LastName,
-		StreetAddress:   req.StreetAddress,
-		City:            req.City,
-		State:           req.State,
-		Country:         req.Country,
-		Phone:           req.Phone,
-		Email:           req.Email,
-		ShippingOption:  req.ShippingOption,
-		Total:           req.Total,
+		GuestCheckoutID:  uuid.NullUUID{UUID: uuid.Nil, Valid: false},
+		FirstName:        req.FirstName,
+		LastName:         req.LastName,
+		StreetAddress:    req.StreetAddress,
+		City:             req.City,
+		State:            req.State,
+		Country:          req.Country,
+		Phone:            req.Phone,
+		Email:            req.Email,
+		ShippingOption:   req.ShippingOption,
+		Total:            req.Total,
+		PaymentMethod:    req.PaymentMethod,
+		ShippingLocation: req.ShippingLocation,
+		ShippingCost:     req.ShippingCost,
 	}
 
 	// Create order items

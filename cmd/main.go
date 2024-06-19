@@ -83,6 +83,7 @@ func main() {
 	orderRepo := repository.NewOrderRepository(conn, logger)
 	guestCheckoutRepo := repository.NewGuestCheckoutRepository(conn, logger)
 	orderItemRepo := repository.NewOrderItemRepository(conn, logger)
+	paymentRepo := repository.NewPaymentRepository(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
@@ -102,7 +103,7 @@ func main() {
 	)
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
-	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, userRepo)
+	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
