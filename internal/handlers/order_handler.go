@@ -8,18 +8,22 @@ import (
 	"strconv"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
+	"weblineBackend/pkg/mpesa"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 )
 
 type OrderHandler struct {
+	logger         *zap.Logger
 	orderService   *services.OrderService
 	paymentService *services.PaymentService
 }
 
-func NewOrderHandler(orderService *services.OrderService, paymentService *services.PaymentService) *OrderHandler {
+func NewOrderHandler(logger *zap.Logger, orderService *services.OrderService, paymentService *services.PaymentService) *OrderHandler {
 	return &OrderHandler{
+		logger:         logger,
 		orderService:   orderService,
 		paymentService: paymentService,
 	}
@@ -220,16 +224,55 @@ func (h *OrderHandler) PayOrder(w http.ResponseWriter, r *http.Request) {
 	switch method {
 	case "mpesa":
 		// Pay with M-Pesa
-		response, err := h.paymentService.PayOrderWithMpesa(r.Context(), req.OrderID, req.PhoneNumber)
+		err := h.paymentService.PayOrderWithMpesa(r.Context(), req.OrderID, req.PhoneNumber)
 		if err != nil {
 			RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to pay order: %v", err))
 			return
 		}
 
 		// Write response
-		RespondWithJSON(w, http.StatusOK, response)
+		RespondWithSuccess(w, http.StatusOK, "Order paid successfully")
 
 	default:
 		RespondWithError(w, http.StatusBadRequest, "Invalid payment method")
 	}
+}
+
+// HandleMpesaCallback handles Mpesa callback
+func (h *OrderHandler) HandleMpesaCallback(w http.ResponseWriter, r *http.Request) {
+	var callbackResponse mpesa.MpesaCallbackResponse
+
+	h.logger.Info("Processing Mpesa callback")
+	if err := json.NewDecoder(r.Body).Decode(&callbackResponse); err != nil {
+		h.logger.Error("Failed to decode callback response", zap.Error(err))
+		RespondWithError(w, http.StatusBadRequest, "Invalid callback payload")
+		return
+	}
+
+	err := h.paymentService.ProcessMpesaCallback(r.Context(), callbackResponse)
+	if err != nil {
+		h.logger.Error("Failed to process Mpesa callback", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to process callback")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Callback processed successfully"})
+}
+
+func (h *OrderHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request) {
+	orderID := r.URL.Query().Get("orderID")
+	if orderID == "" {
+		h.logger.Error("Order ID is required")
+		RespondWithError(w, http.StatusBadRequest, "Order ID is required")
+		return
+	}
+
+	status, err := h.paymentService.GetPaymentStatus(r.Context(), orderID)
+	if err != nil {
+		h.logger.Error("Failed to get payment status", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get payment status: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, status)
 }

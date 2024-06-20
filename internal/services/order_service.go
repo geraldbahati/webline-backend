@@ -206,11 +206,11 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 
 	// Create payment intent
 	payment := &database.CreatePaymentParams{
-		OrderID:         uuid.NullUUID{UUID: *orderID, Valid: true},
-		Amount:          strconv.FormatFloat(orderParams.Total, 'f', -1, 64),
-		PaymentMethodID: sql.NullInt32{Int32: 1, Valid: false},
-		PaymentStatusID: sql.NullInt32{Int32: 1, Valid: true},
-		PaymentID:       uuid.New().String(),
+		OrderID:           *orderID,
+		Amount:            strconv.FormatFloat(orderParams.Total, 'f', -1, 64),
+		PaymentMethodID:   sql.NullInt32{Int32: 1, Valid: false},
+		PaymentStatusID:   sql.NullInt32{Int32: 1, Valid: true},
+		CheckoutRequestID: "",
 	}
 
 	orderPayment, err := s.paymentRepository.CreatePayment(ctx, payment)

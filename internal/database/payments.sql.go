@@ -13,33 +13,33 @@ import (
 )
 
 const createPayment = `-- name: CreatePayment :one
-INSERT INTO order_payments (order_id, payment_id, payment_method_id, payment_status_id, amount)
+INSERT INTO order_payments (order_id, checkout_request_id, payment_method_id, payment_status_id, amount)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, order_id, payment_id, payment_method_id, payment_status_id, amount, created_at
+RETURNING id, order_id, checkout_request_id, payment_method_id, payment_status_id, amount, created_at
 `
 
 type CreatePaymentParams struct {
-	OrderID         uuid.NullUUID
-	PaymentID       string
-	PaymentMethodID sql.NullInt32
-	PaymentStatusID sql.NullInt32
-	Amount          string
+	OrderID           uuid.UUID
+	CheckoutRequestID string
+	PaymentMethodID   sql.NullInt32
+	PaymentStatusID   sql.NullInt32
+	Amount            string
 }
 
 type CreatePaymentRow struct {
-	ID              uuid.UUID
-	OrderID         uuid.NullUUID
-	PaymentID       string
-	PaymentMethodID sql.NullInt32
-	PaymentStatusID sql.NullInt32
-	Amount          string
-	CreatedAt       sql.NullTime
+	ID                uuid.UUID
+	OrderID           uuid.UUID
+	CheckoutRequestID string
+	PaymentMethodID   sql.NullInt32
+	PaymentStatusID   sql.NullInt32
+	Amount            string
+	CreatedAt         sql.NullTime
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (CreatePaymentRow, error) {
 	row := q.db.QueryRowContext(ctx, createPayment,
 		arg.OrderID,
-		arg.PaymentID,
+		arg.CheckoutRequestID,
 		arg.PaymentMethodID,
 		arg.PaymentStatusID,
 		arg.Amount,
@@ -48,7 +48,7 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (C
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
-		&i.PaymentID,
+		&i.CheckoutRequestID,
 		&i.PaymentMethodID,
 		&i.PaymentStatusID,
 		&i.Amount,
@@ -58,18 +58,20 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (C
 }
 
 const getAllPayments = `-- name: GetAllPayments :many
-SELECT id, order_id, payment_id, payment_method_id, payment_status_id, amount, created_at
+SELECT id, order_id, checkout_request_id, payment_method_id, payment_status_id, amount, result_code, result_desc, created_at
 FROM order_payments
 `
 
 type GetAllPaymentsRow struct {
-	ID              uuid.UUID
-	OrderID         uuid.NullUUID
-	PaymentID       string
-	PaymentMethodID sql.NullInt32
-	PaymentStatusID sql.NullInt32
-	Amount          string
-	CreatedAt       sql.NullTime
+	ID                uuid.UUID
+	OrderID           uuid.UUID
+	CheckoutRequestID string
+	PaymentMethodID   sql.NullInt32
+	PaymentStatusID   sql.NullInt32
+	Amount            string
+	ResultCode        sql.NullInt32
+	ResultDesc        sql.NullString
+	CreatedAt         sql.NullTime
 }
 
 func (q *Queries) GetAllPayments(ctx context.Context) ([]GetAllPaymentsRow, error) {
@@ -84,10 +86,12 @@ func (q *Queries) GetAllPayments(ctx context.Context) ([]GetAllPaymentsRow, erro
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
-			&i.PaymentID,
+			&i.CheckoutRequestID,
 			&i.PaymentMethodID,
 			&i.PaymentStatusID,
 			&i.Amount,
+			&i.ResultCode,
+			&i.ResultDesc,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -103,81 +107,91 @@ func (q *Queries) GetAllPayments(ctx context.Context) ([]GetAllPaymentsRow, erro
 	return items, nil
 }
 
-const getPaymentsByOrderID = `-- name: GetPaymentsByOrderID :many
-SELECT id, order_id, payment_id, payment_method_id, payment_status_id, amount, created_at
+const getPaymentByOrderID = `-- name: GetPaymentByOrderID :one
+SELECT id, order_id, checkout_request_id, payment_method_id, payment_status_id, amount, result_code, result_desc, created_at
 FROM order_payments
 WHERE order_id = $1
 `
 
-type GetPaymentsByOrderIDRow struct {
-	ID              uuid.UUID
-	OrderID         uuid.NullUUID
-	PaymentID       string
-	PaymentMethodID sql.NullInt32
-	PaymentStatusID sql.NullInt32
-	Amount          string
-	CreatedAt       sql.NullTime
+type GetPaymentByOrderIDRow struct {
+	ID                uuid.UUID
+	OrderID           uuid.UUID
+	CheckoutRequestID string
+	PaymentMethodID   sql.NullInt32
+	PaymentStatusID   sql.NullInt32
+	Amount            string
+	ResultCode        sql.NullInt32
+	ResultDesc        sql.NullString
+	CreatedAt         sql.NullTime
 }
 
-func (q *Queries) GetPaymentsByOrderID(ctx context.Context, orderID uuid.NullUUID) ([]GetPaymentsByOrderIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getPaymentsByOrderID, orderID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetPaymentsByOrderIDRow
-	for rows.Next() {
-		var i GetPaymentsByOrderIDRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrderID,
-			&i.PaymentID,
-			&i.PaymentMethodID,
-			&i.PaymentStatusID,
-			&i.Amount,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetPaymentByOrderID(ctx context.Context, orderID uuid.UUID) (GetPaymentByOrderIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getPaymentByOrderID, orderID)
+	var i GetPaymentByOrderIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.CheckoutRequestID,
+		&i.PaymentMethodID,
+		&i.PaymentStatusID,
+		&i.Amount,
+		&i.ResultCode,
+		&i.ResultDesc,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
-const updatePaymentID = `-- name: UpdatePaymentID :exec
-UPDATE order_payments
-SET payment_id = $1, updated_at = NOW()
-WHERE id = $2
+const getStatusByID = `-- name: GetStatusByID :one
+SELECT status
+FROM payment_statuses
+WHERE id = $1
 `
 
-type UpdatePaymentIDParams struct {
-	PaymentID string
-	ID        uuid.UUID
+func (q *Queries) GetStatusByID(ctx context.Context, id int32) (string, error) {
+	row := q.db.QueryRowContext(ctx, getStatusByID, id)
+	var status string
+	err := row.Scan(&status)
+	return status, err
 }
 
-func (q *Queries) UpdatePaymentID(ctx context.Context, arg UpdatePaymentIDParams) error {
-	_, err := q.db.ExecContext(ctx, updatePaymentID, arg.PaymentID, arg.ID)
+const updateCheckoutRequestIDByOrderID = `-- name: UpdateCheckoutRequestIDByOrderID :exec
+UPDATE order_payments
+SET checkout_request_id = $1
+WHERE order_id = $2
+`
+
+type UpdateCheckoutRequestIDByOrderIDParams struct {
+	CheckoutRequestID string
+	OrderID           uuid.UUID
+}
+
+func (q *Queries) UpdateCheckoutRequestIDByOrderID(ctx context.Context, arg UpdateCheckoutRequestIDByOrderIDParams) error {
+	_, err := q.db.ExecContext(ctx, updateCheckoutRequestIDByOrderID, arg.CheckoutRequestID, arg.OrderID)
 	return err
 }
 
 const updatePaymentStatus = `-- name: UpdatePaymentStatus :exec
 UPDATE order_payments
-SET payment_status_id = $1, updated_at = NOW()
-WHERE payment_id = $2
+SET payment_status_id = $1, amount = $2, result_code = $3, result_desc = $4
+WHERE checkout_request_id = $5
 `
 
 type UpdatePaymentStatusParams struct {
-	PaymentStatusID sql.NullInt32
-	PaymentID       string
+	PaymentStatusID   sql.NullInt32
+	Amount            string
+	ResultCode        sql.NullInt32
+	ResultDesc        sql.NullString
+	CheckoutRequestID string
 }
 
 func (q *Queries) UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updatePaymentStatus, arg.PaymentStatusID, arg.PaymentID)
+	_, err := q.db.ExecContext(ctx, updatePaymentStatus,
+		arg.PaymentStatusID,
+		arg.Amount,
+		arg.ResultCode,
+		arg.ResultDesc,
+		arg.CheckoutRequestID,
+	)
 	return err
 }
