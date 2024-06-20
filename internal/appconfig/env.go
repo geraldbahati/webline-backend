@@ -17,6 +17,12 @@ type Config struct {
 	AWSSecretAccessKey string
 	AWSRegion          string
 	AWSBucketName      string
+	BusinessShortCode  string
+	Passkey            string
+	CallbackURL        string
+	ConsumerKey        string
+	ConsumerSecret     string
+	AccountReference   string
 }
 
 func LoadConfig() Config {
@@ -42,6 +48,12 @@ func LoadConfig() Config {
 		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
 		AWSRegion:          getEnv("AWS_REGION", "us-east-1"),
 		AWSBucketName:      getEnv("AWS_BUCKET_NAME", "your_bucket_name"),
+		BusinessShortCode:  getEnv("BUSINESS_SHORTCODE", ""),
+		Passkey:            getEnv("PASSKEY", ""),
+		CallbackURL:        getEnv("CALLBACK_URL", ""),
+		ConsumerKey:        getEnv("CONSUMER_KEY", ""),
+		ConsumerSecret:     getEnv("CONSUMER_SECRET", ""),
+		AccountReference:   getEnv("ACCOUNT_REFERENCE", ""),
 	}
 }
 

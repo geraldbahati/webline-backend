@@ -89,13 +89,15 @@ type OrderItemOption struct {
 }
 
 type OrderPayment struct {
-	ID              uuid.UUID
-	OrderID         uuid.NullUUID
-	PaymentID       string
-	Amount          string
-	CreatedAt       sql.NullTime
-	PaymentMethodID sql.NullInt32
-	PaymentStatusID sql.NullInt32
+	ID                uuid.UUID
+	OrderID           uuid.UUID
+	Amount            string
+	CreatedAt         sql.NullTime
+	PaymentMethodID   sql.NullInt32
+	PaymentStatusID   sql.NullInt32
+	CheckoutRequestID string
+	ResultCode        sql.NullInt32
+	ResultDesc        sql.NullString
 }
 
 type OrderShipment struct {

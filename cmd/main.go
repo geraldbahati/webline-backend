@@ -104,6 +104,7 @@ func main() {
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
 	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo)
+	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
@@ -116,7 +117,7 @@ func main() {
 	productColorHandler := handlers.NewProductColorHandler(productService)
 	productSizeHandler := handlers.NewProductSizeHandler(productSizeService)
 	cartHandler := handlers.NewCartHandler(cartService)
-	orderHandler := handlers.NewOrderHandler(orderService)
+	orderHandler := handlers.NewOrderHandler(logger, orderService, paymentService)
 
 	// Setup router
 	r := setupRouter(
@@ -280,6 +281,8 @@ func setupRouter(
 	orderRouter.HandleFunc("", orderHandler.ListOrders).Methods(http.MethodGet)
 	orderRouter.HandleFunc("/{id}", orderHandler.GetOrder).Methods(http.MethodGet)
 	orderRouter.HandleFunc("/pay", orderHandler.PayOrder).Methods(http.MethodPost)
+	orderRouter.HandleFunc("/pay/status", orderHandler.GetPaymentStatus).Methods(http.MethodGet)
+	orderRouter.HandleFunc("/pay/mpesa-callback", orderHandler.HandleMpesaCallback).Methods(http.MethodPost)
 
 	return r
 }
