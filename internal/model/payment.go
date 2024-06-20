@@ -7,11 +7,13 @@ import (
 )
 
 type OrderPayment struct {
-	ID              uuid.UUID
-	OrderID         uuid.UUID
-	PaymentID       string
-	Amount          string
-	CreatedAt       time.Time
-	PaymentMethodID int32
-	PaymentStatusID int32
+	ID                uuid.UUID `json:"id"`
+	OrderID           uuid.UUID `json:"order_id"`
+	CheckoutRequestID string    `json:"checkout_request_id"`
+	Amount            string    `json:"amount"`
+	CreatedAt         time.Time `json:"created_at"`
+	PaymentMethodID   int32     `json:"payment_method_id"`
+	PaymentStatusID   int32     `json:"payment_status_id"`
+	ResultCode        int32     `json:"result_code"`
+	ResultDesc        string    `json:"result_desc"`
 }

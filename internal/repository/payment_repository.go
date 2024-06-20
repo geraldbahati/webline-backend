@@ -61,13 +61,13 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *database
 		}
 
 		orderPayment = &model.OrderPayment{
-			ID:              orderPay.ID,
-			OrderID:         orderPay.OrderID.UUID,
-			PaymentID:       orderPay.PaymentID,
-			Amount:          orderPay.Amount,
-			CreatedAt:       orderPay.CreatedAt.Time,
-			PaymentMethodID: orderPay.PaymentMethodID.Int32,
-			PaymentStatusID: orderPay.PaymentStatusID.Int32,
+			ID:                orderPay.ID,
+			OrderID:           orderPay.OrderID,
+			CheckoutRequestID: orderPay.CheckoutRequestID,
+			Amount:            orderPay.Amount,
+			CreatedAt:         orderPay.CreatedAt.Time,
+			PaymentMethodID:   orderPay.PaymentMethodID.Int32,
+			PaymentStatusID:   orderPay.PaymentStatusID.Int32,
 		}
 
 		return nil
@@ -76,74 +76,47 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *database
 		return nil, err
 	}
 
-	r.logger.Info("Payment created successfully", zap.String("paymentID", orderPayment.PaymentID))
+	r.logger.Info("Payment created successfully", zap.String("checkoutRequestID", orderPayment.CheckoutRequestID))
 	return orderPayment, nil
 }
 
 // UpdatePaymentStatus updates the payment status
-func (r *PaymentRepository) UpdatePaymentStatus(ctx context.Context, paymentID string, statusID int32) error {
+func (r *PaymentRepository) UpdatePaymentStatus(ctx context.Context, params database.UpdatePaymentStatusParams) error {
 	if err := r.execTx(ctx, func(q *database.Queries) error {
-		if err := q.UpdatePaymentStatus(ctx, database.UpdatePaymentStatusParams{
-			PaymentID: paymentID,
-			PaymentStatusID: sql.NullInt32{
-				Int32: statusID,
-				Valid: true,
-			},
-		}); err != nil {
-			r.logger.Error("Failed to update payment status", zap.Error(err), zap.String("paymentID", paymentID), zap.Int32("statusID", statusID))
+		if err := q.UpdatePaymentStatus(ctx, params); err != nil {
+			r.logger.Error("Failed to update payment status", zap.Error(err), zap.String("checkoutRequestID", params.CheckoutRequestID), zap.Int32("statusID", params.PaymentStatusID.Int32))
 			return fmt.Errorf("update payment status: %w", err)
 		}
 		return nil
 	}); err != nil {
-		r.logger.Error("Failed to update payment status", zap.Error(err), zap.String("paymentID", paymentID), zap.Int32("statusID", statusID))
-		return err
-	}
-	return nil
-}
-
-// UpdatePaymentID updates the payment ID
-func (r *PaymentRepository) UpdatePaymentID(ctx context.Context, orderID uuid.UUID, paymentID string) error {
-	if err := r.execTx(ctx, func(q *database.Queries) error {
-		if err := q.UpdatePaymentID(ctx, database.UpdatePaymentIDParams{
-			ID:        orderID,
-			PaymentID: paymentID,
-		}); err != nil {
-			r.logger.Error("Failed to update payment ID", zap.Error(err), zap.String("orderID", orderID.String()), zap.String("paymentID", paymentID))
-			return fmt.Errorf("update payment ID: %w", err)
-		}
-		return nil
-	}); err != nil {
-		r.logger.Error("Failed to update payment ID", zap.Error(err), zap.String("orderID", orderID.String()), zap.String("paymentID", paymentID))
+		r.logger.Error("Failed to update payment status", zap.Error(err), zap.String("checkoutRequestID", params.CheckoutRequestID), zap.Int32("statusID", params.PaymentStatusID.Int32))
 		return err
 	}
 	return nil
 }
 
 // GetPaymentsByOrderID returns payments by order ID
-func (r *PaymentRepository) GetPaymentsByOrderID(ctx context.Context, orderID uuid.UUID) ([]model.OrderPayment, error) {
-	payments, err := r.Queries.GetPaymentsByOrderID(ctx, uuid.NullUUID{
-		UUID:  orderID,
-		Valid: true,
-	})
+func (r *PaymentRepository) GetPaymentByOrderID(ctx context.Context, orderID uuid.UUID) (*model.OrderPayment, error) {
+	payment, err := r.Queries.GetPaymentByOrderID(ctx, orderID)
 	if err != nil {
 		r.logger.Error("Failed to get payments by order ID", zap.Error(err), zap.String("orderID", orderID.String()))
 		return nil, fmt.Errorf("get payments by order ID: %w", err)
 	}
 
-	var orderPayments []model.OrderPayment
-	for _, payment := range payments {
-		orderPayments = append(orderPayments, model.OrderPayment{
-			ID:              payment.ID,
-			OrderID:         payment.OrderID.UUID,
-			PaymentID:       payment.PaymentID,
-			Amount:          payment.Amount,
-			CreatedAt:       payment.CreatedAt.Time,
-			PaymentMethodID: payment.PaymentMethodID.Int32,
-			PaymentStatusID: payment.PaymentStatusID.Int32,
-		})
+	orderPayment := model.OrderPayment{
+		ID:                payment.ID,
+		OrderID:           payment.OrderID,
+		CheckoutRequestID: payment.CheckoutRequestID,
+		Amount:            payment.Amount,
+		CreatedAt:         payment.CreatedAt.Time,
+		PaymentMethodID:   payment.PaymentMethodID.Int32,
+		PaymentStatusID:   payment.PaymentStatusID.Int32,
+		ResultCode:        payment.ResultCode.Int32,
+		ResultDesc:        payment.ResultDesc.String,
 	}
 
-	return orderPayments, nil
+	return &orderPayment, nil
+
 }
 
 // GetAllPayments returns all payments
@@ -157,16 +130,46 @@ func (r *PaymentRepository) GetAllPayments(ctx context.Context) ([]model.OrderPa
 	var orderPayments []model.OrderPayment
 	for _, payment := range payments {
 		orderPayments = append(orderPayments, model.OrderPayment{
-			ID:              payment.ID,
-			OrderID:         payment.OrderID.UUID,
-			PaymentID:       payment.PaymentID,
-			Amount:          payment.Amount,
-			CreatedAt:       payment.CreatedAt.Time,
-			PaymentMethodID: payment.PaymentMethodID.Int32,
-			PaymentStatusID: payment.PaymentStatusID.Int32,
+			ID:                payment.ID,
+			OrderID:           payment.OrderID,
+			CheckoutRequestID: payment.CheckoutRequestID,
+			Amount:            payment.Amount,
+			CreatedAt:         payment.CreatedAt.Time,
+			PaymentMethodID:   payment.PaymentMethodID.Int32,
+			PaymentStatusID:   payment.PaymentStatusID.Int32,
+			ResultCode:        payment.ResultCode.Int32,
+			ResultDesc:        payment.ResultDesc.String,
 		})
-
 	}
 
 	return orderPayments, nil
+}
+
+// UpdateCheckoutRequestID updates the checkout request ID
+func (r *PaymentRepository) UpdateCheckoutRequestID(ctx context.Context, orderID uuid.UUID, checkoutRequestID string) error {
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.UpdateCheckoutRequestIDByOrderID(ctx, database.UpdateCheckoutRequestIDByOrderIDParams{
+			OrderID:           orderID,
+			CheckoutRequestID: checkoutRequestID,
+		}); err != nil {
+			r.logger.Error("Failed to update checkout request ID", zap.Error(err), zap.String("checkoutRequestID", checkoutRequestID))
+			return fmt.Errorf("update checkout request ID: %w", err)
+		}
+		return nil
+	}); err != nil {
+		r.logger.Error("Failed to update checkout request ID", zap.Error(err), zap.String("checkoutRequestID", checkoutRequestID))
+		return err
+	}
+	return nil
+}
+
+// GetStatusByID returns payment status by ID
+func (r *PaymentRepository) GetStatusByID(ctx context.Context, statusID int32) (string, error) {
+	status, err := r.Queries.GetStatusByID(ctx, statusID)
+	if err != nil {
+		r.logger.Error("Failed to get status by ID", zap.Error(err), zap.Int32("statusID", statusID))
+		return "", fmt.Errorf("get status by ID: %w", err)
+	}
+
+	return status, nil
 }
