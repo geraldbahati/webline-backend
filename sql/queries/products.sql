@@ -65,4 +65,440 @@ WITH RECURSIVE category_hierarchy AS (
 SELECT
     p.*
 FROM products p
+WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
+LIMIT $2 OFFSET $3;
+
+
+-- name: CountProductsByParentCategoryID :one
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id,
+        c.position
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT
+        c2.id,
+        c2.name,
+        c2.parent_id,
+        c2.position
+    FROM categories c2
+             INNER JOIN category_hierarchy ch ON c2.parent_id = ch.id
+)
+SELECT COUNT(*) AS count
+FROM products p
 WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch);
+
+-- name: GetFilteredProducts :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.created_at DESC
+LIMIT
+    $4 OFFSET
+    $5;
+
+-- name: GetFilteredProductsOrderByPriceAsc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price ASC
+LIMIT
+    $4 OFFSET
+    $5;
+
+-- name: GetFilteredProductsOrderByPriceDesc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price DESC
+LIMIT
+    $4 OFFSET
+    $5;
+
+-- name: GetFilteredProductsOrderByNameAsc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.name ASC
+LIMIT
+    $4 OFFSET
+    $5;
+
+-- name: GetFilteredProductsOrderByNameDesc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        ps.size,
+        pc.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- -- Size filter
+        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
+        -- -- Color filter
+        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.name DESC
+LIMIT
+    $4 OFFSET
+    $5;
+
+-- name: CountFilteredProducts :one
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        AND p.price BETWEEN $2 AND $3
+)
+SELECT COUNT(*) AS total_count FROM filtered_products;

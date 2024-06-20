@@ -15,6 +15,18 @@ type ProductImage struct {
 }
 
 type Product struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	Price       string
+	Stock       int32
+	CategoryID  uuid.UUID
+	IsActive    bool
+	Featured    bool
+	ImageURL    string
+}
+
+type ProductDetail struct {
 	ID             uuid.UUID
 	Name           string
 	Description    string
@@ -23,10 +35,10 @@ type Product struct {
 	CategoryID     uuid.UUID
 	IsActive       bool
 	Featured       bool
+	Images         []ProductImage
 	Colors         []ProductColor
 	Specifications []ProductSpecification
-	Variants       []ProductVariant
-	Images         []ProductImage
+	Options        []ProductOption
 }
 
 type ProductSchema struct {
@@ -65,4 +77,40 @@ type ProductQueryResult struct {
 	Price    string
 	Stock    int32
 	ImageURL string
+}
+
+type ProductOption struct {
+	ID           uuid.UUID
+	OptionName   string
+	OptionValues []ProductOptionValue
+}
+
+type ProductOptionValue struct {
+	ID              uuid.UUID
+	ValueName       string
+	AdditionalPrice float64
+}
+
+type ProductSize struct {
+	ID              uuid.UUID
+	ProductID       uuid.UUID
+	Size            string
+	AdditionalPrice string
+}
+
+type ProductCategoryFilterOption struct {
+	Title         string
+	Subcategories []ProductFilterOption
+}
+
+type ProductFilterOption struct {
+	ID   uuid.UUID
+	Name string
+}
+
+type ProductFilterOptions struct {
+	Categories    []ProductCategoryFilterOption
+	Colors        []ProductFilterOption
+	Sizes         []ProductFilterOption
+	TotalProducts int64
 }

@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"weblineBackend/internal/services"
+
+	"github.com/gorilla/mux"
 )
 
 type ProductOptionHandler struct {
@@ -35,13 +38,15 @@ func (h *ProductOptionHandler) CreateProductOptionHandler(w http.ResponseWriter,
 	}
 
 	// respond with product option
-	RespondWithJSON(w, http.StatusOK, productOption)
+	RespondWithJSON(w, http.StatusCreated, productOption)
 }
 
 // ListProductOptionsByProductIDHandler lists all product options by product ID
 func (h *ProductOptionHandler) ListProductOptionsByProductIDHandler(w http.ResponseWriter, r *http.Request) {
 	// get product ID
-	productID := r.URL.Query().Get("product_id")
+	productID := mux.Vars(r)["id"]
+
+	log.Printf("Product ID: %s", productID)
 
 	// list product options
 	productOptions, err := h.productOptionService.ListProductOptionsByProductID(r.Context(), productID)
@@ -83,7 +88,7 @@ func (h *ProductOptionHandler) UpdateProductOptionHandler(w http.ResponseWriter,
 // DeleteProductOptionHandler deletes a product option by its ID
 func (h *ProductOptionHandler) DeleteProductOptionHandler(w http.ResponseWriter, r *http.Request) {
 	// get product option ID
-	productOptionID := r.URL.Query().Get("id")
+	productOptionID := mux.Vars(r)["id"]
 
 	// delete product option
 	err := h.productOptionService.DeleteProductOption(r.Context(), productOptionID)
@@ -118,13 +123,19 @@ func (h *ProductOptionHandler) CreateProductOptionValueHandler(w http.ResponseWr
 	}
 
 	// respond with product option value
-	RespondWithJSON(w, http.StatusOK, productOptionValue)
+	RespondWithJSON(w, http.StatusCreated, productOptionValue)
 }
 
 // ListProductOptionValuesByOptionIDHandler lists all product option values by option ID
 func (h *ProductOptionHandler) ListProductOptionValuesByOptionIDHandler(w http.ResponseWriter, r *http.Request) {
 	// get option ID
-	optionID := r.URL.Query().Get("option_id")
+	optionID := mux.Vars(r)["id"]
+
+	// check if option ID is empty
+	if optionID == "" {
+		RespondWithError(w, http.StatusBadRequest, "Option ID is required")
+		return
+	}
 
 	// list product option values
 	productOptionValues, err := h.productOptionService.ListProductOptionValuesByOptionID(r.Context(), optionID)
@@ -167,7 +178,7 @@ func (h *ProductOptionHandler) UpdateProductOptionValueHandler(w http.ResponseWr
 // DeleteProductOptionValueHandler deletes a product option value by its ID
 func (h *ProductOptionHandler) DeleteProductOptionValueHandler(w http.ResponseWriter, r *http.Request) {
 	// get product option value ID
-	productOptionValueID := r.URL.Query().Get("id")
+	productOptionValueID := mux.Vars(r)["id"]
 
 	// delete product option value
 	err := h.productOptionService.DeleteProductOptionValue(r.Context(), productOptionValueID)

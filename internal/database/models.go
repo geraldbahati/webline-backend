@@ -19,6 +19,7 @@ type CartItem struct {
 	Quantity       int32
 	CreatedAt      sql.NullTime
 	UpdatedAt      sql.NullTime
+	Price          string
 }
 
 type Category struct {
@@ -41,34 +42,62 @@ type Discount struct {
 	UpdatedAt          sql.NullTime
 }
 
+type GuestCheckout struct {
+	ID            uuid.UUID
+	Email         string
+	FirstName     string
+	LastName      string
+	Phone         sql.NullString
+	StreetAddress string
+	City          string
+	State         string
+	Country       string
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+}
+
 type Order struct {
+	ID              uuid.UUID
+	UserID          uuid.NullUUID
+	Status          string
+	Total           string
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	PaymentStatus   string
+	GuestCheckoutID uuid.NullUUID
+	OrderNumber     sql.NullString
+}
+
+type OrderItem struct {
 	ID        uuid.UUID
-	UserID    uuid.NullUUID
-	Status    string
-	Total     string
+	OrderID   uuid.NullUUID
+	ProductID uuid.NullUUID
+	Quantity  int32
+	Price     string
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
 }
 
-type OrderItem struct {
-	ID               uuid.UUID
-	OrderID          uuid.NullUUID
-	ProductID        uuid.NullUUID
-	ProductVariantID uuid.NullUUID
-	Quantity         int32
-	Price            string
-	CreatedAt        sql.NullTime
-	UpdatedAt        sql.NullTime
+type OrderItemOption struct {
+	ID              uuid.UUID
+	OrderItemID     uuid.NullUUID
+	OptionType      string
+	OptionValue     string
+	AdditionalPrice sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
 }
 
 type OrderPayment struct {
-	ID        uuid.UUID
-	OrderID   uuid.NullUUID
-	PaymentID string
-	Status    string
-	Method    string
-	Amount    string
-	CreatedAt sql.NullTime
+	ID                uuid.UUID
+	OrderID           uuid.UUID
+	Amount            string
+	CreatedAt         sql.NullTime
+	PaymentMethodID   sql.NullInt32
+	PaymentStatusID   sql.NullInt32
+	CheckoutRequestID string
+	ResultCode        sql.NullInt32
+	ResultDesc        sql.NullString
 }
 
 type OrderShipment struct {
@@ -84,6 +113,16 @@ type OrderStatusHistory struct {
 	OrderID   uuid.NullUUID
 	Status    string
 	CreatedAt sql.NullTime
+}
+
+type PaymentMethod struct {
+	ID     int32
+	Method string
+}
+
+type PaymentStatus struct {
+	ID     int32
+	Status string
 }
 
 type Product struct {
@@ -153,6 +192,15 @@ type ProductReview struct {
 	UpdatedAt sql.NullTime
 }
 
+type ProductSize struct {
+	ID              uuid.UUID
+	ProductID       uuid.NullUUID
+	Size            string
+	AdditionalPrice sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+}
+
 type ProductSpecification struct {
 	ID        uuid.UUID
 	ProductID uuid.NullUUID
@@ -216,7 +264,6 @@ type ShoppingCart struct {
 
 type User struct {
 	ID              uuid.UUID
-	Username        string
 	Email           string
 	HashedPassword  string
 	FirstName       sql.NullString
