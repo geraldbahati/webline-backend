@@ -65,6 +65,7 @@ type Order struct {
 	UpdatedAt       sql.NullTime
 	PaymentStatus   string
 	GuestCheckoutID uuid.NullUUID
+	OrderNumber     sql.NullString
 }
 
 type OrderItem struct {

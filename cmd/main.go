@@ -278,6 +278,8 @@ func setupRouter(
 	orderRouter := r.PathPrefix("/api/orders").Subrouter()
 	orderRouter.HandleFunc("", orderHandler.CreateOrder).Methods(http.MethodPost)
 	orderRouter.HandleFunc("", orderHandler.ListOrders).Methods(http.MethodGet)
+	orderRouter.HandleFunc("/{id}", orderHandler.GetOrder).Methods(http.MethodGet)
+	orderRouter.HandleFunc("/pay", orderHandler.PayOrder).Methods(http.MethodPost)
 
 	return r
 }

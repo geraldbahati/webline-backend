@@ -242,3 +242,86 @@ func (s *OrderService) ListOrders(ctx context.Context, userID uuid.UUID) ([]uuid
 	return orderIDs, nil
 
 }
+
+// GetOrder gets order by ID
+func (s *OrderService) GetOrder(ctx context.Context, orderID uuid.UUID) (*model.OrderClientResponse, error) {
+	// Channels for results
+	orderChan := make(chan *database.GetOrderByIdRow, 1)
+	credentialsChan := make(chan *database.GetUserOrGuestCheckoutNameByOrderIDRow, 1)
+	errChan := make(chan error, 2)
+
+	// Ensure all channels are closed properly
+	defer close(orderChan)
+	defer close(credentialsChan)
+	defer close(errChan)
+
+	// Fetch order details in a separate goroutine
+	go func() {
+		order, err := s.orderRepository.GetOrderById(ctx, orderID)
+		if err != nil {
+			errChan <- fmt.Errorf("failed to get order: %w", err)
+			return
+		}
+		orderChan <- order
+	}()
+
+	// Fetch customer name in a separate goroutine
+	go func() {
+		credentials, err := s.orderRepository.GetUserOrGuestCheckoutNameByOrderID(ctx, orderID)
+		if err != nil {
+			errChan <- fmt.Errorf("failed to get customer name: %w", err)
+			return
+		}
+		credentialsChan <- credentials
+	}()
+
+	var order *database.GetOrderByIdRow
+	var customerCredentials *database.GetUserOrGuestCheckoutNameByOrderIDRow
+
+	// Wait for both operations to complete or an error to occur
+	for i := 0; i < 2; i++ {
+		select {
+		case o := <-orderChan:
+			order = o
+		case n := <-credentialsChan:
+			customerCredentials = n
+		case err := <-errChan:
+			s.logger.Error("operation failed", zap.Error(err))
+			return nil, err
+		case <-ctx.Done():
+			s.logger.Error("operation cancelled", zap.Error(ctx.Err()))
+			return nil, ctx.Err()
+		}
+	}
+
+	// Check if user or guest
+	var customerName string
+	var phone string
+	if customerCredentials.UserFirstName.Valid {
+		customerName = customerCredentials.UserFirstName.String + " " + customerCredentials.UserLastName.String
+		phone = customerCredentials.UserPhoneNumber.String
+	} else {
+		customerName = customerCredentials.GuestFirstName.String + " " + customerCredentials.GuestLastName.String
+		phone = customerCredentials.GuestPhone.String
+	}
+
+	amount, err := strconv.ParseFloat(order.Total, 64)
+	if err != nil {
+		s.logger.Error("failed to parse amount", zap.Error(err))
+		return nil, fmt.Errorf("failed to parse amount: %w", err)
+	}
+
+	// Create the response
+	response := &model.OrderClientResponse{
+		ID:             order.ID,
+		OrderNumber:    order.OrderNumber.String,
+		OrderCreatedAt: order.CreatedAt.Time,
+		CustomerName:   customerName,
+		Phone:          phone,
+		Amount:         amount,
+	}
+
+	s.logger.Info("Order details", zap.Any("order", response))
+
+	return response, nil
+}

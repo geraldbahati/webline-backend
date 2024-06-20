@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -39,4 +41,13 @@ type CreateOrderParams struct {
 	PaymentMethod    int32         `json:"payment_method"`
 	ShippingLocation string        `json:"shipping_location"`
 	ShippingCost     float64       `json:"shipping_cost"`
+}
+
+type OrderClientResponse struct {
+	ID             uuid.UUID
+	OrderNumber    string
+	OrderCreatedAt time.Time
+	CustomerName   string
+	Phone          string
+	Amount         float64
 }

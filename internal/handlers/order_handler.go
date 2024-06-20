@@ -10,15 +10,18 @@ import (
 	"weblineBackend/internal/services"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type OrderHandler struct {
-	orderService *services.OrderService
+	orderService   *services.OrderService
+	paymentService *services.PaymentService
 }
 
-func NewOrderHandler(orderService *services.OrderService) *OrderHandler {
+func NewOrderHandler(orderService *services.OrderService, paymentService *services.PaymentService) *OrderHandler {
 	return &OrderHandler{
-		orderService: orderService,
+		orderService:   orderService,
+		paymentService: paymentService,
 	}
 }
 
@@ -170,4 +173,63 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 	// Write response
 	RespondWithJSON(w, http.StatusOK, orders)
+}
+
+// GetOrder gets a single order
+func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
+	// Get order ID from URL
+	orderID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid order ID")
+		return
+	}
+
+	// Get order
+	order, err := h.orderService.GetOrder(r.Context(), orderID)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get order: %v", err))
+		return
+	}
+
+	// Write response
+	RespondWithJSON(w, http.StatusOK, order)
+}
+
+type PayOrderRequest struct {
+	OrderID     string `json:"orderID"`
+	PhoneNumber string `json:"phoneNumber"`
+}
+
+// PayOrder pays for an order
+func (h *OrderHandler) PayOrder(w http.ResponseWriter, r *http.Request) {
+	// Get payment method from query
+	method := r.URL.Query().Get("method")
+
+	if method == "" {
+		RespondWithError(w, http.StatusBadRequest, "Payment method is required")
+		return
+	}
+
+	// Get payment method from request
+	var req PayOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	switch method {
+	case "mpesa":
+		// Pay with M-Pesa
+		response, err := h.paymentService.PayOrderWithMpesa(r.Context(), req.OrderID, req.PhoneNumber)
+		if err != nil {
+			RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to pay order: %v", err))
+			return
+		}
+
+		// Write response
+		RespondWithJSON(w, http.StatusOK, response)
+
+	default:
+		RespondWithError(w, http.StatusBadRequest, "Invalid payment method")
+	}
 }

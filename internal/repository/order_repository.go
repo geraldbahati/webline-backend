@@ -163,3 +163,15 @@ func (r *OrderRepository) GetOrderIDsByUserID(ctx context.Context, userID uuid.U
 	r.logger.Info("Order IDs retrieved successfully", zap.Any("orderIDs", orderIDs))
 	return orderIDs, nil
 }
+
+// GetUserOrGuestCheckoutNameByOrderID retrieves the name of the user or guest checkout for a specific order
+func (r *OrderRepository) GetUserOrGuestCheckoutNameByOrderID(ctx context.Context, orderID uuid.UUID) (*database.GetUserOrGuestCheckoutNameByOrderIDRow, error) {
+	names, err := r.Queries.GetUserOrGuestCheckoutNameByOrderID(ctx, orderID)
+	if err != nil {
+		r.logger.Error("get user or guest checkout name by order ID failed", zap.Error(err))
+		return nil, fmt.Errorf("get user or guest checkout name by order ID: %w", err)
+	}
+
+	r.logger.Info("User or guest checkout name retrieved successfully", zap.Any("names", names))
+	return &names, nil
+}

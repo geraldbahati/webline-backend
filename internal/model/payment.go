@@ -15,11 +15,3 @@ type OrderPayment struct {
 	PaymentMethodID int32
 	PaymentStatusID int32
 }
-
-type OrderPaymentResponse struct {
-	ID             uuid.UUID
-	OrderNumber    string
-	OrderCreatedAt time.Time
-	CustomerName   string
-	Amount         string
-}

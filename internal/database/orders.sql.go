@@ -90,7 +90,7 @@ func (q *Queries) GetGuestCheckoutByEmail(ctx context.Context, email string) (Gu
 }
 
 const getOrderById = `-- name: GetOrderById :one
-SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at
+SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at, order_number
 FROM orders
 WHERE id = $1
 `
@@ -104,6 +104,7 @@ type GetOrderByIdRow struct {
 	Total           string
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
+	OrderNumber     sql.NullString
 }
 
 func (q *Queries) GetOrderById(ctx context.Context, id uuid.UUID) (GetOrderByIdRow, error) {
@@ -118,6 +119,7 @@ func (q *Queries) GetOrderById(ctx context.Context, id uuid.UUID) (GetOrderByIdR
 		&i.Total,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OrderNumber,
 	)
 	return i, err
 }
@@ -153,7 +155,7 @@ func (q *Queries) GetOrderIDsByUserID(ctx context.Context, userID uuid.NullUUID)
 }
 
 const getOrdersByGuestCheckoutId = `-- name: GetOrdersByGuestCheckoutId :many
-SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at
+SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at, order_number
 FROM orders
 WHERE guest_checkout_id = $1
 ORDER BY created_at DESC
@@ -168,6 +170,7 @@ type GetOrdersByGuestCheckoutIdRow struct {
 	Total           string
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
+	OrderNumber     sql.NullString
 }
 
 func (q *Queries) GetOrdersByGuestCheckoutId(ctx context.Context, guestCheckoutID uuid.NullUUID) ([]GetOrdersByGuestCheckoutIdRow, error) {
@@ -188,6 +191,7 @@ func (q *Queries) GetOrdersByGuestCheckoutId(ctx context.Context, guestCheckoutI
 			&i.Total,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OrderNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -203,7 +207,7 @@ func (q *Queries) GetOrdersByGuestCheckoutId(ctx context.Context, guestCheckoutI
 }
 
 const getOrdersByUserId = `-- name: GetOrdersByUserId :many
-SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at
+SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at, order_number
 FROM orders
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -218,6 +222,7 @@ type GetOrdersByUserIdRow struct {
 	Total           string
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
+	OrderNumber     sql.NullString
 }
 
 func (q *Queries) GetOrdersByUserId(ctx context.Context, userID uuid.NullUUID) ([]GetOrdersByUserIdRow, error) {
@@ -238,6 +243,7 @@ func (q *Queries) GetOrdersByUserId(ctx context.Context, userID uuid.NullUUID) (
 			&i.Total,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OrderNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -250,6 +256,44 @@ func (q *Queries) GetOrdersByUserId(ctx context.Context, userID uuid.NullUUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const getUserOrGuestCheckoutNameByOrderID = `-- name: GetUserOrGuestCheckoutNameByOrderID :one
+SELECT
+    u.first_name AS user_first_name,
+    u.last_name AS user_last_name,
+    u.phone_number AS user_phone_number,
+    g.first_name AS guest_first_name,
+    g.last_name AS guest_last_name,
+    g.phone AS guest_phone
+FROM orders o
+LEFT JOIN users u ON o.user_id = u.id
+LEFT JOIN guest_checkouts g ON o.guest_checkout_id = g.id
+WHERE o.id = $1
+  AND (o.user_id IS NOT NULL OR o.guest_checkout_id IS NOT NULL)
+`
+
+type GetUserOrGuestCheckoutNameByOrderIDRow struct {
+	UserFirstName   sql.NullString
+	UserLastName    sql.NullString
+	UserPhoneNumber sql.NullString
+	GuestFirstName  sql.NullString
+	GuestLastName   sql.NullString
+	GuestPhone      sql.NullString
+}
+
+func (q *Queries) GetUserOrGuestCheckoutNameByOrderID(ctx context.Context, id uuid.UUID) (GetUserOrGuestCheckoutNameByOrderIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserOrGuestCheckoutNameByOrderID, id)
+	var i GetUserOrGuestCheckoutNameByOrderIDRow
+	err := row.Scan(
+		&i.UserFirstName,
+		&i.UserLastName,
+		&i.UserPhoneNumber,
+		&i.GuestFirstName,
+		&i.GuestLastName,
+		&i.GuestPhone,
+	)
+	return i, err
 }
 
 const updateOrderPaymentStatus = `-- name: UpdateOrderPaymentStatus :exec
