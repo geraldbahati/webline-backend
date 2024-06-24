@@ -104,4 +104,18 @@ WITH RECURSIVE category_hierarchy AS (
 FROM category_hierarchy ch
 ORDER BY ch.position;
 
-
+-- name: GetProcessorsByCategoryID :many
+WITH RECURSIVE category_tree AS (
+    SELECT id
+    FROM categories
+    WHERE id = $1
+    UNION
+    SELECT c.id
+    FROM categories c
+             INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT ps.spec_value AS processor
+FROM product_specifications ps
+JOIN products p ON ps.product_id = p.id
+JOIN category_tree ct ON p.category_id = ct.id
+WHERE ps.spec_key = 'processor' AND p.is_active = TRUE;
