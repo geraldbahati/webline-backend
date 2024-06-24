@@ -37,7 +37,7 @@ func NewPaymentService(pr *repository.PaymentRepository, o *repository.OrderRepo
 
 // CreatePayment creates a new payment
 func (s *PaymentService) CreatePayment(ctx context.Context, orderID string, amount float64, paymentMethodID int) (*model.OrderPayment, error) {
-	var orderUUID uuid.NullUUID
+	var orderUUID uuid.UUID
 
 	if orderID == "" {
 		s.logger.Error("OrderID is required")
@@ -48,11 +48,11 @@ func (s *PaymentService) CreatePayment(ctx context.Context, orderID string, amou
 			s.logger.Error("Failed to parse orderID", zap.Error(err), zap.String("orderID", orderID))
 			return nil, fmt.Errorf("parse orderID: %w", err)
 		}
-		orderUUID = uuid.NullUUID{UUID: id, Valid: true}
+		orderUUID = id
 	}
 
 	payment := &database.CreatePaymentParams{
-		OrderID:         orderUUID.UUID,
+		OrderID:         orderUUID,
 		Amount:          strconv.FormatFloat(amount, 'f', -1, 64),
 		PaymentMethodID: sql.NullInt32{Int32: int32(paymentMethodID), Valid: true},
 	}
@@ -142,16 +142,16 @@ func (s *PaymentService) PayOrderWithMpesa(ctx context.Context, orderID, phone s
 	return nil
 }
 
-// ProcessMpesaCallback processes the Mpesa callback
 func (s *PaymentService) ProcessMpesaCallback(ctx context.Context, callbackResponse mpesa.MpesaCallbackResponse) error {
 	s.logger.Info("Processing Mpesa callback", zap.Any("callbackResponse", callbackResponse))
 	checkoutRequestID := callbackResponse.Body.StkCallback.CheckoutRequestID
 	resultCode := callbackResponse.Body.StkCallback.ResultCode
 	resultDesc := callbackResponse.Body.StkCallback.ResultDesc
 
+	// Determine status based on resultCode
 	status := 3
 	if resultCode == 0 {
-		status = 2
+		status = 2 // Successful transaction
 	}
 
 	var amount float64
@@ -178,6 +178,7 @@ func (s *PaymentService) ProcessMpesaCallback(ctx context.Context, callbackRespo
 		s.logger.Warn("CallbackMetadata.Item is nil")
 	}
 
+	// Update payment status in the database
 	err := s.paymentRepository.UpdatePaymentStatus(ctx, database.UpdatePaymentStatusParams{
 		CheckoutRequestID: checkoutRequestID,
 		PaymentStatusID:   sql.NullInt32{Int32: int32(status), Valid: true},
