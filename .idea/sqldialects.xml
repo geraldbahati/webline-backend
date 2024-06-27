@@ -2,6 +2,7 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/internal/repository/product_repository.go" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/sql/queries/categories.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/orders.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/product_colors.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/product_option.sql" dialect="PostgreSQL" />
