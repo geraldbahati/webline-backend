@@ -32,6 +32,14 @@ type Category struct {
 	Position  int32
 }
 
+type Color struct {
+	ID         uuid.UUID
+	ColorName  string
+	CreatedAt  sql.NullTime
+	UpdatedAt  sql.NullTime
+	ColorValue sql.NullString
+}
+
 type Discount struct {
 	ID                 uuid.UUID
 	ProductID          uuid.NullUUID
@@ -98,6 +106,7 @@ type OrderPayment struct {
 	CheckoutRequestID string
 	ResultCode        sql.NullInt32
 	ResultDesc        sql.NullString
+	UpdatedAt         sql.NullTime
 }
 
 type OrderShipment struct {
@@ -125,6 +134,13 @@ type PaymentStatus struct {
 	Status string
 }
 
+type Processor struct {
+	ID        uuid.UUID
+	Name      string
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+}
+
 type Product struct {
 	ID            uuid.UUID
 	Name          string
@@ -144,9 +160,9 @@ type Product struct {
 type ProductColor struct {
 	ID        uuid.UUID
 	ProductID uuid.NullUUID
-	ColorName string
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+	ColorID   uuid.NullUUID
 }
 
 type ProductImage struct {
@@ -182,6 +198,14 @@ type ProductOptionValue struct {
 	UpdatedAt       sql.NullTime
 }
 
+type ProductProcessor struct {
+	ID          uuid.UUID
+	ProductID   uuid.NullUUID
+	ProcessorID uuid.NullUUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
 type ProductReview struct {
 	ID        uuid.UUID
 	ProductID uuid.NullUUID
@@ -195,10 +219,10 @@ type ProductReview struct {
 type ProductSize struct {
 	ID              uuid.UUID
 	ProductID       uuid.NullUUID
-	Size            string
 	AdditionalPrice sql.NullString
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
+	SizeID          uuid.NullUUID
 }
 
 type ProductSpecification struct {
@@ -208,6 +232,15 @@ type ProductSpecification struct {
 	SpecValue string
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+}
+
+type ProductStorageOption struct {
+	ID              uuid.UUID
+	ProductID       uuid.NullUUID
+	StorageOptionID uuid.NullUUID
+	AdditionalPrice sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
 }
 
 type ProductVariant struct {
@@ -260,6 +293,20 @@ type ShoppingCart struct {
 	TotalPrice string
 	CreatedAt  sql.NullTime
 	UpdatedAt  sql.NullTime
+}
+
+type Size struct {
+	ID        uuid.UUID
+	Size      string
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+}
+
+type StorageOption struct {
+	ID        uuid.UUID
+	Name      string
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
 }
 
 type User struct {

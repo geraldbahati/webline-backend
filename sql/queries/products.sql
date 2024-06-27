@@ -127,20 +127,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -163,8 +167,8 @@ FROM
 ORDER BY
     fp.created_at DESC
 LIMIT
-    $4 OFFSET
-    $5;
+    $6 OFFSET
+    $7;
 
 -- name: GetFilteredProductsOrderByPriceAsc :many
 WITH RECURSIVE category_hierarchy AS (
@@ -202,20 +206,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -238,8 +246,8 @@ FROM
 ORDER BY
     fp.price ASC
 LIMIT
-    $4 OFFSET
-    $5;
+    $6 OFFSET
+    $7;
 
 -- name: GetFilteredProductsOrderByPriceDesc :many
 WITH RECURSIVE category_hierarchy AS (
@@ -277,20 +285,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -313,8 +325,8 @@ FROM
 ORDER BY
     fp.price DESC
 LIMIT
-    $4 OFFSET
-    $5;
+    $6 OFFSET
+    $7;
 
 -- name: GetFilteredProductsOrderByNameAsc :many
 WITH RECURSIVE category_hierarchy AS (
@@ -352,20 +364,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -388,8 +404,8 @@ FROM
 ORDER BY
     fp.name ASC
 LIMIT
-    $4 OFFSET
-    $5;
+    $6 OFFSET
+    $7;
 
 -- name: GetFilteredProductsOrderByNameDesc :many
 WITH RECURSIVE category_hierarchy AS (
@@ -427,20 +443,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -463,8 +483,8 @@ FROM
 ORDER BY
     fp.name DESC
 LIMIT
-    $4 OFFSET
-    $5;
+    $6 OFFSET
+    $7;
 
 -- name: CountFilteredProducts :one
 WITH RECURSIVE category_hierarchy AS (
@@ -496,9 +516,17 @@ filtered_products AS (
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT COUNT(*) AS total_count FROM filtered_products;

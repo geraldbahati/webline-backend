@@ -1079,12 +1079,12 @@ func (s *ProductService) CreateProductColor(
 	ctx context.Context,
 	productID,
 	color string,
-) (database.ProductColor, error) {
+) (*database.CreateProductColorRow, error) {
 	// Parse the product ID
 	productUUID, err := uuid.Parse(productID)
 	if err != nil {
 		s.logger.Error("invalid product ID", zap.Error(err))
-		return database.ProductColor{}, fmt.Errorf("invalid product ID: %w", err)
+		return nil, fmt.Errorf("invalid product ID: %w", err)
 	}
 
 	// Prepare parameters for creating product color
@@ -1097,7 +1097,7 @@ func (s *ProductService) CreateProductColor(
 	productColor, err := s.productColorRepo.CreateProductColor(ctx, params)
 	if err != nil {
 		s.logger.Error("failed to create product color", zap.Error(err))
-		return database.ProductColor{}, fmt.Errorf("failed to create product color: %w", err)
+		return nil, fmt.Errorf("failed to create product color: %w", err)
 	}
 
 	return productColor, nil
@@ -1107,7 +1107,7 @@ func (s *ProductService) CreateProductColor(
 func (s *ProductService) ListProductColorsByProductID(
 	ctx context.Context,
 	productID string,
-) ([]database.ProductColor, error) {
+) ([]database.ListProductColorsByProductIDRow, error) {
 	// Parse the product ID
 	productUUID, err := uuid.Parse(productID)
 	if err != nil {
@@ -1130,12 +1130,12 @@ func (s *ProductService) UpdateProductColor(
 	ctx context.Context,
 	id string,
 	color string,
-) (database.ProductColor, error) {
+) (*database.UpdateProductColorRow, error) {
 	// Parse the product color ID
 	colorUUID, err := uuid.Parse(id)
 	if err != nil {
 		s.logger.Error("invalid product color ID", zap.Error(err))
-		return database.ProductColor{}, fmt.Errorf("invalid product color ID: %w", err)
+		return nil, fmt.Errorf("invalid product color ID: %w", err)
 	}
 
 	// Prepare parameters for updating product color
@@ -1148,7 +1148,7 @@ func (s *ProductService) UpdateProductColor(
 	productColor, err := s.productColorRepo.UpdateProductColor(ctx, params)
 	if err != nil {
 		s.logger.Error("failed to update product color", zap.Error(err))
-		return database.ProductColor{}, fmt.Errorf("failed to update product color: %w", err)
+		return nil, fmt.Errorf("failed to update product color: %w", err)
 	}
 
 	return productColor, nil
@@ -1417,7 +1417,7 @@ func (s *ProductService) GetProductsByFilters(
 		}
 
 		for _, color := range productColors {
-			colors = append(colors, color)
+			colors = append(colors, color.ColorName)
 		}
 	}
 

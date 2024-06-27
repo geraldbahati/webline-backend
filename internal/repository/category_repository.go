@@ -232,5 +232,7 @@ func (r *CategoryRepository) GetCategoryHierarchy(
 		r.logger.Error("failed to get category hierarchy", zap.Error(err))
 		return nil, fmt.Errorf("failed to get category hierarchy: %w", err)
 	}
+
+	r.logger.Info("Category hierarchy successfully retrieved")
 	return hierarchy, nil
 }

@@ -87,7 +87,7 @@ func main() {
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
-	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger)
+	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger, &cfg)
 	productService := services.NewProductService(
 		productRepo,
 		productVariantRepo,
