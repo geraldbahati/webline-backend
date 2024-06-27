@@ -52,8 +52,8 @@ func (r *ProductSizeRepository) execTx(ctx context.Context, fn func(*database.Qu
 func (r *ProductSizeRepository) CreateProductSize(
 	ctx context.Context,
 	params database.CreateProductSizeParams,
-) (database.ProductSize, error) {
-	var productSize database.ProductSize
+) (*database.CreateProductSizeRow, error) {
+	var productSize database.CreateProductSizeRow
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
 		productSize, err = q.CreateProductSize(ctx, params)
@@ -64,56 +64,62 @@ func (r *ProductSizeRepository) CreateProductSize(
 	})
 	if err != nil {
 		r.logger.Error("failed to create product size", zap.Error(err))
-		return database.ProductSize{}, err
+		return nil, err
 	}
-	return productSize, nil
+	return &productSize, nil
 }
 
 // GetProductSizeByID retrieves a product size by its ID
 func (r *ProductSizeRepository) GetProductSizeByID(
 	ctx context.Context,
 	id uuid.UUID,
-) (database.ProductSize, error) {
+) (*database.GetProductSizeByIDRow, error) {
 	productSize, err := r.Queries.GetProductSizeByID(ctx, id)
 	if err != nil {
 		r.logger.Error("failed to get product size", zap.Error(err))
-		return database.ProductSize{}, err
+		return nil, fmt.Errorf("failed to get product size: %w", err)
 	}
-	return productSize, nil
+
+	r.logger.Info("product size retrieved", zap.String("id", productSize.ID.String()))
+	return &productSize, nil
 }
 
 // GetProductSizesByProductID retrieves all product sizes for a given product ID
 func (r *ProductSizeRepository) GetProductSizesByProductID(
 	ctx context.Context,
 	productID uuid.NullUUID,
-) ([]database.ProductSize, error) {
+) (*[]database.ListProductSizesByProductIDRow, error) {
 	productSizes, err := r.Queries.ListProductSizesByProductID(ctx, productID)
 	if err != nil {
 		r.logger.Error("failed to get product sizes", zap.Error(err))
 		return nil, err
 	}
-	return productSizes, nil
+	return &productSizes, nil
 }
 
 // UpdateProductSize updates a product size in the database
 func (r *ProductSizeRepository) UpdateProductSize(
 	ctx context.Context,
 	params database.UpdateProductSizeParams,
-) (database.ProductSize, error) {
-	var productSize database.ProductSize
+) (*database.UpdateProductSizeRow, error) {
+	var productSize database.UpdateProductSizeRow
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
 		productSize, err = q.UpdateProductSize(ctx, params)
 		if err != nil {
 			return fmt.Errorf("failed to update product size: %w", err)
 		}
+
+		r.logger.Info("product size updated", zap.String("id", productSize.ID.String()))
 		return nil
 	})
 	if err != nil {
 		r.logger.Error("failed to update product size", zap.Error(err))
-		return database.ProductSize{}, err
+		return nil, fmt.Errorf("failed to update product size: %w", err)
 	}
-	return productSize, nil
+
+	r.logger.Info("product size updated", zap.String("id", productSize.ID.String()))
+	return &productSize, nil
 }
 
 // DeleteProductSize deletes a product size from the database

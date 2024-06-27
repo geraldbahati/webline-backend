@@ -7,14 +7,15 @@ package database
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 const createProductColor = `-- name: CreateProductColor :one
-INSERT INTO product_colors (product_id, color_name)
-VALUES ($1, $2)
-    RETURNING id, product_id, color_name, created_at, updated_at
+INSERT INTO product_colors (product_id, color_id)
+VALUES ($1, (SELECT id FROM colors WHERE color_name = $2))
+RETURNING id, product_id, color_id, created_at, updated_at
 `
 
 type CreateProductColorParams struct {
@@ -22,13 +23,21 @@ type CreateProductColorParams struct {
 	ColorName string
 }
 
-func (q *Queries) CreateProductColor(ctx context.Context, arg CreateProductColorParams) (ProductColor, error) {
+type CreateProductColorRow struct {
+	ID        uuid.UUID
+	ProductID uuid.NullUUID
+	ColorID   uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+}
+
+func (q *Queries) CreateProductColor(ctx context.Context, arg CreateProductColorParams) (CreateProductColorRow, error) {
 	row := q.db.QueryRowContext(ctx, createProductColor, arg.ProductID, arg.ColorName)
-	var i ProductColor
+	var i CreateProductColorRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
-		&i.ColorName,
+		&i.ColorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -46,14 +55,15 @@ func (q *Queries) DeleteProductColor(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllColors = `-- name: GetAllColors :many
-SELECT DISTINCT id, color_name
-FROM product_colors
-ORDER BY color_name
+SELECT DISTINCT c.id, c.color_name, c.color_value
+FROM colors c
+ORDER BY c.color_name
 `
 
 type GetAllColorsRow struct {
-	ID        uuid.UUID
-	ColorName string
+	ID         uuid.UUID
+	ColorName  string
+	ColorValue sql.NullString
 }
 
 func (q *Queries) GetAllColors(ctx context.Context) ([]GetAllColorsRow, error) {
@@ -65,7 +75,7 @@ func (q *Queries) GetAllColors(ctx context.Context) ([]GetAllColorsRow, error) {
 	var items []GetAllColorsRow
 	for rows.Next() {
 		var i GetAllColorsRow
-		if err := rows.Scan(&i.ID, &i.ColorName); err != nil {
+		if err := rows.Scan(&i.ID, &i.ColorName, &i.ColorValue); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -89,26 +99,32 @@ WITH RECURSIVE category_tree AS (
     FROM categories c
              INNER JOIN category_tree ct ON ct.id = c.parent_id
 )
-SELECT DISTINCT pc.color_name
+SELECT DISTINCT c.color_name, c.color_value
 FROM products p
-         JOIN product_colors pc ON p.id = pc.product_id
-         JOIN category_tree ct ON p.category_id = ct.id
-ORDER BY pc.color_name
+JOIN product_colors pc ON p.id = pc.product_id
+JOIN colors c ON pc.color_id = c.id
+JOIN category_tree ct ON p.category_id = ct.id
+ORDER BY c.color_name
 `
 
-func (q *Queries) GetAvailableColorsByParentCategoryID(ctx context.Context, id uuid.UUID) ([]string, error) {
+type GetAvailableColorsByParentCategoryIDRow struct {
+	ColorName  string
+	ColorValue sql.NullString
+}
+
+func (q *Queries) GetAvailableColorsByParentCategoryID(ctx context.Context, id uuid.UUID) ([]GetAvailableColorsByParentCategoryIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAvailableColorsByParentCategoryID, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []GetAvailableColorsByParentCategoryIDRow
 	for rows.Next() {
-		var color_name string
-		if err := rows.Scan(&color_name); err != nil {
+		var i GetAvailableColorsByParentCategoryIDRow
+		if err := rows.Scan(&i.ColorName, &i.ColorValue); err != nil {
 			return nil, err
 		}
-		items = append(items, color_name)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -120,18 +136,29 @@ func (q *Queries) GetAvailableColorsByParentCategoryID(ctx context.Context, id u
 }
 
 const getProductColorByID = `-- name: GetProductColorByID :one
-SELECT id, product_id, color_name, created_at, updated_at
-FROM product_colors
-WHERE id = $1
+SELECT pc.id, pc.product_id, c.color_name, c.color_value, pc.created_at, pc.updated_at
+FROM product_colors pc
+JOIN colors c ON pc.color_id = c.id
+WHERE pc.id = $1
 `
 
-func (q *Queries) GetProductColorByID(ctx context.Context, id uuid.UUID) (ProductColor, error) {
+type GetProductColorByIDRow struct {
+	ID         uuid.UUID
+	ProductID  uuid.NullUUID
+	ColorName  string
+	ColorValue sql.NullString
+	CreatedAt  sql.NullTime
+	UpdatedAt  sql.NullTime
+}
+
+func (q *Queries) GetProductColorByID(ctx context.Context, id uuid.UUID) (GetProductColorByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getProductColorByID, id)
-	var i ProductColor
+	var i GetProductColorByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
 		&i.ColorName,
+		&i.ColorValue,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -139,25 +166,36 @@ func (q *Queries) GetProductColorByID(ctx context.Context, id uuid.UUID) (Produc
 }
 
 const listProductColorsByProductID = `-- name: ListProductColorsByProductID :many
-SELECT id, product_id, color_name, created_at, updated_at
-FROM product_colors
-WHERE product_id = $1
-ORDER BY created_at
+SELECT pc.id, pc.product_id, c.color_name, c.color_value, pc.created_at, pc.updated_at
+FROM product_colors pc
+JOIN colors c ON pc.color_id = c.id
+WHERE pc.product_id = $1
+ORDER BY pc.created_at
 `
 
-func (q *Queries) ListProductColorsByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductColor, error) {
+type ListProductColorsByProductIDRow struct {
+	ID         uuid.UUID
+	ProductID  uuid.NullUUID
+	ColorName  string
+	ColorValue sql.NullString
+	CreatedAt  sql.NullTime
+	UpdatedAt  sql.NullTime
+}
+
+func (q *Queries) ListProductColorsByProductID(ctx context.Context, productID uuid.NullUUID) ([]ListProductColorsByProductIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, listProductColorsByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductColor
+	var items []ListProductColorsByProductIDRow
 	for rows.Next() {
-		var i ProductColor
+		var i ListProductColorsByProductIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProductID,
 			&i.ColorName,
+			&i.ColorValue,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -176,9 +214,9 @@ func (q *Queries) ListProductColorsByProductID(ctx context.Context, productID uu
 
 const updateProductColor = `-- name: UpdateProductColor :one
 UPDATE product_colors
-SET color_name = $2, updated_at = NOW()
-WHERE id = $1
-    RETURNING id, product_id, color_name, created_at, updated_at
+SET color_id = (SELECT colors.id FROM colors WHERE color_name = $2), updated_at = NOW()
+WHERE product_colors.id = $1
+RETURNING id, product_id, color_id, created_at, updated_at
 `
 
 type UpdateProductColorParams struct {
@@ -186,13 +224,21 @@ type UpdateProductColorParams struct {
 	ColorName string
 }
 
-func (q *Queries) UpdateProductColor(ctx context.Context, arg UpdateProductColorParams) (ProductColor, error) {
+type UpdateProductColorRow struct {
+	ID        uuid.UUID
+	ProductID uuid.NullUUID
+	ColorID   uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+}
+
+func (q *Queries) UpdateProductColor(ctx context.Context, arg UpdateProductColorParams) (UpdateProductColorRow, error) {
 	row := q.db.QueryRowContext(ctx, updateProductColor, arg.ID, arg.ColorName)
-	var i ProductColor
+	var i UpdateProductColorRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
-		&i.ColorName,
+		&i.ColorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

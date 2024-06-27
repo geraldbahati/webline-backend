@@ -53,7 +53,7 @@ WITH RECURSIVE category_tree AS (
 )
 SELECT id, name, parent_id, created_at, updated_at, is_active, position
 FROM category_tree
-ORDER BY position ASC, parent_id, name;
+ORDER BY position, parent_id, name;
 
 -- name: CheckCategoryExistence :one
 SELECT EXISTS (
@@ -83,39 +83,88 @@ WHERE name = $1;
 -- name: GetCategoryHierarchy :many
 WITH RECURSIVE category_hierarchy AS (
     SELECT
-        id,
-        name,
-        parent_id,
-        position
-    FROM categories
-    WHERE parent_id IS NULL
+        c1.id AS category_id,
+        c1.name AS category_name,
+        c1.parent_id,
+        c1.position
+    FROM categories c1
+    WHERE c1.parent_id IS NULL
     UNION ALL
     SELECT
-        c.id,
-        c.name,
-        c.parent_id,
-        c.position
-    FROM categories c
-    INNER JOIN category_hierarchy ch ON ch.id = c.parent_id
-) SELECT
-      ch.id,
-      ch.name,
-      ch.parent_id
-FROM category_hierarchy ch
-ORDER BY ch.position;
-
--- name: GetProcessorsByCategoryID :many
-WITH RECURSIVE category_tree AS (
-    SELECT id
-    FROM categories
-    WHERE id = $1
-    UNION
-    SELECT c.id
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
+        c2.id AS category_id,
+        c2.name AS category_name,
+        c2.parent_id,
+        c2.position
+    FROM categories c2
+    INNER JOIN category_hierarchy ch ON ch.category_id = c2.parent_id
+),
+product_details AS (
+    SELECT
+        p.id AS product_id,
+        p.category_id,
+        p.name AS product_name,
+        proc.name AS processor,
+        sz.size AS size,
+        st.name AS storage,
+        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.created_at ASC LIMIT 1) AS image_url,
+        COALESCE(SUM(oi.quantity), 0) AS total_sold,
+        ROW_NUMBER() OVER (PARTITION BY p.category_id ORDER BY COALESCE(SUM(oi.quantity), 0) DESC) AS rank
+    FROM
+        products p
+    LEFT JOIN
+        product_processors pp ON pp.product_id = p.id
+    LEFT JOIN
+        processors proc ON proc.id = pp.processor_id
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        sizes sz ON ps.size_id = sz.id
+    LEFT JOIN
+        product_storage_options pso ON p.id = pso.product_id
+    LEFT JOIN
+        storage_options st ON st.id = pso.storage_option_id
+    LEFT JOIN
+        order_items oi ON p.id = oi.product_id
+    WHERE
+        p.is_active = true
+    GROUP BY
+        p.id, p.category_id, p.name, proc.name, sz.size, st.name
+),
+category_details AS (
+    SELECT
+        ch.category_id,
+        ch.category_name,
+        ch.parent_id,
+        ch.position,
+        pd.product_id,
+        pd.product_name,
+        pd.processor,
+        pd.size,
+        pd.storage,
+        pd.image_url,
+        pd.total_sold
+    FROM
+        category_hierarchy ch
+    LEFT JOIN
+        product_details pd ON pd.category_id = ch.category_id
+    WHERE
+        pd.rank <= 3 OR pd.rank IS NULL
 )
-SELECT DISTINCT ps.spec_value AS processor
-FROM product_specifications ps
-JOIN products p ON ps.product_id = p.id
-JOIN category_tree ct ON p.category_id = ct.id
-WHERE ps.spec_key = 'processor' AND p.is_active = TRUE;
+SELECT
+    ch.category_id,
+    ch.category_name,
+    ch.parent_id,
+    ch.position,
+    cd.product_id,
+    cd.product_name,
+    cd.processor,
+    cd.size,
+    cd.storage,
+    cd.image_url,
+    cd.total_sold
+FROM
+    category_hierarchy ch
+LEFT JOIN
+    category_details cd ON cd.category_id = ch.category_id
+ORDER BY
+    ch.position;

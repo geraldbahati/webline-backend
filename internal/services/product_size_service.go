@@ -71,7 +71,7 @@ func (s *ProductSizeService) ListProductSizesByProductID(ctx context.Context, pr
 	}
 
 	var sizes []model.ProductSize
-	for _, productSize := range productSizes {
+	for _, productSize := range *productSizes {
 		sizes = append(sizes, model.ProductSize{
 			ID:              productSize.ID,
 			ProductID:       productSize.ProductID.UUID,

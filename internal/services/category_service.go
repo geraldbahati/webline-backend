@@ -2,25 +2,31 @@ package services
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
+	"fmt"
 	"log"
+	"sort"
+	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type CategoryService struct {
 	categoryRepo     *repository.CategoryRepository
 	productColorRepo *repository.ProductColourRepository
 	logger           *zap.Logger
+	cfg              *appconfig.Config
 }
 
-func NewCategoryService(categoryRepo *repository.CategoryRepository, productColorRepo *repository.ProductColourRepository, logger *zap.Logger) *CategoryService {
+func NewCategoryService(categoryRepo *repository.CategoryRepository, productColorRepo *repository.ProductColourRepository, logger *zap.Logger, cfg *appconfig.Config) *CategoryService {
 	return &CategoryService{
 		categoryRepo:     categoryRepo,
 		productColorRepo: productColorRepo,
 		logger:           logger,
+		cfg:              cfg,
 	}
 }
 
@@ -268,6 +274,11 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 		return model.Category{}, err
 	}
 
+	var colors []string
+	for _, color := range *availableColors {
+		colors = append(colors, color.ColorName)
+	}
+
 	// create a new category model
 	var subCategories []model.Category
 	for _, category := range categories {
@@ -286,59 +297,159 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 		ParentID:        category.ParentID.UUID,
 		IsActive:        category.IsActive,
 		SubCategories:   subCategories,
-		AvailableColors: availableColors,
+		AvailableColors: colors,
 	}
 
 	return categoryModel, nil
 }
 
+type Product struct {
+	ProductID   string `json:"ProductID"`
+	ProductName string `json:"ProductName"`
+	ImageURL    string `json:"ImageURL"`
+}
+
+type Category struct {
+	CategoryID       string      `json:"CategoryID"`
+	CategoryName     string      `json:"CategoryName"`
+	FeaturedProducts []Product   `json:"FeaturedProducts"`
+	Processors       []string    `json:"Processors"`
+	Size             []string    `json:"Size"`
+	Storage          []string    `json:"Storage"`
+	Children         []*Category `json:"Children"`
+	Position         int         `json:"-"` // Exclude from JSON output
+	ParentID         uuid.UUID   `json:"-"` // Exclude from JSON output, used for processing
+}
+
 // GetCategoryHierarchyService retrieves the category hierarchy
-func (s *CategoryService) GetCategoryHierarchyService(ctx context.Context) ([]model.CategoryHierarchy, error) {
+func (s *CategoryService) GetCategoryHierarchyService(ctx context.Context) ([]*Category, error) {
 	// get category tree
-	categories, err := s.categoryRepo.GetCategoryTree(ctx)
+	categories, err := s.categoryRepo.GetCategoryHierarchy(ctx)
 	if err != nil {
 		s.logger.Error("failed to get category tree", zap.Error(err))
 		return nil, err
 	}
 
 	// build the category hierarchy
-	categoryHierarchy := buildCategoryHierarchy(categories)
+	categoryHierarchy := s.buildCategoryHierarchy(categories)
 
 	return categoryHierarchy, nil
+
 }
 
-func buildCategoryHierarchy(categories []database.GetCategoryTreeRow) []model.CategoryHierarchy {
-	// create a map to store categories by their parent ID
-	categoryMap := make(map[uuid.UUID][]database.GetCategoryTreeRow)
-	for _, category := range categories {
-		categoryMap[category.ParentID.UUID] = append(categoryMap[category.ParentID.UUID], category)
+func uniqueStrings(input []string) []string {
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range input {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
+}
+
+func (s *CategoryService) buildCategoryHierarchy(categories []database.GetCategoryHierarchyRow) []*Category {
+	categoryMap := make(map[uuid.UUID]*Category)
+	childParentMap := make(map[uuid.UUID]uuid.UUID)
+
+	for _, row := range categories {
+		if _, exists := categoryMap[row.CategoryID]; !exists {
+			categoryMap[row.CategoryID] = &Category{
+				CategoryID:       row.CategoryID.String(),
+				CategoryName:     row.CategoryName,
+				FeaturedProducts: []Product{},
+				Processors:       []string{},
+				Size:             []string{},
+				Storage:          []string{},
+				Children:         []*Category{},
+				Position:         int(row.Position),
+				ParentID:         row.ParentID.UUID,
+			}
+		}
+
+		if row.ParentID.UUID != uuid.Nil {
+			childParentMap[row.CategoryID] = row.ParentID.UUID
+		}
+
+		if row.ProductID.Valid {
+			category := categoryMap[row.CategoryID]
+			log.Printf(s.constructS3URL(row.ImageUrl.String))
+			product := Product{
+				ProductID:   row.ProductID.UUID.String(),
+				ProductName: row.ProductName.String,
+				ImageURL:    s.constructS3URL(row.ImageUrl.String),
+			}
+
+			// Find the immediate parent category to place the product in the second layer
+			var parentCategory *Category
+			if parentID, exists := childParentMap[row.CategoryID]; exists {
+				if _, exists := childParentMap[parentID]; exists {
+					parentCategory = categoryMap[parentID]
+				}
+			}
+
+			if parentCategory != nil {
+				parentCategory.FeaturedProducts = append(parentCategory.FeaturedProducts, product)
+				if row.Processor.Valid {
+					parentCategory.Processors = append(parentCategory.Processors, row.Processor.String)
+				}
+				if row.Size.Valid {
+					parentCategory.Size = append(parentCategory.Size, row.Size.String)
+				}
+				if row.Storage.Valid {
+					parentCategory.Storage = append(parentCategory.Storage, row.Storage.String)
+				}
+			} else {
+				category.FeaturedProducts = append(category.FeaturedProducts, product)
+				if row.Processor.Valid {
+					category.Processors = append(category.Processors, row.Processor.String)
+				}
+				if row.Size.Valid {
+					category.Size = append(category.Size, row.Size.String)
+				}
+				if row.Storage.Valid {
+					category.Storage = append(category.Storage, row.Storage.String)
+				}
+			}
+		}
 	}
 
-	// create a slice to store the top-level categories
-	var categoryHierarchy []model.CategoryHierarchy
+	// Remove duplicate processors, sizes, and storages
+	for _, category := range categoryMap {
+		category.Processors = uniqueStrings(category.Processors)
+		category.Size = uniqueStrings(category.Size)
+		category.Storage = uniqueStrings(category.Storage)
+	}
 
-	// iterate over the categories and build the hierarchy
-	for _, category := range categoryMap[uuid.Nil] {
-		categoryHierarchy = append(categoryHierarchy, model.CategoryHierarchy{
-			Name:     category.Name,
-			Children: buildCategoryHierarchyRecursively(category.ID, categoryMap),
+	// Organize the hierarchy
+	rootCategories := make([]*Category, 0)
+	for id, category := range categoryMap {
+		if parentID, exists := childParentMap[id]; exists {
+			if parentCategory, ok := categoryMap[parentID]; ok {
+				parentCategory.Children = append(parentCategory.Children, category)
+			}
+		} else {
+			rootCategories = append(rootCategories, category)
+		}
+	}
+
+	// Sort root categories by position
+	sort.SliceStable(rootCategories, func(i, j int) bool {
+		return rootCategories[i].Position < rootCategories[j].Position
+	})
+
+	// Sort children categories by position
+	for _, category := range categoryMap {
+		sort.SliceStable(category.Children, func(i, j int) bool {
+			return category.Children[i].Position < category.Children[j].Position
 		})
 	}
 
-	return categoryHierarchy
+	return rootCategories
 }
 
-func buildCategoryHierarchyRecursively(parentID uuid.UUID, categoryMap map[uuid.UUID][]database.GetCategoryTreeRow) []model.CategoryHierarchy {
-	// create a slice to store the children of the current category
-	var children []model.CategoryHierarchy
-
-	// iterate over the children of the current category
-	for _, category := range categoryMap[parentID] {
-		children = append(children, model.CategoryHierarchy{
-			Name:     category.Name,
-			Children: buildCategoryHierarchyRecursively(category.ID, categoryMap),
-		})
-	}
-
-	return children
+// constructS3URL constructs the S3 URL for a given file path
+func (s *CategoryService) constructS3URL(filePath string) string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.cfg.AWSBucketName, s.cfg.AWSRegion, filePath)
 }

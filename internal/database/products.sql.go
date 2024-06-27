@@ -43,9 +43,17 @@ filtered_products AS (
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT COUNT(*) AS total_count FROM filtered_products
@@ -55,10 +63,18 @@ type CountFilteredProductsParams struct {
 	Column1 []string
 	Price   string
 	Price_2 string
+	Column4 []string
+	Column5 []string
 }
 
 func (q *Queries) CountFilteredProducts(ctx context.Context, arg CountFilteredProductsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countFilteredProducts, pq.Array(arg.Column1), arg.Price, arg.Price_2)
+	row := q.db.QueryRowContext(ctx, countFilteredProducts,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+	)
 	var total_count int64
 	err := row.Scan(&total_count)
 	return total_count, err
@@ -187,20 +203,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -223,14 +243,16 @@ FROM
 ORDER BY
     fp.created_at DESC
 LIMIT
-    $4 OFFSET
-    $5
+    $6 OFFSET
+    $7
 `
 
 type GetFilteredProductsParams struct {
 	Column1 []string
 	Price   string
 	Price_2 string
+	Column4 []string
+	Column5 []string
 	Limit   int32
 	Offset  int32
 }
@@ -257,6 +279,8 @@ func (q *Queries) GetFilteredProducts(ctx context.Context, arg GetFilteredProduc
 		pq.Array(arg.Column1),
 		arg.Price,
 		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
 		arg.Limit,
 		arg.Offset,
 	)
@@ -332,20 +356,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -368,14 +396,16 @@ FROM
 ORDER BY
     fp.name ASC
 LIMIT
-    $4 OFFSET
-    $5
+    $6 OFFSET
+    $7
 `
 
 type GetFilteredProductsOrderByNameAscParams struct {
 	Column1 []string
 	Price   string
 	Price_2 string
+	Column4 []string
+	Column5 []string
 	Limit   int32
 	Offset  int32
 }
@@ -402,6 +432,8 @@ func (q *Queries) GetFilteredProductsOrderByNameAsc(ctx context.Context, arg Get
 		pq.Array(arg.Column1),
 		arg.Price,
 		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
 		arg.Limit,
 		arg.Offset,
 	)
@@ -477,20 +509,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -513,14 +549,16 @@ FROM
 ORDER BY
     fp.name DESC
 LIMIT
-    $4 OFFSET
-    $5
+    $6 OFFSET
+    $7
 `
 
 type GetFilteredProductsOrderByNameDescParams struct {
 	Column1 []string
 	Price   string
 	Price_2 string
+	Column4 []string
+	Column5 []string
 	Limit   int32
 	Offset  int32
 }
@@ -547,6 +585,8 @@ func (q *Queries) GetFilteredProductsOrderByNameDesc(ctx context.Context, arg Ge
 		pq.Array(arg.Column1),
 		arg.Price,
 		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
 		arg.Limit,
 		arg.Offset,
 	)
@@ -622,20 +662,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -658,14 +702,16 @@ FROM
 ORDER BY
     fp.price ASC
 LIMIT
-    $4 OFFSET
-    $5
+    $6 OFFSET
+    $7
 `
 
 type GetFilteredProductsOrderByPriceAscParams struct {
 	Column1 []string
 	Price   string
 	Price_2 string
+	Column4 []string
+	Column5 []string
 	Limit   int32
 	Offset  int32
 }
@@ -692,6 +738,8 @@ func (q *Queries) GetFilteredProductsOrderByPriceAsc(ctx context.Context, arg Ge
 		pq.Array(arg.Column1),
 		arg.Price,
 		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
 		arg.Limit,
 		arg.Offset,
 	)
@@ -767,20 +815,24 @@ filtered_products AS (
         p.created_by,
         p.updated_by,
         p.featured,
-        ps.size,
-        pc.color_name
+        s.size,
+        c.color_name
     FROM
         products p
     LEFT JOIN
         product_sizes ps ON p.id = ps.product_id
     LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
         product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
     WHERE
         p.category_id IN (SELECT id FROM category_hierarchy)
-        -- -- Size filter
-        -- AND (ps.size = ANY($2::VARCHAR[]) OR $2 IS NULL)
-        -- -- Color filter
-        -- AND (pc.color_name = ANY($3::VARCHAR[]) OR $3 IS NULL)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
         AND p.price BETWEEN $2 AND $3
 )
 SELECT
@@ -803,14 +855,16 @@ FROM
 ORDER BY
     fp.price DESC
 LIMIT
-    $4 OFFSET
-    $5
+    $6 OFFSET
+    $7
 `
 
 type GetFilteredProductsOrderByPriceDescParams struct {
 	Column1 []string
 	Price   string
 	Price_2 string
+	Column4 []string
+	Column5 []string
 	Limit   int32
 	Offset  int32
 }
@@ -837,6 +891,8 @@ func (q *Queries) GetFilteredProductsOrderByPriceDesc(ctx context.Context, arg G
 		pq.Array(arg.Column1),
 		arg.Price,
 		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
 		arg.Limit,
 		arg.Offset,
 	)
