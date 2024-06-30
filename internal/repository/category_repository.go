@@ -236,3 +236,16 @@ func (r *CategoryRepository) GetCategoryHierarchy(
 	r.logger.Info("Category hierarchy successfully retrieved")
 	return hierarchy, nil
 }
+
+// GetFilterOptionsByCategoryName retrieves filter options by category name
+func (r *CategoryRepository) GetFilterOptionsByCategoryName(
+	ctx context.Context,
+	categoryName string,
+) ([]database.GetFilterOptionsByCategoryNameRow, error) {
+	filterOptions, err := r.Queries.GetFilterOptionsByCategoryName(ctx, categoryName)
+	if err != nil {
+		r.logger.Error("failed to get filter options by category name", zap.Error(err))
+		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
+	}
+	return filterOptions, nil
+}

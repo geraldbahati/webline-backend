@@ -530,3 +530,326 @@ filtered_products AS (
         AND p.price BETWEEN $2 AND $3
 )
 SELECT COUNT(*) AS total_count FROM filtered_products;
+
+
+-- name: GetProductsByFiltersPriceAsc :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id, c.name
+    FROM categories c
+    INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured
+FROM products p
+JOIN category_tree ct ON p.category_id = ct.id
+LEFT JOIN product_colors pc ON p.id = pc.product_id
+LEFT JOIN colors c ON pc.color_id = c.id
+LEFT JOIN product_processors pp ON p.id = pp.product_id
+LEFT JOIN processors pr ON pp.processor_id = pr.id
+LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+LEFT JOIN product_sizes psz ON p.id = psz.product_id
+LEFT JOIN sizes s ON psz.size_id = s.id
+WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+  AND p.price BETWEEN $7 AND $8
+ORDER BY p.price ASC;
+
+-- name: GetProductsByFiltersPriceDesc :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id, c.name
+    FROM categories c
+    INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured
+FROM products p
+JOIN category_tree ct ON p.category_id = ct.id
+LEFT JOIN product_colors pc ON p.id = pc.product_id
+LEFT JOIN colors c ON pc.color_id = c.id
+LEFT JOIN product_processors pp ON p.id = pp.product_id
+LEFT JOIN processors pr ON pp.processor_id = pr.id
+LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+LEFT JOIN product_sizes psz ON p.id = psz.product_id
+LEFT JOIN sizes s ON psz.size_id = s.id
+WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+  AND p.price BETWEEN $7 AND $8
+ORDER BY p.price DESC;
+
+-- name: GetProductsByFiltersNameAsc :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id, c.name
+    FROM categories c
+    INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured
+FROM products p
+JOIN category_tree ct ON p.category_id = ct.id
+LEFT JOIN product_colors pc ON p.id = pc.product_id
+LEFT JOIN colors c ON pc.color_id = c.id
+LEFT JOIN product_processors pp ON p.id = pp.product_id
+LEFT JOIN processors pr ON pp.processor_id = pr.id
+LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+LEFT JOIN product_sizes psz ON p.id = psz.product_id
+LEFT JOIN sizes s ON psz.size_id = s.id
+WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+  AND p.price BETWEEN $7 AND $8
+ORDER BY p.name ASC;
+
+-- name: GetProductsByFiltersNameDesc :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id, c.name
+    FROM categories c
+    INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured
+FROM products p
+JOIN category_tree ct ON p.category_id = ct.id
+LEFT JOIN product_colors pc ON p.id = pc.product_id
+LEFT JOIN colors c ON pc.color_id = c.id
+LEFT JOIN product_processors pp ON p.id = pp.product_id
+LEFT JOIN processors pr ON pp.processor_id = pr.id
+LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+LEFT JOIN product_sizes psz ON p.id = psz.product_id
+LEFT JOIN sizes s ON psz.size_id = s.id
+WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+  AND p.price BETWEEN $7 AND $8
+ORDER BY p.name DESC;
+
+-- name: GetProductsByFiltersDefault :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id, c.name
+    FROM categories c
+    INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured
+FROM products p
+JOIN category_tree ct ON p.category_id = ct.id
+LEFT JOIN product_colors pc ON p.id = pc.product_id
+LEFT JOIN colors c ON pc.color_id = c.id
+LEFT JOIN product_processors pp ON p.id = pp.product_id
+LEFT JOIN processors pr ON pp.processor_id = pr.id
+LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+LEFT JOIN product_sizes psz ON p.id = psz.product_id
+LEFT JOIN sizes s ON psz.size_id = s.id
+WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+  AND p.price BETWEEN $7 AND $8
+ORDER BY p.created_at DESC;
+
+-- name: GetProductsByFiltersNewest :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id, c.name
+    FROM categories c
+    INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured
+FROM products p
+JOIN category_tree ct ON p.category_id = ct.id
+LEFT JOIN product_colors pc ON p.id = pc.product_id
+LEFT JOIN colors c ON pc.color_id = c.id
+LEFT JOIN product_processors pp ON p.id = pp.product_id
+LEFT JOIN processors pr ON pp.processor_id = pr.id
+LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+LEFT JOIN product_sizes psz ON p.id = psz.product_id
+LEFT JOIN sizes s ON psz.size_id = s.id
+WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+  AND p.price BETWEEN $7 AND $8
+ORDER BY p.created_at DESC;
+
+-- name: GetProductsByFiltersOldest :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.id = $1
+    UNION ALL
+    SELECT c.id, c.name
+    FROM categories c
+    INNER JOIN category_tree ct ON ct.id = c.parent_id
+)
+SELECT DISTINCT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured
+FROM products p
+JOIN category_tree ct ON p.category_id = ct.id
+LEFT JOIN product_colors pc ON p.id = pc.product_id
+LEFT JOIN colors c ON pc.color_id = c.id
+LEFT JOIN product_processors pp ON p.id = pp.product_id
+LEFT JOIN processors pr ON pp.processor_id = pr.id
+LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+LEFT JOIN product_sizes psz ON p.id = psz.product_id
+LEFT JOIN sizes s ON psz.size_id = s.id
+WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+  AND p.price BETWEEN $7 AND $8
+ORDER BY p.created_at ASC;
+
+-- name: GetFilterOptions :many
+SELECT DISTINCT
+    col.color_name AS filter_option, 'color' AS filter_type
+FROM
+    colors col
+        JOIN
+    product_colors pc ON col.id = pc.color_id
+
+UNION
+
+SELECT DISTINCT
+    sz.size AS filter_option, 'size' AS filter_type
+FROM
+    sizes sz
+        JOIN
+    product_sizes ps ON sz.id = ps.size_id
+
+UNION
+
+SELECT DISTINCT
+    pr.name AS filter_option, 'processor' AS filter_type
+FROM
+    processors pr
+        JOIN
+    product_processors pp ON pr.id = pp.processor_id
+
+UNION
+
+SELECT DISTINCT
+    so.name AS filter_option, 'storage' AS filter_type
+FROM
+    storage_options so
+        JOIN
+    product_storage_options pso ON so.id = pso.storage_option_id;

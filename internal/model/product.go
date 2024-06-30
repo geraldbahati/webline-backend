@@ -110,7 +110,17 @@ type ProductFilterOption struct {
 
 type ProductFilterOptions struct {
 	Categories    []ProductCategoryFilterOption
-	Colors        []ProductFilterOption
-	Sizes         []ProductFilterOption
 	TotalProducts int64
+}
+
+type FilterProduct struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	Price       string
+	Stock       int32
+	CategoryID  uuid.UUID
+	IsActive    bool
+	Featured    bool
+	ImageURL    string
 }

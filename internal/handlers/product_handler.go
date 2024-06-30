@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -202,35 +205,79 @@ func (h *ProductHandler) GetProductsByParentCategoryIDHandler(w http.ResponseWri
 	RespondWithJSON(w, http.StatusOK, products)
 }
 
-// GetProductsByFiltersHandler gets all products by filters
 func (h *ProductHandler) GetProductsByFiltersHandler(w http.ResponseWriter, r *http.Request) {
-	// get filters
 	categoryID := mux.Vars(r)["category_id"]
-	subCategoriesStr := r.URL.Query().Get("sub_categories")
+	categoryNamesStr := r.URL.Query().Get("category_names")
 	colorsStr := r.URL.Query().Get("colors")
+	processorsStr := r.URL.Query().Get("processors")
+	storageStr := r.URL.Query().Get("storage")
+	sizesStr := r.URL.Query().Get("sizes")
 	priceFromStr := r.URL.Query().Get("price_from")
 	priceToStr := r.URL.Query().Get("price_to")
 	sortBy := r.URL.Query().Get("sort")
 
-	var colors, subCategories []string
+	categoryNames := parseCommaSeparatedValues(categoryNamesStr)
+	colors := parseCommaSeparatedValues(colorsStr)
+	processors := parseCommaSeparatedValues(processorsStr)
+	storage := parseCommaSeparatedValues(storageStr)
+	sizes := parseCommaSeparatedValues(sizesStr)
 
-	if colorsStr != "" {
-		colors = strings.Split(colorsStr, ",")
+	priceFrom, err := parsePrice(priceFromStr, 0)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid price_from")
+		return
 	}
 
-	if subCategoriesStr != "" {
-		subCategories = strings.Split(subCategoriesStr, ",")
+	priceTo, err := parsePrice(priceToStr, 999999)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid price_to")
+		return
 	}
 
-	// get products
-	products, err := h.productService.GetProductsByFilters(r.Context(), categoryID, subCategories, colors, priceFromStr, priceToStr, sortBy)
+	categoryUUID, err := uuid.Parse(categoryID)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
+		return
+	}
+
+	var products []model.FilterProduct
+	switch sortBy {
+	case "price_asc":
+		products, err = h.productService.GetProductsByFiltersPriceAsc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
+	case "price_desc":
+		products, err = h.productService.GetProductsByFiltersPriceDesc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
+	case "name_asc":
+		products, err = h.productService.GetProductsByFiltersNameAsc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
+	case "name_desc":
+		products, err = h.productService.GetProductsByFiltersNameDesc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
+	case "newest":
+		products, err = h.productService.GetProductsByFiltersNewest(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
+	case "oldest":
+		products, err = h.productService.GetProductsByFiltersOldest(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
+	default:
+		products, err = h.productService.GetProductsByFiltersDefault(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
+	}
+
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
 		return
 	}
 
-	// respond with products
 	RespondWithJSON(w, http.StatusOK, products)
+}
+
+func parseCommaSeparatedValues(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, ",")
+}
+
+func parsePrice(s string, defaultValue float64) (float64, error) {
+	if s == "" {
+		return defaultValue, nil
+	}
+	return strconv.ParseFloat(s, 64)
 }
 
 // SearchProductsHandler searches products by name
@@ -252,7 +299,23 @@ func (h *ProductHandler) SearchProductsHandler(w http.ResponseWriter, r *http.Re
 // GetProductsByFilterOptionsHandler gets all products by filter options
 func (h *ProductHandler) GetProductsByFilterOptionsHandler(w http.ResponseWriter, r *http.Request) {
 	// get filter options
-	filterOptions, err := h.productService.GetProductFilterOptions(r.Context())
+	filterOptions, err := h.productService.GetFilterOptions(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
+		return
+	}
+
+	// respond with filter options
+	RespondWithJSON(w, http.StatusOK, filterOptions)
+}
+
+// GetFilterOptionsByCategoryNameHandler gets filter options by category name
+func (h *ProductHandler) GetFilterOptionsByCategoryNameHandler(w http.ResponseWriter, r *http.Request) {
+	// get category name
+	categoryName := mux.Vars(r)["name"]
+
+	// get filter options
+	filterOptions, err := h.productService.GetFilterOptionsByCategoryName(r.Context(), categoryName)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
 		return

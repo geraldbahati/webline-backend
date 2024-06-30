@@ -4,10 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
-	"weblineBackend/pkg/utils"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -432,100 +430,34 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 
 	return productSchemas, nil
 }
+func (r *ProductRepository) GetProductsByFiltersPriceAsc(ctx context.Context, params database.GetProductsByFiltersPriceAscParams) ([]database.GetProductsByFiltersPriceAscRow, error) {
+	return r.Queries.GetProductsByFiltersPriceAsc(ctx, params)
+}
 
-// GetProductsByFilters retrieves products by their filters
-func (r *ProductRepository) GetProductsByFilters(
-	ctx context.Context,
-	parentCategoryUUID uuid.UUID,
-	filter *utils.Filter,
-	sortBy string,
-) ([]database.Product, error) {
-	query := `
-		WITH RECURSIVE category_tree AS (
-			SELECT c.id, c.name
-			FROM categories c
-			WHERE c.id = $1
-			UNION ALL
-			SELECT c.id, c.name
-			FROM categories c
-			INNER JOIN category_tree ct ON ct.id = c.parent_id
-		)
-		SELECT DISTINCT
-			p.id,
-			p.name,
-			p.description,
-			p.price,
-			p.stock,
-			p.category_id,
-			p.created_at,
-			p.updated_at,
-			p.is_active,
-			p.created_by,
-			p.updated_by,
-			p.featured
-		FROM products p
-		JOIN category_tree ct ON p.category_id = ct.id
-		LEFT JOIN product_colors pc ON p.id = pc.product_id
-	`
+func (r *ProductRepository) GetProductsByFiltersPriceDesc(ctx context.Context, params database.GetProductsByFiltersPriceDescParams) ([]database.GetProductsByFiltersPriceDescRow, error) {
+	return r.Queries.GetProductsByFiltersPriceDesc(ctx, params)
+}
 
-	args := []interface{}{parentCategoryUUID}
+func (r *ProductRepository) GetProductsByFiltersNameAsc(ctx context.Context, params database.GetProductsByFiltersNameAscParams) ([]database.GetProductsByFiltersNameAscRow, error) {
+	return r.Queries.GetProductsByFiltersNameAsc(ctx, params)
+}
 
-	if filter.HasFilter() {
-		filterQuery, filterArgs := filter.GetParameterizedQuery()
-		query += " WHERE " + filterQuery
-		args = append(args, filterArgs...)
-	}
+func (r *ProductRepository) GetProductsByFiltersNameDesc(ctx context.Context, params database.GetProductsByFiltersNameDescParams) ([]database.GetProductsByFiltersNameDescRow, error) {
+	return r.Queries.GetProductsByFiltersNameDesc(ctx, params)
+}
 
-	// Dynamic sorting
-	switch sortBy {
-	case "price_asc":
-		query += " ORDER BY p.price ASC"
-	case "price_desc":
-		query += " ORDER BY p.price DESC"
-	case "name_asc":
-		query += " ORDER BY p.name ASC"
-	case "name_desc":
-		query += " ORDER BY p.name DESC"
-	default:
-		query += " ORDER BY p.name ASC" // Default sort
-	}
+func (r *ProductRepository) GetProductsByFiltersDefault(ctx context.Context, params database.GetProductsByFiltersDefaultParams) ([]database.GetProductsByFiltersDefaultRow, error) {
+	return r.Queries.GetProductsByFiltersDefault(ctx, params)
+}
 
-	log.Println(query)
+func (r *ProductRepository) GetProductsByFiltersNewest(ctx context.Context, params database.GetProductsByFiltersNewestParams) ([]database.GetProductsByFiltersNewestRow, error) {
+	return r.Queries.GetProductsByFiltersNewest(ctx, params)
+}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		r.logger.Error("failed to execute query", zap.Error(err))
-		return nil, err
-	}
-	defer rows.Close()
+func (r *ProductRepository) GetProductsByFiltersOldest(ctx context.Context, params database.GetProductsByFiltersOldestParams) ([]database.GetProductsByFiltersOldestRow, error) {
+	return r.Queries.GetProductsByFiltersOldest(ctx, params)
+}
 
-	var products []database.Product
-	for rows.Next() {
-		var product database.Product
-		if err := rows.Scan(
-			&product.ID,
-			&product.Name,
-			&product.Description,
-			&product.Price,
-			&product.Stock,
-			&product.CategoryID,
-			&product.CreatedAt,
-			&product.UpdatedAt,
-			&product.IsActive,
-			&product.CreatedBy,
-			&product.UpdatedBy,
-			&product.Featured,
-		); err != nil {
-			r.logger.Error("failed to scan product", zap.Error(err))
-			return nil, err
-		}
-		products = append(products, product)
-	}
-
-	if err := rows.Err(); err != nil {
-		r.logger.Error("failed to iterate over rows", zap.Error(err))
-		return nil, err
-	}
-
-	return products, nil
+func (r *ProductRepository) GetFilterOptions(ctx context.Context) ([]database.GetFilterOptionsRow, error) {
+	return r.Queries.GetFilterOptions(ctx)
 }

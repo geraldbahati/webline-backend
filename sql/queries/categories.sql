@@ -168,3 +168,74 @@ LEFT JOIN
     category_details cd ON cd.category_id = ch.category_id
 ORDER BY
     ch.position;
+
+-- name: GetFilterOptionsByCategoryName :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id, c.name
+    FROM categories c
+    WHERE c.name = $1
+
+    UNION ALL
+
+    SELECT c2.id, c2.name
+    FROM categories c2
+    INNER JOIN category_tree ct ON c2.parent_id = ct.id
+)
+SELECT DISTINCT
+    col.color_name AS filter_option, 'color' AS filter_type
+FROM
+    colors col
+JOIN
+    product_colors pc ON col.id = pc.color_id
+JOIN
+    products p ON pc.product_id = p.id
+JOIN
+    category_tree ct ON p.category_id = ct.id
+
+UNION
+
+SELECT DISTINCT
+    sz.size AS filter_option, 'size' AS filter_type
+FROM
+    sizes sz
+JOIN
+    product_sizes ps ON sz.id = ps.size_id
+JOIN
+    products p ON ps.product_id = p.id
+JOIN
+    category_tree ct ON p.category_id = ct.id
+
+UNION
+
+SELECT DISTINCT
+    pr.name AS filter_option, 'processor' AS filter_type
+FROM
+    processors pr
+JOIN
+    product_processors pp ON pr.id = pp.processor_id
+JOIN
+    products p ON pp.product_id = p.id
+JOIN
+    category_tree ct ON p.category_id = ct.id
+
+UNION
+
+SELECT DISTINCT
+    c3.name AS filter_option, 'brand' AS filter_type
+FROM
+    categories c3
+JOIN
+    category_tree ct ON c3.parent_id = ct.id
+
+UNION
+
+SELECT DISTINCT
+    so.name AS filter_option, 'storage' AS filter_type
+FROM
+    storage_options so
+JOIN
+    product_storage_options pso ON so.id = pso.storage_option_id
+JOIN
+    products p ON pso.product_id = p.id
+JOIN
+    category_tree ct ON p.category_id = ct.id;
