@@ -27,20 +27,19 @@ type CreateOrderItemParams struct {
 }
 
 type CreateOrderParams struct {
-	GuestCheckoutID  uuid.NullUUID `json:"guest_checkout,omitempty"`
-	Email            string        `json:"email"`
-	FirstName        string        `json:"first_name"`
-	LastName         string        `json:"last_name"`
-	StreetAddress    string        `json:"street_address"`
-	City             string        `json:"city"`
-	State            string        `json:"state"`
-	Country          string        `json:"country"`
-	Phone            string        `json:"phone"`
-	ShippingOption   string        `json:"shipping_option"`
-	Total            float64       `json:"total"`
-	PaymentMethod    int32         `json:"payment_method"`
-	ShippingLocation string        `json:"shipping_location"`
-	ShippingCost     float64       `json:"shipping_cost"`
+	GuestCheckoutID uuid.NullUUID `json:"guest_checkout,omitempty"`
+	Email           string        `json:"email"`
+	FirstName       string        `json:"first_name"`
+	LastName        string        `json:"last_name"`
+	StreetAddress   string        `json:"street_address"`
+	City            string        `json:"city"`
+	State           string        `json:"state"`
+	Country         string        `json:"country"`
+	Phone           string        `json:"phone"`
+	ShippingOption  string        `json:"shipping_option"`
+	Total           float64       `json:"total"`
+	PaymentMethod   string        `json:"payment_method"`
+	ShippingMethod  string        `json:"shipping_method"`
 }
 
 type OrderClientResponse struct {

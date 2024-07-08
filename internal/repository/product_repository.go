@@ -104,144 +104,6 @@ func (r *ProductRepository) GetProductByID(
 	}, nil
 }
 
-// ListProducts retrieves all products from the database
-func (r *ProductRepository) ListProducts(ctx context.Context, limit int32, offset int32, sortBy string, categories []string, priceFrom, priceTo string) ([]model.ProductSchema, error) {
-	var products []model.ProductSchema
-	switch sortBy {
-	case "price_asc":
-		filterProducts, err := r.Queries.GetFilteredProductsOrderByPriceAsc(ctx, database.GetFilteredProductsOrderByPriceAscParams{
-			Column1: categories,
-			Price:   priceFrom,
-			Price_2: priceTo,
-			Limit:   limit,
-			Offset:  offset,
-		})
-		if err != nil {
-			r.logger.Error("failed to list products", zap.Error(err))
-			return nil, fmt.Errorf("failed to list products: %w", err)
-		}
-
-		for _, product := range filterProducts {
-			products = append(products, model.ProductSchema{
-				ID:          product.ID,
-				Name:        product.Name,
-				Description: product.Description.String,
-				Price:       product.Price,
-				Stock:       product.Stock.Int32,
-				CategoryID:  product.CategoryID.UUID,
-				IsActive:    product.IsActive.Bool,
-				Featured:    product.Featured.Bool,
-			})
-		}
-
-	case "price_desc":
-		filterProducts, err := r.Queries.GetFilteredProductsOrderByPriceDesc(ctx, database.GetFilteredProductsOrderByPriceDescParams{
-			Column1: categories,
-			Price:   priceFrom,
-			Price_2: priceTo,
-			Limit:   limit,
-			Offset:  offset,
-		})
-		if err != nil {
-			r.logger.Error("failed to list products", zap.Error(err))
-			return nil, fmt.Errorf("failed to list products: %w", err)
-		}
-
-		for _, product := range filterProducts {
-			products = append(products, model.ProductSchema{
-				ID:          product.ID,
-				Name:        product.Name,
-				Description: product.Description.String,
-				Price:       product.Price,
-				Stock:       product.Stock.Int32,
-				CategoryID:  product.CategoryID.UUID,
-				IsActive:    product.IsActive.Bool,
-				Featured:    product.Featured.Bool,
-			})
-		}
-
-	case "name_asc":
-		filterProducts, err := r.Queries.GetFilteredProductsOrderByNameAsc(ctx, database.GetFilteredProductsOrderByNameAscParams{
-			Column1: categories,
-			Price:   priceFrom,
-			Price_2: priceTo,
-			Limit:   limit,
-			Offset:  offset,
-		})
-		if err != nil {
-			r.logger.Error("failed to list products", zap.Error(err))
-			return nil, fmt.Errorf("failed to list products: %w", err)
-		}
-
-		for _, product := range filterProducts {
-			products = append(products, model.ProductSchema{
-				ID:          product.ID,
-				Name:        product.Name,
-				Description: product.Description.String,
-				Price:       product.Price,
-				Stock:       product.Stock.Int32,
-				CategoryID:  product.CategoryID.UUID,
-				IsActive:    product.IsActive.Bool,
-				Featured:    product.Featured.Bool,
-			})
-		}
-
-	case "name_desc":
-		filterProducts, err := r.Queries.GetFilteredProductsOrderByNameDesc(ctx, database.GetFilteredProductsOrderByNameDescParams{
-			Column1: categories,
-			Price:   priceFrom,
-			Price_2: priceTo,
-			Limit:   limit,
-			Offset:  offset,
-		})
-		if err != nil {
-			r.logger.Error("failed to list products", zap.Error(err))
-			return nil, fmt.Errorf("failed to list products: %w", err)
-		}
-
-		for _, product := range filterProducts {
-			products = append(products, model.ProductSchema{
-				ID:          product.ID,
-				Name:        product.Name,
-				Description: product.Description.String,
-				Price:       product.Price,
-				Stock:       product.Stock.Int32,
-				CategoryID:  product.CategoryID.UUID,
-				IsActive:    product.IsActive.Bool,
-				Featured:    product.Featured.Bool,
-			})
-		}
-
-	default:
-		filterProducts, err := r.Queries.GetFilteredProducts(ctx, database.GetFilteredProductsParams{
-			Column1: categories,
-			Price:   priceFrom,
-			Price_2: priceTo,
-			Limit:   limit,
-			Offset:  offset,
-		})
-		if err != nil {
-			r.logger.Error("failed to list products", zap.Error(err))
-			return nil, fmt.Errorf("failed to list products: %w", err)
-		}
-
-		for _, product := range filterProducts {
-			products = append(products, model.ProductSchema{
-				ID:          product.ID,
-				Name:        product.Name,
-				Description: product.Description.String,
-				Price:       product.Price,
-				Stock:       product.Stock.Int32,
-				CategoryID:  product.CategoryID.UUID,
-				IsActive:    product.IsActive.Bool,
-				Featured:    product.Featured.Bool,
-			})
-		}
-	}
-
-	return products, nil
-}
-
 // CountFilteredProducts returns the total number of products that match the filter
 func (r *ProductRepository) CountFilteredProducts(
 	ctx context.Context,
@@ -460,4 +322,152 @@ func (r *ProductRepository) GetProductsByFiltersOldest(ctx context.Context, para
 
 func (r *ProductRepository) GetFilterOptions(ctx context.Context) ([]database.GetFilterOptionsRow, error) {
 	return r.Queries.GetFilterOptions(ctx)
+}
+
+func (r *ProductRepository) GetAllProductsByFiltersPriceAsc(ctx context.Context, params database.GetAllProductsByFiltersPriceAscParams) ([]*model.Product, error) {
+	rows, err := r.Queries.GetAllProductsByFiltersPriceAsc(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to get products by filters", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+	}
+
+	var products []*model.Product
+	for _, row := range rows {
+		products = append(products, &model.Product{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID.UUID,
+			IsActive:    row.IsActive.Bool,
+			Featured:    row.Featured.Bool,
+		})
+	}
+
+	return products, nil
+}
+
+func (r *ProductRepository) GetAllProductsByFiltersPriceDesc(ctx context.Context, params database.GetAllProductsByFiltersPriceDescParams) ([]*model.Product, error) {
+	rows, err := r.Queries.GetAllProductsByFiltersPriceDesc(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to get products by filters", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+	}
+
+	var products []*model.Product
+	for _, row := range rows {
+		products = append(products, &model.Product{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID.UUID,
+			IsActive:    row.IsActive.Bool,
+			Featured:    row.Featured.Bool,
+		})
+	}
+
+	return products, nil
+}
+
+func (r *ProductRepository) GetAllProductsByFiltersNameAsc(ctx context.Context, params database.GetAllProductsByFiltersNameAscParams) ([]*model.Product, error) {
+	rows, err := r.Queries.GetAllProductsByFiltersNameAsc(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to get products by filters", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+	}
+
+	var products []*model.Product
+	for _, row := range rows {
+		products = append(products, &model.Product{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID.UUID,
+			IsActive:    row.IsActive.Bool,
+			Featured:    row.Featured.Bool,
+		})
+	}
+
+	return products, nil
+}
+
+func (r *ProductRepository) GetAllProductsByFiltersNameDesc(ctx context.Context, params database.GetAllProductsByFiltersNameDescParams) ([]*model.Product, error) {
+	rows, err := r.Queries.GetAllProductsByFiltersNameDesc(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to get products by filters", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+	}
+
+	var products []*model.Product
+	for _, row := range rows {
+		products = append(products, &model.Product{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID.UUID,
+			IsActive:    row.IsActive.Bool,
+			Featured:    row.Featured.Bool,
+		})
+	}
+
+	return products, nil
+}
+
+func (r *ProductRepository) GetAllProductsByFiltersNewest(ctx context.Context, params database.GetAllProductsByFiltersNewestParams) ([]*model.Product, error) {
+	rows, err := r.Queries.GetAllProductsByFiltersNewest(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to get products by filters", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+	}
+
+	var products []*model.Product
+	for _, row := range rows {
+		products = append(products, &model.Product{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID.UUID,
+			IsActive:    row.IsActive.Bool,
+			Featured:    row.Featured.Bool,
+		})
+	}
+
+	return products, nil
+}
+
+func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, params database.GetAllProductsByFiltersOldestParams) ([]*model.Product, error) {
+	rows, err := r.Queries.GetAllProductsByFiltersOldest(ctx, params)
+	if err != nil {
+		r.logger.Error("failed to get products by filters", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+	}
+
+	var products []*model.Product
+	for _, row := range rows {
+		products = append(products, &model.Product{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID.UUID,
+			IsActive:    row.IsActive.Bool,
+			Featured:    row.Featured.Bool,
+		})
+	}
+
+	return products, nil
+}
+
+func (r *ProductRepository) GetTotalProductsByFilters(ctx context.Context, params database.GetTotalProductsByFiltersParams) (int64, error) {
+	return r.Queries.GetTotalProductsByFilters(ctx, params)
 }

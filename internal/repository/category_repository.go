@@ -249,3 +249,30 @@ func (r *CategoryRepository) GetFilterOptionsByCategoryName(
 	}
 	return filterOptions, nil
 }
+
+// UpdateCategoryImage updates the image of a category
+func (r *CategoryRepository) UpdateCategoryImage(
+	ctx context.Context,
+	id uuid.UUID,
+	imageURL string,
+) (database.Category, error) {
+	var updatedCategory database.Category
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		updatedCategory, err = q.UpdateCategoryImage(ctx, database.UpdateCategoryImageParams{
+			ID:       id,
+			ImageUrl: sql.NullString{String: imageURL, Valid: true},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update category image: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update category image", zap.Error(err))
+		return database.Category{}, err
+	}
+
+	r.logger.Info("Category image successfully updated")
+	return updatedCategory, nil
+}

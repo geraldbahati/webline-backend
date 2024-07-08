@@ -84,10 +84,11 @@ func main() {
 	guestCheckoutRepo := repository.NewGuestCheckoutRepository(conn, logger)
 	orderItemRepo := repository.NewOrderItemRepository(conn, logger)
 	paymentRepo := repository.NewPaymentRepository(conn, logger)
+	discountRepo := repository.NewDiscountRepository(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
-	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger, &cfg)
+	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger, &cfg, s3Client)
 	productService := services.NewProductService(
 		productRepo,
 		productVariantRepo,
@@ -97,13 +98,14 @@ func main() {
 		productColorRepo,
 		productOptionRepo,
 		productSizeRepo,
+		discountRepo,
 		logger,
 		&cfg,
 		s3Client,
 	)
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
-	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo)
+	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, &cfg)
 	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
 
 	// Initialize handlers
@@ -111,7 +113,7 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	productHandler := handlers.NewProductHandler(productService)
 	productVariantHandler := handlers.NewProductVariantHandler(productService)
-	productImageHandler := handlers.NewProductImageHandler(productService, s3Client, cfg.AWSBucketName)
+	productImageHandler := handlers.NewProductImageHandler(productService)
 	productSpecificationHandler := handlers.NewProductSpecificationHandler(productService)
 	productOptionHandler := handlers.NewProductOptionHandler(productService)
 	productColorHandler := handlers.NewProductColorHandler(productService)
@@ -197,6 +199,7 @@ func setupRouter(
 	categoryRouter.HandleFunc("/parent", categoryHandler.GetParentCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.CheckCategoryExistenceHandler).Methods(http.MethodHead)
 	categoryRouter.HandleFunc("/subcategories/count", categoryHandler.GetCategoriesWithSubcategoryCountHandler).Methods(http.MethodGet)
+	categoryRouter.HandleFunc("/upload-image", categoryHandler.UploadCategoryImageHandler).Methods(http.MethodPost)
 
 	// Product routes
 	productRouter := r.PathPrefix("/api/products").Subrouter()

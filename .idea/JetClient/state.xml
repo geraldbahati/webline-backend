@@ -536,8 +536,49 @@
               <option name="id" value="125a618e-673a-48a5-9e69-bfee03dc7c8d" />
               <option name="method" value="GET" />
               <option name="name" value="create cart" />
+              <option name="queryParams">
+                <list>
+                  <queryParamState>
+                    <option name="value" value=" " />
+                  </queryParamState>
+                </list>
+              </option>
               <option name="sortWeight" value="24000000" />
-              <option name="url" value="http://localhost:8080/api/products/filter/all/options" />
+              <option name="url" value="http://localhost:8080/api/products/filter/all/options?= " />
+            </requestState>
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="formData">
+                    <list>
+                      <formDataParameterState>
+                        <option name="key" value="id" />
+                        <option name="value" value="a40df5f1-575a-4510-bd3d-0d006b52743f" />
+                      </formDataParameterState>
+                      <formDataParameterState>
+                        <option name="key" value="image" />
+                        <option name="type" value="FILE" />
+                        <option name="value" value="/Users/geraldbahati/Downloads/printer-3.png" />
+                      </formDataParameterState>
+                    </list>
+                  </option>
+                  <option name="type" value="FORM_DATA" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState />
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="multipart/form-data" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="5095dce6-9be6-4c72-8fbb-42ffbe7c3fab" />
+              <option name="method" value="POST" />
+              <option name="name" value="upload category images" />
+              <option name="sortWeight" value="25000000" />
+              <option name="url" value="http://localhost:8080/api/categories/upload-image" />
             </requestState>
           </list>
         </option>

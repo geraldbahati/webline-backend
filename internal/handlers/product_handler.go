@@ -76,40 +76,56 @@ func (h *ProductHandler) GetAllProductsHandler(w http.ResponseWriter, r *http.Re
 	page, pageSize, err := GetPageAndPageSize(pageStr, pageSizeStr)
 
 	// get filters
-	categoryStr := r.URL.Query().Get("category")
-	sort := r.URL.Query().Get("sort")
-	sizeStr := r.URL.Query().Get("size")
-	colorStr := r.URL.Query().Get("color")
-	priceFromStr := r.URL.Query().Get("price-from")
-	priceToStr := r.URL.Query().Get("price-to")
+	categoryNamesStr := r.URL.Query().Get("category_names")
+	colorsStr := r.URL.Query().Get("colors")
+	processorsStr := r.URL.Query().Get("processors")
+	storageStr := r.URL.Query().Get("storage")
+	sizesStr := r.URL.Query().Get("sizes")
+	priceFromStr := r.URL.Query().Get("price_from")
+	priceToStr := r.URL.Query().Get("price_to")
+	sortBy := r.URL.Query().Get("sort")
 
-	var category, size, color []string
+	categoryNames := parseCommaSeparatedValues(categoryNamesStr)
+	colors := parseCommaSeparatedValues(colorsStr)
+	processors := parseCommaSeparatedValues(processorsStr)
+	storage := parseCommaSeparatedValues(storageStr)
+	sizes := parseCommaSeparatedValues(sizesStr)
 
-	if categoryStr != "" {
-		category = strings.Split(categoryStr, ",")
-	}
-
-	if sizeStr != "" {
-		size = strings.Split(sizeStr, ",")
-	}
-
-	if colorStr != "" {
-		color = strings.Split(colorStr, ",")
-	}
-
+	priceFrom, err := parsePrice(priceFromStr, 0)
 	if err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Invalid page or page size")
+		RespondWithError(w, http.StatusBadRequest, "Invalid price_from")
 		return
 	}
 
-	// get products
-	products, err := h.productService.ListProducts(r.Context(), page, pageSize, category, size, color, sort, priceFromStr, priceToStr)
+	priceTo, err := parsePrice(priceToStr, 999999)
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to get products")
+		RespondWithError(w, http.StatusBadRequest, "Invalid price_to")
 		return
 	}
 
-	// respond with products
+	var products *model.PaginationResult[[]*model.Product]
+	switch sortBy {
+	case "price_asc":
+		products, err = h.productService.GetAllProductsByFiltersPriceAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	case "price_desc":
+		products, err = h.productService.GetAllProductsByFiltersPriceDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	case "name_asc":
+		products, err = h.productService.GetAllProductsByFiltersNameAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	case "name_desc":
+		products, err = h.productService.GetAllProductsByFiltersNameDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	case "newest":
+		products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	case "oldest":
+		products, err = h.productService.GetAllProductsByFiltersOldest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	default:
+		products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	}
+
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
+		return
+	}
+
 	RespondWithJSON(w, http.StatusOK, products)
 }
 

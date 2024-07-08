@@ -30,6 +30,7 @@ type Category struct {
 	UpdatedAt sql.NullTime
 	IsActive  bool
 	Position  int32
+	ImageUrl  sql.NullString
 }
 
 type Color struct {

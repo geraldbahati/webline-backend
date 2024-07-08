@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -23,14 +24,21 @@ type Config struct {
 	ConsumerKey        string
 	ConsumerSecret     string
 	AccountReference   string
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUsername       string
+	SMTPPassword       string
+	FromEmail          string
+	FromName           string
+	ToEmail            string
 }
 
 func LoadConfig() Config {
 	if err := godotenv.Load(".env"); err != nil {
-		// Added this for testing and debugging reasons
-		// To be removed
 		log.Fatal("Error loading .env file:", err)
 	}
+
+	port, _ := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 
 	return Config{
 		Port: getEnv("PORT", "8080"),
@@ -54,6 +62,13 @@ func LoadConfig() Config {
 		ConsumerKey:        getEnv("CONSUMER_KEY", ""),
 		ConsumerSecret:     getEnv("CONSUMER_SECRET", ""),
 		AccountReference:   getEnv("ACCOUNT_REFERENCE", ""),
+		SMTPHost:           getEnv("SMTP_HOST", ""),
+		SMTPPort:           port,
+		SMTPUsername:       getEnv("SMTP_USERNAME", ""),
+		SMTPPassword:       getEnv("SMTP_PASSWORD", ""),
+		FromEmail:          getEnv("FROM_EMAIL", ""),
+		FromName:           getEnv("FROM_NAME", ""),
+		ToEmail:            getEnv("TO_EMAIL", ""),
 	}
 }
 

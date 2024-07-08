@@ -2,9 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
 	"weblineBackend/internal/services"
+
+	"github.com/gorilla/mux"
 )
 
 type CategoryHandler struct {
@@ -228,4 +229,20 @@ func (h *CategoryHandler) GetCategoryHierarchyHandler(w http.ResponseWriter, r *
 
 	// respond with category hierarchy
 	RespondWithJSON(w, http.StatusOK, hierarchy)
+}
+
+// UploadCategoryImageHandler uploads a category image
+func (h *CategoryHandler) UploadCategoryImageHandler(w http.ResponseWriter, r *http.Request) {
+	// get category ID
+	categoryID := r.FormValue("id")
+
+	// upload category image
+	err := h.categoryService.UpdateCategoryImageService(r.Context(), r, categoryID)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to upload category image")
+		return
+	}
+
+	// respond with success
+	RespondWithSuccess(w, http.StatusOK, "Category image uploaded successfully")
 }

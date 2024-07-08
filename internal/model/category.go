@@ -4,16 +4,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type Category struct {
-	ID              uuid.UUID  `json:"ID"`
-	Name            string     `json:"Name"`
-	ParentID        uuid.UUID  `json:"ParentID"`
-	IsActive        bool       `json:"IsActive"`
-	SubCategories   []Category `json:"SubCategories"`
-	AvailableColors []string   `json:"AvailableColors"`
+type CategoryDetail struct {
+	ID              uuid.UUID        `json:"id"`
+	Name            string           `json:"name"`
+	ParentID        uuid.UUID        `json:"parentID"`
+	IsActive        bool             `json:"isActive"`
+	ImageURL        string           `json:"imageURL"`
+	SubCategories   []CategoryDetail `json:"subCategories"`
+	AvailableColors []string         `json:"availableColors"`
 }
 
 type CategoryHierarchy struct {
 	Name     string              `json:"Name"`
 	Children []CategoryHierarchy `json:"Children"`
+}
+
+type Category struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
 }

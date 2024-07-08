@@ -1,9 +1,9 @@
 -- +goose Up
 -- +goose StatementBegin
-SELECT 'up SQL query';
+ALTER TABLE categories ADD COLUMN image_url VARCHAR(255);
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-SELECT 'down SQL query';
+ALTER TABLE categories DROP COLUMN image_url;
 -- +goose StatementEnd

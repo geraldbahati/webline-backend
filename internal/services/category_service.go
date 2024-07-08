@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"sort"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
+	"weblineBackend/pkg/utils"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -19,14 +22,16 @@ type CategoryService struct {
 	productColorRepo *repository.ProductColourRepository
 	logger           *zap.Logger
 	cfg              *appconfig.Config
+	s3Client         *s3.Client
 }
 
-func NewCategoryService(categoryRepo *repository.CategoryRepository, productColorRepo *repository.ProductColourRepository, logger *zap.Logger, cfg *appconfig.Config) *CategoryService {
+func NewCategoryService(categoryRepo *repository.CategoryRepository, productColorRepo *repository.ProductColourRepository, logger *zap.Logger, cfg *appconfig.Config, s3Client *s3.Client) *CategoryService {
 	return &CategoryService{
 		categoryRepo:     categoryRepo,
 		productColorRepo: productColorRepo,
 		logger:           logger,
 		cfg:              cfg,
+		s3Client:         s3Client,
 	}
 }
 
@@ -241,37 +246,46 @@ func (s *CategoryService) GetCategoriesWithSubcategoryCountService(ctx context.C
 }
 
 // GetParentCategoriesService retrieves parent categories
-func (s *CategoryService) GetParentCategoriesService(ctx context.Context) ([]database.Category, error) {
+func (s *CategoryService) GetParentCategoriesService(ctx context.Context) ([]model.Category, error) {
 	categories, err := s.categoryRepo.GetParentCategories(ctx)
 	if err != nil {
 		s.logger.Error("failed to get parent categories", zap.Error(err))
 		return nil, err
 	}
 
-	return categories, nil
+	categoriesModel := make([]model.Category, 0)
+	for _, category := range categories {
+		categoryModel := model.Category{
+			ID:   category.ID,
+			Name: category.Name,
+		}
+		categoriesModel = append(categoriesModel, categoryModel)
+	}
+
+	return categoriesModel, nil
 }
 
 // GetCategoryByNameService retrieves a category by its name
-func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name string) (model.Category, error) {
+func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name string) (model.CategoryDetail, error) {
 	// get category by name
 	category, err := s.categoryRepo.GetCategoryByName(ctx, name)
 	if err != nil {
 		s.logger.Error("failed to get category by name", zap.Error(err))
-		return model.Category{}, err
+		return model.CategoryDetail{}, err
 	}
 
 	// get categories by parent ID
 	categories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
 	if err != nil {
 		s.logger.Error("failed to get categories by parent ID", zap.Error(err))
-		return model.Category{}, err
+		return model.CategoryDetail{}, err
 	}
 
 	// get available colors for the category
 	availableColors, err := s.productColorRepo.GetAvailableColorsByCategoryID(ctx, category.ID)
 	if err != nil {
 		s.logger.Error("failed to get available colors by category ID", zap.Error(err))
-		return model.Category{}, err
+		return model.CategoryDetail{}, err
 	}
 
 	var colors []string
@@ -280,18 +294,27 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 	}
 
 	// create a new category model
-	var subCategories []model.Category
+	var subCategories []model.CategoryDetail
 	for _, category := range categories {
-		subCategory := model.Category{
+		// check if image is valid
+		var imageURL string
+		if category.ImageUrl.Valid {
+			imageURL = s.constructS3URL(category.ImageUrl.String)
+		} else {
+			imageURL = ""
+		}
+
+		subCategory := model.CategoryDetail{
 			ID:       category.ID,
 			Name:     category.Name,
 			ParentID: category.ParentID.UUID,
+			ImageURL: imageURL,
 			IsActive: category.IsActive,
 		}
 		subCategories = append(subCategories, subCategory)
 	}
 
-	categoryModel := model.Category{
+	categoryModel := model.CategoryDetail{
 		ID:              category.ID,
 		Name:            category.Name,
 		ParentID:        category.ParentID.UUID,
@@ -452,4 +475,37 @@ func (s *CategoryService) buildCategoryHierarchy(categories []database.GetCatego
 // constructS3URL constructs the S3 URL for a given file path
 func (s *CategoryService) constructS3URL(filePath string) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.cfg.AWSBucketName, s.cfg.AWSRegion, filePath)
+}
+
+// UpdateCategoryImageService updates the image of a category
+func (s *CategoryService) UpdateCategoryImageService(ctx context.Context, r *http.Request, categoryID string) error {
+	// Check if the category exists
+	categoryUUID, err := uuid.Parse(categoryID)
+	if err != nil {
+		s.logger.Error("failed to parse category ID", zap.Error(err))
+		return err
+	}
+
+	if exists, err := s.categoryRepo.CheckCategoryExistence(ctx, categoryUUID); err != nil {
+		s.logger.Error("failed to check if category exists", zap.Error(err))
+		return err
+	} else if !exists {
+		s.logger.Error("category does not exist")
+		return fmt.Errorf("category does not exist")
+	}
+
+	// Update the image of the category
+	filePath, err := utils.UploadFileToS3(ctx, r, s.s3Client, s.cfg.AWSBucketName, "category_images")
+	if err != nil {
+		s.logger.Error("failed to upload file to S3", zap.Error(err))
+		return fmt.Errorf("failed to upload file to S3")
+	}
+
+	_, err = s.categoryRepo.UpdateCategoryImage(ctx, categoryUUID, filePath)
+	if err != nil {
+		s.logger.Error("failed to update category image", zap.Error(err))
+		return err
+	}
+
+	return nil
 }
