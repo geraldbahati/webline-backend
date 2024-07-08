@@ -30,7 +30,7 @@ func (q *Queries) CheckCategoryExistence(ctx context.Context, id uuid.UUID) (boo
 const createCategory = `-- name: CreateCategory :one
 INSERT INTO categories (name, parent_id, position)
 VALUES ($1, $2, $3)
-    RETURNING id, name, parent_id, created_at, updated_at, is_active, position
+    RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url
 `
 
 type CreateCategoryParams struct {
@@ -50,12 +50,13 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 		&i.UpdatedAt,
 		&i.IsActive,
 		&i.Position,
+		&i.ImageUrl,
 	)
 	return i, err
 }
 
 const getCategoriesByParentID = `-- name: GetCategoriesByParentID :many
-SELECT id, name, parent_id, created_at, updated_at, is_active, position
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
 FROM categories
 WHERE parent_id = $1
 ORDER BY position
@@ -78,6 +79,7 @@ func (q *Queries) GetCategoriesByParentID(ctx context.Context, parentID uuid.Nul
 			&i.UpdatedAt,
 			&i.IsActive,
 			&i.Position,
+			&i.ImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -93,10 +95,10 @@ func (q *Queries) GetCategoriesByParentID(ctx context.Context, parentID uuid.Nul
 }
 
 const getCategoriesWithProductsCount = `-- name: GetCategoriesWithProductsCount :many
-SELECT c.id, c.name, c.parent_id, c.position, c.created_at, c.updated_at, c.is_active,COUNT(p.id) as products_count
+SELECT c.id, c.name, c.parent_id, c.position, c.created_at, c.updated_at, c.is_active, c.image_url, COUNT(p.id) as products_count
 FROM categories c
          LEFT JOIN products p ON c.id = p.category_id
-GROUP BY c.id
+GROUP BY c.id, c.name, c.parent_id, c.position, c.created_at, c.updated_at, c.is_active, c.image_url
 ORDER BY c.position
 `
 
@@ -108,6 +110,7 @@ type GetCategoriesWithProductsCountRow struct {
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      bool
+	ImageUrl      sql.NullString
 	ProductsCount int64
 }
 
@@ -128,6 +131,7 @@ func (q *Queries) GetCategoriesWithProductsCount(ctx context.Context) ([]GetCate
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.IsActive,
+			&i.ImageUrl,
 			&i.ProductsCount,
 		); err != nil {
 			return nil, err
@@ -144,7 +148,7 @@ func (q *Queries) GetCategoriesWithProductsCount(ctx context.Context) ([]GetCate
 }
 
 const getCategoriesWithSubcategoryCount = `-- name: GetCategoriesWithSubcategoryCount :many
-SELECT c.id, c.name, c.parent_id, c.created_at, c.position ,c.updated_at, c.is_active,COUNT(sc.id) as subcategory_count
+SELECT c.id, c.name, c.parent_id, c.created_at, c.position ,c.updated_at, c.is_active, c.image_url,COUNT(sc.id) as subcategory_count
 FROM categories c
          LEFT JOIN categories sc ON c.id = sc.parent_id
 GROUP BY c.id
@@ -159,6 +163,7 @@ type GetCategoriesWithSubcategoryCountRow struct {
 	Position         int32
 	UpdatedAt        sql.NullTime
 	IsActive         bool
+	ImageUrl         sql.NullString
 	SubcategoryCount int64
 }
 
@@ -179,6 +184,7 @@ func (q *Queries) GetCategoriesWithSubcategoryCount(ctx context.Context) ([]GetC
 			&i.Position,
 			&i.UpdatedAt,
 			&i.IsActive,
+			&i.ImageUrl,
 			&i.SubcategoryCount,
 		); err != nil {
 			return nil, err
@@ -195,7 +201,7 @@ func (q *Queries) GetCategoriesWithSubcategoryCount(ctx context.Context) ([]GetC
 }
 
 const getCategoryByID = `-- name: GetCategoryByID :one
-SELECT id, name, parent_id, created_at, updated_at, is_active, position
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
 FROM categories
 WHERE id = $1
 `
@@ -211,12 +217,13 @@ func (q *Queries) GetCategoryByID(ctx context.Context, id uuid.UUID) (Category, 
 		&i.UpdatedAt,
 		&i.IsActive,
 		&i.Position,
+		&i.ImageUrl,
 	)
 	return i, err
 }
 
 const getCategoryByName = `-- name: GetCategoryByName :one
-SELECT id, name, parent_id, created_at, updated_at, is_active, position
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
 FROM categories
 WHERE name = $1
 `
@@ -232,6 +239,7 @@ func (q *Queries) GetCategoryByName(ctx context.Context, name string) (Category,
 		&i.UpdatedAt,
 		&i.IsActive,
 		&i.Position,
+		&i.ImageUrl,
 	)
 	return i, err
 }
@@ -377,15 +385,15 @@ func (q *Queries) GetCategoryHierarchy(ctx context.Context) ([]GetCategoryHierar
 
 const getCategoryTree = `-- name: GetCategoryTree :many
 WITH RECURSIVE category_tree AS (
-    SELECT id, name, parent_id, created_at, updated_at, is_active, position
+    SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
     FROM categories
     WHERE parent_id IS NULL
     UNION
-    SELECT c.id, c.name, c.parent_id, c.created_at, c.updated_at, c.is_active, c.position
+    SELECT c.id, c.name, c.parent_id, c.created_at, c.updated_at, c.is_active, c.position, c.image_url
     FROM categories c
              INNER JOIN category_tree ct ON ct.id = c.parent_id
 )
-SELECT id, name, parent_id, created_at, updated_at, is_active, position
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
 FROM category_tree
 ORDER BY position, parent_id, name
 `
@@ -398,6 +406,7 @@ type GetCategoryTreeRow struct {
 	UpdatedAt sql.NullTime
 	IsActive  bool
 	Position  int32
+	ImageUrl  sql.NullString
 }
 
 func (q *Queries) GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, error) {
@@ -417,6 +426,7 @@ func (q *Queries) GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, er
 			&i.UpdatedAt,
 			&i.IsActive,
 			&i.Position,
+			&i.ImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -532,7 +542,7 @@ func (q *Queries) GetFilterOptionsByCategoryName(ctx context.Context, name strin
 }
 
 const getParentCategories = `-- name: GetParentCategories :many
-SELECT id, name, parent_id, created_at, updated_at, is_active, position
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
 FROM categories
 WHERE parent_id IS NULL
 ORDER BY position
@@ -555,6 +565,7 @@ func (q *Queries) GetParentCategories(ctx context.Context) ([]Category, error) {
 			&i.UpdatedAt,
 			&i.IsActive,
 			&i.Position,
+			&i.ImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -580,7 +591,7 @@ func (q *Queries) HardDeleteCategory(ctx context.Context, id uuid.UUID) error {
 }
 
 const listCategories = `-- name: ListCategories :many
-SELECT id, name, parent_id, created_at, updated_at, is_active, position
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
 FROM categories
 ORDER BY position
 `
@@ -602,6 +613,7 @@ func (q *Queries) ListCategories(ctx context.Context) ([]Category, error) {
 			&i.UpdatedAt,
 			&i.IsActive,
 			&i.Position,
+			&i.ImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -630,7 +642,7 @@ const updateCategory = `-- name: UpdateCategory :one
 UPDATE categories
 SET name = $2, parent_id = $3, position = $4, updated_at = NOW()
 WHERE id = $1
-    RETURNING id, name, parent_id, created_at, updated_at, is_active, position
+    RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url
 `
 
 type UpdateCategoryParams struct {
@@ -656,6 +668,35 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 		&i.UpdatedAt,
 		&i.IsActive,
 		&i.Position,
+		&i.ImageUrl,
+	)
+	return i, err
+}
+
+const updateCategoryImage = `-- name: UpdateCategoryImage :one
+UPDATE categories
+SET image_url = $2
+WHERE id = $1
+    RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url
+`
+
+type UpdateCategoryImageParams struct {
+	ID       uuid.UUID
+	ImageUrl sql.NullString
+}
+
+func (q *Queries) UpdateCategoryImage(ctx context.Context, arg UpdateCategoryImageParams) (Category, error) {
+	row := q.db.QueryRowContext(ctx, updateCategoryImage, arg.ID, arg.ImageUrl)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ParentID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+		&i.Position,
+		&i.ImageUrl,
 	)
 	return i, err
 }

@@ -167,6 +167,1030 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 	return i, err
 }
 
+const getAllProductsByFiltersNameAsc = `-- name: GetAllProductsByFiltersNameAsc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.category_id,
+        p.created_at,
+        p.updated_at,
+        p.is_active,
+        p.created_by,
+        p.updated_by,
+        p.featured,
+        s.size,
+        c.color_name
+    FROM
+        products p
+    LEFT JOIN
+        product_sizes ps ON p.id = ps.product_id
+    LEFT JOIN
+        sizes s ON ps.size_id = s.id
+    LEFT JOIN
+        product_colors pc ON p.id = pc.product_id
+    LEFT JOIN
+        colors c ON pc.color_id = c.id
+    WHERE
+        p.category_id IN (SELECT id FROM category_hierarchy)
+        -- Size filter
+        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+        -- Color filter
+        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+        AND p.price BETWEEN $2 AND $3
+)
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       p.price,
+                       p.stock,
+                       p.category_id,
+                       p.created_at,
+                       p.updated_at,
+                       p.is_active,
+                       p.created_by,
+                       p.updated_by,
+                       p.featured,
+                       s.size,
+                       c.color_name,
+                       pr.name AS processor_name,
+                       so.name AS storage_name
+                   FROM
+                       products p
+                           LEFT JOIN
+                       product_sizes ps ON p.id = ps.product_id
+                           LEFT JOIN
+                       sizes s ON ps.size_id = s.id
+                           LEFT JOIN
+                       product_colors pc ON p.id = pc.product_id
+                           LEFT JOIN
+                       colors c ON pc.color_id = c.id
+                           LEFT JOIN
+                       product_processors pp ON p.id = pp.product_id
+                           LEFT JOIN
+                       processors pr ON pp.processor_id = pr.id
+`
+
+type GetAllProductsByFiltersNameAscParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Column4 []string
+	Column5 []string
+	Limit   int32
+	Offset  int32
+	Column8 []string
+	Column9 []string
+}
+
+type GetAllProductsByFiltersNameAscRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	Price         string
+	Stock         sql.NullInt32
+	CategoryID    uuid.NullUUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	IsActive      sql.NullBool
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	Size          sql.NullString
+	ColorName     sql.NullString
+	ProcessorName sql.NullString
+	StorageName   sql.NullString
+}
+
+func (q *Queries) GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAllProductsByFiltersNameAscParams) ([]GetAllProductsByFiltersNameAscRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNameAsc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		arg.Limit,
+		arg.Offset,
+		pq.Array(arg.Column8),
+		pq.Array(arg.Column9),
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllProductsByFiltersNameAscRow
+	for rows.Next() {
+		var i GetAllProductsByFiltersNameAscRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+			&i.ProcessorName,
+			&i.StorageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllProductsByFiltersNameDesc = `-- name: GetAllProductsByFiltersNameDesc :many
+    WITH RECURSIVE category_hierarchy AS (
+        SELECT
+            c.id,
+            c.name,
+            c.parent_id
+        FROM
+            categories c
+        WHERE
+            c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+
+        UNION ALL
+
+        SELECT
+            c.id,
+            c.name,
+            c.parent_id
+        FROM
+            categories c
+                INNER JOIN
+            category_hierarchy ch ON c.parent_id = ch.id
+    ),
+                   filtered_products AS (
+                       SELECT
+                           p.id,
+                           p.name,
+                           p.description,
+                           p.price,
+                           p.stock,
+                           p.category_id,
+                           p.created_at,
+                           p.updated_at,
+                           p.is_active,
+                           p.created_by,
+                           p.updated_by,
+                           p.featured,
+                           s.size,
+                           c.color_name,
+                           pr.name AS processor_name,
+                           so.name AS storage_name
+                       FROM
+                           products p
+                               LEFT JOIN
+                           product_sizes ps ON p.id = ps.product_id
+                               LEFT JOIN
+                           sizes s ON ps.size_id = s.id
+                               LEFT JOIN
+                           product_colors pc ON p.id = pc.product_id
+                               LEFT JOIN
+                           colors c ON pc.color_id = c.id
+                               LEFT JOIN
+                           product_processors pp ON p.id = pp.product_id
+                               LEFT JOIN
+                           processors pr ON pp.processor_id = pr.id
+                               LEFT JOIN
+                           product_storage_options pso ON p.id = pso.product_id
+                               LEFT JOIN
+                           storage_options so ON pso.storage_option_id = so.id
+                       WHERE
+                           (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+                         AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+                         AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+                         AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+                         AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+                         AND p.price BETWEEN $2 AND $3
+                   )
+    SELECT
+        fp.id,
+        fp.name,
+        fp.description,
+        fp.price,
+        fp.stock,
+        fp.category_id,
+        fp.created_at,
+        fp.updated_at,
+        fp.is_active,
+        fp.created_by,
+        fp.updated_by,
+        fp.featured,
+        fp.size,
+        fp.color_name,
+        fp.processor_name,
+        fp.storage_name
+    FROM
+        filtered_products fp
+ORDER BY
+    fp.name DESC
+LIMIT
+    $6 OFFSET $7
+`
+
+type GetAllProductsByFiltersNameDescParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Column4 []string
+	Column5 []string
+	Limit   int32
+	Offset  int32
+	Column8 []string
+	Column9 []string
+}
+
+type GetAllProductsByFiltersNameDescRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	Price         string
+	Stock         sql.NullInt32
+	CategoryID    uuid.NullUUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	IsActive      sql.NullBool
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	Size          sql.NullString
+	ColorName     sql.NullString
+	ProcessorName sql.NullString
+	StorageName   sql.NullString
+}
+
+func (q *Queries) GetAllProductsByFiltersNameDesc(ctx context.Context, arg GetAllProductsByFiltersNameDescParams) ([]GetAllProductsByFiltersNameDescRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNameDesc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		arg.Limit,
+		arg.Offset,
+		pq.Array(arg.Column8),
+		pq.Array(arg.Column9),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllProductsByFiltersNameDescRow
+	for rows.Next() {
+		var i GetAllProductsByFiltersNameDescRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+			&i.ProcessorName,
+			&i.StorageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllProductsByFiltersNewest = `-- name: GetAllProductsByFiltersNewest :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY(COALESCE($1::VARCHAR[], ARRAY[]::VARCHAR[])) OR $1 IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       p.price,
+                       p.stock,
+                       p.category_id,
+                       p.created_at,
+                       p.updated_at,
+                       p.is_active,
+                       p.created_by,
+                       p.updated_by,
+                       p.featured,
+                       s.size,
+                       c.color_name,
+                       pr.name AS processor_name,
+                       so.name AS storage_name
+                   FROM
+                       products p
+                           LEFT JOIN
+                       product_sizes ps ON p.id = ps.product_id
+                           LEFT JOIN
+                       sizes s ON ps.size_id = s.id
+                           LEFT JOIN
+                       product_colors pc ON p.id = pc.product_id
+                           LEFT JOIN
+                       colors c ON pc.color_id = c.id
+                           LEFT JOIN
+                       product_processors pp ON p.id = pp.product_id
+                           LEFT JOIN
+                       processors pr ON pp.processor_id = pr.id
+                           LEFT JOIN
+                       product_storage_options pso ON p.id = pso.product_id
+                           LEFT JOIN
+                       storage_options so ON pso.storage_option_id = so.id
+                   WHERE
+                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+                     AND (s.size = ANY(COALESCE($4::VARCHAR[], ARRAY[]::VARCHAR[])) OR $4 IS NULL)
+                     AND (c.color_name = ANY(COALESCE($5::VARCHAR[], ARRAY[]::VARCHAR[])) OR $5 IS NULL)
+                     AND (pr.name = ANY(COALESCE($8::VARCHAR[], ARRAY[]::VARCHAR[])) OR $8 IS NULL)
+                     AND (so.name = ANY(COALESCE($9::VARCHAR[], ARRAY[]::VARCHAR[])) OR $9 IS NULL)
+                     AND p.price BETWEEN $2 AND $3
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name,
+    fp.processor_name,
+    fp.storage_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.created_at DESC
+LIMIT
+
+
+type GetAllProductsByFiltersNewestParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Column4 []string
+	Column5 []string
+	Limit   int32
+	Offset  int32
+	Column8 []string
+	Column9 []string
+}
+
+type GetAllProductsByFiltersNewestRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	Price         string
+	Stock         sql.NullInt32
+	CategoryID    uuid.NullUUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	IsActive      sql.NullBool
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	Size          sql.NullString
+	ColorName     sql.NullString
+	ProcessorName sql.NullString
+	StorageName   sql.NullString
+}
+
+func (q *Queries) GetAllProductsByFiltersNewest(ctx context.Context, arg GetAllProductsByFiltersNewestParams) ([]GetAllProductsByFiltersNewestRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNewest,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		arg.Limit,
+		arg.Offset,
+		pq.Array(arg.Column8),
+		pq.Array(arg.Column9),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllProductsByFiltersNewestRow
+	for rows.Next() {
+		var i GetAllProductsByFiltersNewestRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+			&i.ProcessorName,
+			&i.StorageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllProductsByFiltersOldest = `-- name: GetAllProductsByFiltersOldest :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+<<<<<<< HEAD
+filtered_products AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+                       p.category_id,
+                       p.created_at,
+                       p.updated_at,
+                       p.is_active,
+                       p.created_by,
+                       p.updated_by,
+                       p.featured,
+                       s.size,
+                       c.color_name,
+                       pr.name AS processor_name,
+                       so.name AS storage_name
+                   FROM
+                       products p
+                           LEFT JOIN
+                       product_sizes ps ON p.id = ps.product_id
+                           LEFT JOIN
+                       sizes s ON ps.size_id = s.id
+                           LEFT JOIN
+                       product_colors pc ON p.id = pc.product_id
+                           LEFT JOIN
+                       colors c ON pc.color_id = c.id
+                           LEFT JOIN
+                       product_processors pp ON p.id = pp.product_id
+                           LEFT JOIN
+                       processors pr ON pp.processor_id = pr.id
+                           LEFT JOIN
+                       product_storage_options pso ON p.id = pso.product_id
+                           LEFT JOIN
+                       storage_options so ON pso.storage_option_id = so.id
+                   WHERE
+                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+                     AND p.price BETWEEN $2 AND $3
+               )
+>>>>>>> develop
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name,
+    fp.processor_name,
+    fp.storage_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.created_at
+LIMIT
+    $6 OFFSET $7
+`
+
+type GetAllProductsByFiltersOldestParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Column4 []string
+	Column5 []string
+	Limit   int32
+	Offset  int32
+	Column8 []string
+	Column9 []string
+}
+
+type GetAllProductsByFiltersOldestRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	Price         string
+	Stock         sql.NullInt32
+	CategoryID    uuid.NullUUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	IsActive      sql.NullBool
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	Size          sql.NullString
+	ColorName     sql.NullString
+	ProcessorName sql.NullString
+	StorageName   sql.NullString
+}
+
+func (q *Queries) GetAllProductsByFiltersOldest(ctx context.Context, arg GetAllProductsByFiltersOldestParams) ([]GetAllProductsByFiltersOldestRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersOldest,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column8),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllProductsByFiltersOldestRow
+	for rows.Next() {
+		var i GetAllProductsByFiltersOldestRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+			&i.ProcessorName,
+			&i.StorageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllProductsByFiltersPriceAsc = `-- name: GetAllProductsByFiltersPriceAsc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       p.price,
+                       p.stock,
+                       p.category_id,
+                       p.created_at,
+                       p.updated_at,
+                       p.is_active,
+                       p.created_by,
+                       p.updated_by,
+                       p.featured,
+                       s.size,
+                       c.color_name,
+                       pr.name AS processor_name,
+                       so.name AS storage_name
+                   FROM
+                       products p
+                           LEFT JOIN
+                       product_sizes ps ON p.id = ps.product_id
+                           LEFT JOIN
+                       sizes s ON ps.size_id = s.id
+                           LEFT JOIN
+                       product_colors pc ON p.id = pc.product_id
+                           LEFT JOIN
+                       colors c ON pc.color_id = c.id
+                           LEFT JOIN
+                       product_processors pp ON p.id = pp.product_id
+                           LEFT JOIN
+                       processors pr ON pp.processor_id = pr.id
+                           LEFT JOIN
+                       product_storage_options pso ON p.id = pso.product_id
+                           LEFT JOIN
+                       storage_options so ON pso.storage_option_id = so.id
+                   WHERE
+                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+                     AND p.price BETWEEN $2 AND $3
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name,
+    fp.processor_name,
+    fp.storage_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price ASC
+LIMIT
+    $6 OFFSET $7
+`
+
+type GetAllProductsByFiltersPriceAscParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Column4 []string
+	Column5 []string
+	Limit   int32
+	Offset  int32
+	Column8 []string
+	Column9 []string
+}
+
+type GetAllProductsByFiltersPriceAscRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	Price         string
+	Stock         sql.NullInt32
+	CategoryID    uuid.NullUUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	IsActive      sql.NullBool
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	Size          sql.NullString
+	ColorName     sql.NullString
+	ProcessorName sql.NullString
+	StorageName   sql.NullString
+}
+
+func (q *Queries) GetAllProductsByFiltersPriceAsc(ctx context.Context, arg GetAllProductsByFiltersPriceAscParams) ([]GetAllProductsByFiltersPriceAscRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersPriceAsc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		arg.Limit,
+		arg.Offset,
+		pq.Array(arg.Column8),
+		pq.Array(arg.Column9),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllProductsByFiltersPriceAscRow
+	for rows.Next() {
+		var i GetAllProductsByFiltersPriceAscRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+			&i.ProcessorName,
+			&i.StorageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllProductsByFiltersPriceDesc = `-- name: GetAllProductsByFiltersPriceDesc :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       p.price,
+                       p.stock,
+                       p.category_id,
+                       p.created_at,
+                       p.updated_at,
+                       p.is_active,
+                       p.created_by,
+                       p.updated_by,
+                       p.featured,
+                       s.size,
+                       c.color_name,
+                       pr.name AS processor_name,
+                       so.name AS storage_name
+                   FROM
+                       products p
+                           LEFT JOIN
+                       product_sizes ps ON p.id = ps.product_id
+                           LEFT JOIN
+                       sizes s ON ps.size_id = s.id
+                           LEFT JOIN
+                       product_colors pc ON p.id = pc.product_id
+                           LEFT JOIN
+                       colors c ON pc.color_id = c.id
+                           LEFT JOIN
+                       product_processors pp ON p.id = pp.product_id
+                           LEFT JOIN
+                       processors pr ON pp.processor_id = pr.id
+                           LEFT JOIN
+                       product_storage_options pso ON p.id = pso.product_id
+                           LEFT JOIN
+                       storage_options so ON pso.storage_option_id = so.id
+                   WHERE
+                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+                     AND p.price BETWEEN $2 AND $3
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name,
+    fp.processor_name,
+    fp.storage_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price DESC
+LIMIT
+    $6 OFFSET $7
+`
+
+type GetAllProductsByFiltersPriceDescParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Column4 []string
+	Column5 []string
+	Limit   int32
+	Offset  int32
+	Column8 []string
+	Column9 []string
+}
+
+type GetAllProductsByFiltersPriceDescRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	Price         string
+	Stock         sql.NullInt32
+	CategoryID    uuid.NullUUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	IsActive      sql.NullBool
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	Size          sql.NullString
+	ColorName     sql.NullString
+	ProcessorName sql.NullString
+	StorageName   sql.NullString
+}
+
+func (q *Queries) GetAllProductsByFiltersPriceDesc(ctx context.Context, arg GetAllProductsByFiltersPriceDescParams) ([]GetAllProductsByFiltersPriceDescRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersPriceDesc,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		arg.Limit,
+		arg.Offset,
+		pq.Array(arg.Column8),
+		pq.Array(arg.Column9),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllProductsByFiltersPriceDescRow
+	for rows.Next() {
+		var i GetAllProductsByFiltersPriceDescRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Price,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.Size,
+			&i.ColorName,
+			&i.ProcessorName,
+			&i.StorageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFilterOptions = `-- name: GetFilterOptions :many
 SELECT DISTINCT
     col.color_name AS filter_option, 'color' AS filter_type
@@ -218,771 +1242,6 @@ func (q *Queries) GetFilterOptions(ctx context.Context) ([]GetFilterOptionsRow, 
 	for rows.Next() {
 		var i GetFilterOptionsRow
 		if err := rows.Scan(&i.FilterOption, &i.FilterType); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFilteredProducts = `-- name: GetFilteredProducts :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-filtered_products AS (
-    SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.stock,
-        p.category_id,
-        p.created_at,
-        p.updated_at,
-        p.is_active,
-        p.created_by,
-        p.updated_by,
-        p.featured,
-        s.size,
-        c.color_name
-    FROM
-        products p
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes s ON ps.size_id = s.id
-    LEFT JOIN
-        product_colors pc ON p.id = pc.product_id
-    LEFT JOIN
-        colors c ON pc.color_id = c.id
-    WHERE
-        p.category_id IN (SELECT id FROM category_hierarchy)
-        -- Size filter
-        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-        -- Color filter
-        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-        AND p.price BETWEEN $2 AND $3
-)
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.is_active,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.size,
-    fp.color_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.created_at DESC
-LIMIT
-    $6 OFFSET
-    $7
-`
-
-type GetFilteredProductsParams struct {
-	Column1 []string
-	Price   string
-	Price_2 string
-	Column4 []string
-	Column5 []string
-	Limit   int32
-	Offset  int32
-}
-
-type GetFilteredProductsRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Size        sql.NullString
-	ColorName   sql.NullString
-}
-
-func (q *Queries) GetFilteredProducts(ctx context.Context, arg GetFilteredProductsParams) ([]GetFilteredProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilteredProducts,
-		pq.Array(arg.Column1),
-		arg.Price,
-		arg.Price_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilteredProductsRow
-	for rows.Next() {
-		var i GetFilteredProductsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.Price,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.IsActive,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Size,
-			&i.ColorName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFilteredProductsOrderByNameAsc = `-- name: GetFilteredProductsOrderByNameAsc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-filtered_products AS (
-    SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.stock,
-        p.category_id,
-        p.created_at,
-        p.updated_at,
-        p.is_active,
-        p.created_by,
-        p.updated_by,
-        p.featured,
-        s.size,
-        c.color_name
-    FROM
-        products p
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes s ON ps.size_id = s.id
-    LEFT JOIN
-        product_colors pc ON p.id = pc.product_id
-    LEFT JOIN
-        colors c ON pc.color_id = c.id
-    WHERE
-        p.category_id IN (SELECT id FROM category_hierarchy)
-        -- Size filter
-        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-        -- Color filter
-        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-        AND p.price BETWEEN $2 AND $3
-)
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.is_active,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.size,
-    fp.color_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.name ASC
-LIMIT
-    $6 OFFSET
-    $7
-`
-
-type GetFilteredProductsOrderByNameAscParams struct {
-	Column1 []string
-	Price   string
-	Price_2 string
-	Column4 []string
-	Column5 []string
-	Limit   int32
-	Offset  int32
-}
-
-type GetFilteredProductsOrderByNameAscRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Size        sql.NullString
-	ColorName   sql.NullString
-}
-
-func (q *Queries) GetFilteredProductsOrderByNameAsc(ctx context.Context, arg GetFilteredProductsOrderByNameAscParams) ([]GetFilteredProductsOrderByNameAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByNameAsc,
-		pq.Array(arg.Column1),
-		arg.Price,
-		arg.Price_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilteredProductsOrderByNameAscRow
-	for rows.Next() {
-		var i GetFilteredProductsOrderByNameAscRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.Price,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.IsActive,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Size,
-			&i.ColorName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFilteredProductsOrderByNameDesc = `-- name: GetFilteredProductsOrderByNameDesc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-filtered_products AS (
-    SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.stock,
-        p.category_id,
-        p.created_at,
-        p.updated_at,
-        p.is_active,
-        p.created_by,
-        p.updated_by,
-        p.featured,
-        s.size,
-        c.color_name
-    FROM
-        products p
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes s ON ps.size_id = s.id
-    LEFT JOIN
-        product_colors pc ON p.id = pc.product_id
-    LEFT JOIN
-        colors c ON pc.color_id = c.id
-    WHERE
-        p.category_id IN (SELECT id FROM category_hierarchy)
-        -- Size filter
-        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-        -- Color filter
-        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-        AND p.price BETWEEN $2 AND $3
-)
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.is_active,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.size,
-    fp.color_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.name DESC
-LIMIT
-    $6 OFFSET
-    $7
-`
-
-type GetFilteredProductsOrderByNameDescParams struct {
-	Column1 []string
-	Price   string
-	Price_2 string
-	Column4 []string
-	Column5 []string
-	Limit   int32
-	Offset  int32
-}
-
-type GetFilteredProductsOrderByNameDescRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Size        sql.NullString
-	ColorName   sql.NullString
-}
-
-func (q *Queries) GetFilteredProductsOrderByNameDesc(ctx context.Context, arg GetFilteredProductsOrderByNameDescParams) ([]GetFilteredProductsOrderByNameDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByNameDesc,
-		pq.Array(arg.Column1),
-		arg.Price,
-		arg.Price_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilteredProductsOrderByNameDescRow
-	for rows.Next() {
-		var i GetFilteredProductsOrderByNameDescRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.Price,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.IsActive,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Size,
-			&i.ColorName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFilteredProductsOrderByPriceAsc = `-- name: GetFilteredProductsOrderByPriceAsc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-filtered_products AS (
-    SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.stock,
-        p.category_id,
-        p.created_at,
-        p.updated_at,
-        p.is_active,
-        p.created_by,
-        p.updated_by,
-        p.featured,
-        s.size,
-        c.color_name
-    FROM
-        products p
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes s ON ps.size_id = s.id
-    LEFT JOIN
-        product_colors pc ON p.id = pc.product_id
-    LEFT JOIN
-        colors c ON pc.color_id = c.id
-    WHERE
-        p.category_id IN (SELECT id FROM category_hierarchy)
-        -- Size filter
-        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-        -- Color filter
-        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-        AND p.price BETWEEN $2 AND $3
-)
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.is_active,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.size,
-    fp.color_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.price ASC
-LIMIT
-    $6 OFFSET
-    $7
-`
-
-type GetFilteredProductsOrderByPriceAscParams struct {
-	Column1 []string
-	Price   string
-	Price_2 string
-	Column4 []string
-	Column5 []string
-	Limit   int32
-	Offset  int32
-}
-
-type GetFilteredProductsOrderByPriceAscRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Size        sql.NullString
-	ColorName   sql.NullString
-}
-
-func (q *Queries) GetFilteredProductsOrderByPriceAsc(ctx context.Context, arg GetFilteredProductsOrderByPriceAscParams) ([]GetFilteredProductsOrderByPriceAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByPriceAsc,
-		pq.Array(arg.Column1),
-		arg.Price,
-		arg.Price_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilteredProductsOrderByPriceAscRow
-	for rows.Next() {
-		var i GetFilteredProductsOrderByPriceAscRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.Price,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.IsActive,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Size,
-			&i.ColorName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFilteredProductsOrderByPriceDesc = `-- name: GetFilteredProductsOrderByPriceDesc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-filtered_products AS (
-    SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.stock,
-        p.category_id,
-        p.created_at,
-        p.updated_at,
-        p.is_active,
-        p.created_by,
-        p.updated_by,
-        p.featured,
-        s.size,
-        c.color_name
-    FROM
-        products p
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes s ON ps.size_id = s.id
-    LEFT JOIN
-        product_colors pc ON p.id = pc.product_id
-    LEFT JOIN
-        colors c ON pc.color_id = c.id
-    WHERE
-        p.category_id IN (SELECT id FROM category_hierarchy)
-        -- Size filter
-        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-        -- Color filter
-        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-        AND p.price BETWEEN $2 AND $3
-)
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.is_active,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.size,
-    fp.color_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.price DESC
-LIMIT
-    $6 OFFSET
-    $7
-`
-
-type GetFilteredProductsOrderByPriceDescParams struct {
-	Column1 []string
-	Price   string
-	Price_2 string
-	Column4 []string
-	Column5 []string
-	Limit   int32
-	Offset  int32
-}
-
-type GetFilteredProductsOrderByPriceDescRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	Price       string
-	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	IsActive    sql.NullBool
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Size        sql.NullString
-	ColorName   sql.NullString
-}
-
-func (q *Queries) GetFilteredProductsOrderByPriceDesc(ctx context.Context, arg GetFilteredProductsOrderByPriceDescParams) ([]GetFilteredProductsOrderByPriceDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilteredProductsOrderByPriceDesc,
-		pq.Array(arg.Column1),
-		arg.Price,
-		arg.Price_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilteredProductsOrderByPriceDescRow
-	for rows.Next() {
-		var i GetFilteredProductsOrderByPriceDescRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.Price,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.IsActive,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Size,
-			&i.ColorName,
-		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1924,6 +2183,88 @@ func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, arg GetProd
 		return nil, err
 	}
 	return items, nil
+}
+
+const getTotalProductsByFilters = `-- name: GetTotalProductsByFilters :one
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON c.parent_id = ch.id
+),
+               filtered_products AS (
+                   SELECT
+                       p.id
+                   FROM
+                       products p
+                           LEFT JOIN
+                       product_sizes ps ON p.id = ps.product_id
+                           LEFT JOIN
+                       sizes s ON ps.size_id = s.id
+                           LEFT JOIN
+                       product_colors pc ON p.id = pc.product_id
+                           LEFT JOIN
+                       colors c ON pc.color_id = c.id
+                           LEFT JOIN
+                       product_processors pp ON p.id = pp.product_id
+                           LEFT JOIN
+                       processors pr ON pp.processor_id = pr.id
+                           LEFT JOIN
+                       product_storage_options pso ON p.id = pso.product_id
+                           LEFT JOIN
+                       storage_options so ON pso.storage_option_id = so.id
+                   WHERE
+                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+                     AND (pr.name = ANY($6::VARCHAR[]) OR $6 IS NULL)
+                     AND (so.name = ANY($7::VARCHAR[]) OR $7 IS NULL)
+                     AND p.price BETWEEN $2 AND $3
+               )
+SELECT
+    COUNT(*) AS total_products
+FROM
+    filtered_products
+`
+
+type GetTotalProductsByFiltersParams struct {
+	Column1 []string
+	Price   string
+	Price_2 string
+	Column4 []string
+	Column5 []string
+	Column6 []string
+	Column7 []string
+}
+
+func (q *Queries) GetTotalProductsByFilters(ctx context.Context, arg GetTotalProductsByFiltersParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getTotalProductsByFilters,
+		pq.Array(arg.Column1),
+		arg.Price,
+		arg.Price_2,
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		pq.Array(arg.Column6),
+		pq.Array(arg.Column7),
+	)
+	var total_products int64
+	err := row.Scan(&total_products)
+	return total_products, err
 }
 
 const listProducts = `-- name: ListProducts :many

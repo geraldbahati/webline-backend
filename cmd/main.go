@@ -84,10 +84,11 @@ func main() {
 	guestCheckoutRepo := repository.NewGuestCheckoutRepository(conn, logger)
 	orderItemRepo := repository.NewOrderItemRepository(conn, logger)
 	paymentRepo := repository.NewPaymentRepository(conn, logger)
+	discountRepo := repository.NewDiscountRepository(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
-	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger, &cfg)
+	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger, &cfg, s3Client)
 	productService := services.NewProductService(
 		productRepo,
 		productVariantRepo,
@@ -97,27 +98,30 @@ func main() {
 		productColorRepo,
 		productOptionRepo,
 		productSizeRepo,
+		discountRepo,
 		logger,
 		&cfg,
 		s3Client,
 	)
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
-	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo)
+	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, productRepo, &cfg)
 	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
+	inquiryService := services.NewInquiryService(productRepo, logger, &cfg)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	productHandler := handlers.NewProductHandler(productService)
 	productVariantHandler := handlers.NewProductVariantHandler(productService)
-	productImageHandler := handlers.NewProductImageHandler(productService, s3Client, cfg.AWSBucketName)
+	productImageHandler := handlers.NewProductImageHandler(productService)
 	productSpecificationHandler := handlers.NewProductSpecificationHandler(productService)
 	productOptionHandler := handlers.NewProductOptionHandler(productService)
 	productColorHandler := handlers.NewProductColorHandler(productService)
 	productSizeHandler := handlers.NewProductSizeHandler(productSizeService)
 	cartHandler := handlers.NewCartHandler(cartService)
 	orderHandler := handlers.NewOrderHandler(logger, orderService, paymentService)
+	inquiryHandler := handlers.NewInquiryHandler(logger, inquiryService)
 
 	// Setup router
 	r := setupRouter(
@@ -133,6 +137,7 @@ func main() {
 		productSizeHandler,
 		cartHandler,
 		orderHandler,
+		inquiryHandler,
 	)
 
 	// Start server
@@ -156,6 +161,7 @@ func setupRouter(
 	productSizeHandler *handlers.ProductSizeHandler,
 	cartHandler *handlers.CartHandler,
 	orderHandler *handlers.OrderHandler,
+	inquiryHandler *handlers.InquiryHandler,
 ) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
@@ -163,6 +169,10 @@ func setupRouter(
 	// Serve static files from the "uploads/profile" and "uploads/product-image" directories
 	r.PathPrefix("/uploads/profile/").Handler(http.StripPrefix("/uploads/profile/", http.FileServer(http.Dir("uploads/profile"))))
 	r.PathPrefix("/uploads/product-image/").Handler(http.StripPrefix("/uploads/product-image/", http.FileServer(http.Dir("uploads/product-image"))))
+
+	// Inquiry routes
+	inquiryRouter := r.PathPrefix("/api/inquiries").Subrouter()
+	inquiryRouter.HandleFunc("", inquiryHandler.SubmitInquiry).Methods(http.MethodPost)
 
 	// User routes
 	resetPasswordRouter := r.PathPrefix("/reset-password").Subrouter()
@@ -190,13 +200,14 @@ func setupRouter(
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodDelete)
 	categoryRouter.HandleFunc("/name/{name}", categoryHandler.GetCategoryByNameHandler).Methods(http.MethodOptions)
 	categoryRouter.HandleFunc("/name/{name}", categoryHandler.GetCategoryByNameHandler).Methods(http.MethodGet)
-	categoryRouter.HandleFunc("/parent/{parentId}/", categoryHandler.GetCategoriesByParentIDHandler).Methods(http.MethodGet)
+	categoryRouter.HandleFunc("/parent/{parentId}", categoryHandler.GetCategoriesByParentIDHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/products/count", categoryHandler.GetCategoriesWithProductsCountHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/tree", categoryHandler.GetCategoryTreeHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/hierarchy", categoryHandler.GetCategoryHierarchyHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/parent", categoryHandler.GetParentCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.CheckCategoryExistenceHandler).Methods(http.MethodHead)
 	categoryRouter.HandleFunc("/subcategories/count", categoryHandler.GetCategoriesWithSubcategoryCountHandler).Methods(http.MethodGet)
+	categoryRouter.HandleFunc("/upload-image", categoryHandler.UploadCategoryImageHandler).Methods(http.MethodPost)
 
 	// Product routes
 	productRouter := r.PathPrefix("/api/products").Subrouter()
@@ -205,6 +216,7 @@ func setupRouter(
 	productRouter.HandleFunc("", productHandler.GetAllProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{id}", productHandler.UpdateProductHandler).Methods(http.MethodPut)
 	productRouter.HandleFunc("/{id}", productHandler.SoftDeleteProductHandler).Methods(http.MethodDelete)
+	productRouter.HandleFunc("/all/sitemap", productHandler.GetAllProductSitemapHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/actions/search", productHandler.SearchProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/category/{id}", productHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodGet)

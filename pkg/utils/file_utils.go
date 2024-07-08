@@ -9,9 +9,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func UploadFileToS3(r *http.Request, s3Client *s3.Client, bucketName, uploadDir string) (string, error) {
+const maxUploadSize = 10 << 20 // 10 MB
+
+func UploadFileToS3(ctx context.Context, r *http.Request, s3Client *s3.Client, bucketName, uploadDir string) (string, error) {
 	// parse multipart form
-	if err := r.ParseMultipartForm(10 << 20); err != nil { // max 10 MB
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		return "", fmt.Errorf("failed to parse multipart form: %w", err)
 	}
 
@@ -27,11 +29,11 @@ func UploadFileToS3(r *http.Request, s3Client *s3.Client, bucketName, uploadDir 
 	filePath := fmt.Sprintf("%s/%s", uploadDir, fileName)
 
 	// upload to S3
-	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
+	_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: &bucketName,
 		Key:    &filePath,
 		Body:   file,
-		//ACL:    types.ObjectCannedACLPublicRead,
+		// ACL:    types.ObjectCannedACLPublicRead,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to upload file to S3: %w", err)

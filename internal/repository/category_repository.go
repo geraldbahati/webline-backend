@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"weblineBackend/internal/database"
 
 	"github.com/google/uuid"
@@ -140,6 +141,7 @@ func (r *CategoryRepository) GetCategoriesByParentID(
 	ctx context.Context,
 	parentID uuid.NullUUID,
 ) ([]database.Category, error) {
+	log.Printf("parentID: %v", parentID)
 	categories, err := r.Queries.GetCategoriesByParentID(ctx, parentID)
 	if err != nil {
 		r.logger.Error("failed to get categories by parent ID", zap.Error(err))
@@ -235,4 +237,44 @@ func (r *CategoryRepository) GetCategoryHierarchy(
 
 	r.logger.Info("Category hierarchy successfully retrieved")
 	return hierarchy, nil
+}
+
+// GetFilterOptionsByCategoryName retrieves filter options by category name
+func (r *CategoryRepository) GetFilterOptionsByCategoryName(
+	ctx context.Context,
+	categoryName string,
+) ([]database.GetFilterOptionsByCategoryNameRow, error) {
+	filterOptions, err := r.Queries.GetFilterOptionsByCategoryName(ctx, categoryName)
+	if err != nil {
+		r.logger.Error("failed to get filter options by category name", zap.Error(err))
+		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
+	}
+	return filterOptions, nil
+}
+
+// UpdateCategoryImage updates the image of a category
+func (r *CategoryRepository) UpdateCategoryImage(
+	ctx context.Context,
+	id uuid.UUID,
+	imageURL string,
+) (database.Category, error) {
+	var updatedCategory database.Category
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		updatedCategory, err = q.UpdateCategoryImage(ctx, database.UpdateCategoryImageParams{
+			ID:       id,
+			ImageUrl: sql.NullString{String: imageURL, Valid: true},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update category image: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update category image", zap.Error(err))
+		return database.Category{}, err
+	}
+
+	r.logger.Info("Category image successfully updated")
+	return updatedCategory, nil
 }

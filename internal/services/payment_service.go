@@ -136,7 +136,7 @@ func (s *PaymentService) PayOrderWithMpesa(ctx context.Context, orderID, phone s
 	err = s.paymentRepository.UpdateCheckoutRequestID(ctx, orderUUID, mpesaResp.CheckoutRequestID)
 	if err != nil {
 		s.logger.Error("Failed to update payment with Mpesa CheckoutRequestID", zap.Error(err))
-		return fmt.Errorf("Failed to update payment with Mpesa CheckoutRequestID %w", err)
+		return fmt.Errorf("failed to update payment with Mpesa CheckoutRequestID %w", err)
 	}
 
 	return nil

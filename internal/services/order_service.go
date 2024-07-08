@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
+	"weblineBackend/pkg/utils"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -21,9 +23,11 @@ type OrderService struct {
 	orderItemRepository *repository.OrderItemRepository
 	paymentRepository   *repository.PaymentRepository
 	userRepo            *repository.UserRepository
+	productRepo         *repository.ProductRepository
+	cfg                 *appconfig.Config
 }
 
-func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository) *OrderService {
+func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository, productRepo *repository.ProductRepository, cfg *appconfig.Config) *OrderService {
 	return &OrderService{
 		logger:              logger,
 		guestCheckoutRepo:   guestCheckoutRepo,
@@ -31,6 +35,8 @@ func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestChec
 		orderItemRepository: orderItemRepository,
 		paymentRepository:   paymentRepository,
 		userRepo:            userRepo,
+		productRepo:         productRepo,
+		cfg:                 cfg,
 	}
 }
 
@@ -53,173 +59,232 @@ type CreateOrderParams struct {
 	Total           float64    `json:"total"`
 }
 
+type OrderResponse struct {
+	OrderID   uuid.UUID `json:"orderID"`
+	PayingNow bool      `json:"payingNow"`
+}
+
 // CreateOrder creates a new order with items
-func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.CreateOrderParams, items []model.CreateOrderItemParams) (*uuid.UUID, error) {
+func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.CreateOrderParams, items []model.CreateOrderItemParams) (*OrderResponse, error) {
 	userID := ctx.Value("userId")
 	var userUUID uuid.NullUUID
 
 	// Create or retrieve user or guest checkout
 	if userID != nil {
-		// UserID is already provided
-		user, err := s.userRepo.GetUserByID(ctx, userID.(uuid.UUID))
+		user, err := s.getUserUUID(ctx, userID.(uuid.UUID))
 		if err != nil {
-			s.logger.Fatal("failed to get user", zap.Error(err))
-			return nil, fmt.Errorf("failed to get user: %w", err)
+			return nil, err
 		}
-		userUUID = uuid.NullUUID{UUID: user.ID, Valid: true}
+
+		userUUID = user
 	} else {
-		// Check if the guest already exists
-		existingGuest, err := s.guestCheckoutRepo.GetGuestCheckoutByEmail(ctx, orderParams.Email)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			s.logger.Fatal("failed to check if guest exists", zap.Error(err))
-			return nil, fmt.Errorf("failed to check if guest exists: %w", err)
+		guestUUID, err := s.createOrRetrieveGuest(ctx, orderParams)
+		if err != nil {
+			return nil, err
 		}
-
-		var guestID uuid.UUID
-		if existingGuest != nil {
-			guestID = existingGuest.ID
-		} else {
-			guestParams := &database.CreateGuestCheckoutParams{
-				Email:         orderParams.Email,
-				FirstName:     orderParams.FirstName,
-				LastName:      orderParams.LastName,
-				Phone:         sql.NullString{String: orderParams.Phone, Valid: true},
-				StreetAddress: orderParams.StreetAddress,
-				City:          orderParams.City,
-				State:         orderParams.State,
-				Country:       orderParams.Country,
-			}
-			newGuestID, err := s.guestCheckoutRepo.CreateGuestCheckout(ctx, guestParams)
-			if err != nil {
-				s.logger.Fatal("failed to create guest checkout", zap.Error(err))
-				return nil, fmt.Errorf("failed to create guest checkout: %w", err)
-			}
-			guestID = *newGuestID
-		}
-
 		userUUID = uuid.NullUUID{UUID: uuid.Nil, Valid: false}
-		orderParams.GuestCheckoutID = uuid.NullUUID{UUID: guestID, Valid: true}
+		orderParams.GuestCheckoutID = uuid.NullUUID{UUID: guestUUID, Valid: true}
 	}
 
+	orderID, err := s.createOrderRecord(ctx, orderParams, userUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, item := range items {
+		if err := s.createOrderItem(ctx, orderID, item); err != nil {
+			return nil, err
+		}
+	}
+
+	orderPayment, err := s.createPayment(ctx, orderID, orderParams.Total, orderParams.PaymentOption)
+	if err != nil {
+		return nil, err
+	}
+
+	orderItems := make([]utils.OrderItem, 0)
+	for _, item := range items {
+		// get the product by id
+		product, err := s.productRepo.GetProductByID(ctx, item.ProductID)
+		if err != nil {
+			s.logger.Error("failed to get product", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product: %w", err)
+		}
+
+		price, err := strconv.ParseFloat(product.Price, 64)
+		if err != nil {
+			s.logger.Error("failed to parse price", zap.Error(err))
+			return nil, fmt.Errorf("failed to parse price: %w", err)
+		}
+
+		orderItems = append(orderItems, utils.OrderItem{
+			ProductName: product.Name,
+			Quantity:    item.Quantity,
+			Price:       price,
+		})
+	}
+
+	if err := utils.SendOrderNotification(s.cfg, orderID, orderParams, orderItems); err != nil {
+		s.logger.Error("failed to send order notification", zap.Error(err))
+	}
+
+	payingNow := orderParams.PaymentOption == "now"
+	return &OrderResponse{OrderID: orderPayment.OrderID, PayingNow: payingNow}, nil
+}
+
+func (s *OrderService) getUserUUID(ctx context.Context, userID uuid.UUID) (uuid.NullUUID, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		s.logger.Error("failed to get user", zap.Error(err))
+		return uuid.NullUUID{}, fmt.Errorf("failed to get user: %w", err)
+	}
+	return uuid.NullUUID{UUID: user.ID, Valid: true}, nil
+}
+
+func (s *OrderService) createOrRetrieveGuest(ctx context.Context, orderParams *model.CreateOrderParams) (uuid.UUID, error) {
+	existingGuest, err := s.guestCheckoutRepo.GetGuestCheckoutByEmail(ctx, orderParams.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.logger.Error("failed to check if guest exists", zap.Error(err))
+		return uuid.UUID{}, fmt.Errorf("failed to check if guest exists: %w", err)
+	}
+
+	if existingGuest != nil {
+		return existingGuest.ID, nil
+	}
+
+	guestParams := &database.CreateGuestCheckoutParams{
+		Email:         orderParams.Email,
+		FirstName:     orderParams.FirstName,
+		LastName:      orderParams.LastName,
+		Phone:         sql.NullString{String: orderParams.Phone, Valid: true},
+		StreetAddress: orderParams.StreetAddress,
+		City:          orderParams.City,
+		State:         orderParams.State,
+		Country:       orderParams.Country,
+	}
+	newGuestID, err := s.guestCheckoutRepo.CreateGuestCheckout(ctx, guestParams)
+	if err != nil {
+		s.logger.Error("failed to create guest checkout", zap.Error(err))
+		return uuid.UUID{}, fmt.Errorf("failed to create guest checkout: %w", err)
+	}
+	return *newGuestID, nil
+}
+
+func (s *OrderService) createOrderRecord(ctx context.Context, orderParams *model.CreateOrderParams, userUUID uuid.NullUUID) (uuid.UUID, error) {
 	orderParam := &database.CreateOrderParams{
 		UserID:          userUUID,
 		GuestCheckoutID: orderParams.GuestCheckoutID,
 		Total:           strconv.FormatFloat(orderParams.Total, 'f', -1, 64),
 	}
-
-	// Create order
 	orderID, err := s.orderRepository.CreateOrder(ctx, orderParam)
 	if err != nil {
-		s.logger.Fatal("failed to create order", zap.Error(err))
-		return nil, fmt.Errorf("failed to create order: %w", err)
+		s.logger.Error("failed to create order", zap.Error(err))
+		return uuid.UUID{}, fmt.Errorf("failed to create order: %w", err)
+	}
+	return *orderID, nil
+}
+
+func (s *OrderService) createOrderItem(ctx context.Context, orderID uuid.UUID, item model.CreateOrderItemParams) error {
+	orderItem := &database.CreateOrderItemParams{
+		OrderID:   uuid.NullUUID{UUID: orderID, Valid: true},
+		ProductID: uuid.NullUUID{UUID: item.ProductID, Valid: true},
+		Quantity:  item.Quantity,
+		Price:     item.Price,
+	}
+	orderItemID, err := s.orderItemRepository.CreateOrderItem(ctx, orderItem)
+	if err != nil {
+		s.logger.Error("failed to create order item", zap.Error(err))
+		return fmt.Errorf("failed to create order item: %w", err)
 	}
 
-	// Create order items
-	for _, item := range items {
-		orderItem := &database.CreateOrderItemParams{
-			OrderID:   uuid.NullUUID{UUID: *orderID, Valid: true},
-			ProductID: uuid.NullUUID{UUID: item.ProductID, Valid: true},
-			Quantity:  item.Quantity,
-			Price:     item.Price,
-		}
+	if err := s.createOrderItemOptions(ctx, orderItemID, item); err != nil {
+		return err
+	}
 
-		orderItemID, err := s.orderItemRepository.CreateOrderItem(ctx, orderItem)
-		if err != nil {
-			s.logger.Fatal("failed to create order item", zap.Error(err))
-			return nil, fmt.Errorf("failed to create order item: %w", err)
-		}
+	return nil
+}
 
-		for _, optionID := range item.ProductOptionIDs {
-			if optionID.Valid {
-				// Check if product option exists
-				optionValue, err := s.orderItemRepository.GetProductOptionValueByID(ctx, optionID.UUID)
-				if err != nil {
-					s.logger.Fatal("failed to get product option", zap.Error(err))
-					return nil, fmt.Errorf("failed to get product option: %w", err)
-				}
-
-				option, err := s.orderItemRepository.GetProductOptionByID(ctx, optionValue.OptionID.UUID)
-				if err != nil {
-					s.logger.Fatal("failed to get product option", zap.Error(err))
-					return nil, fmt.Errorf("failed to get product option: %w", err)
-				}
-
-				orderItemOption := &database.CreateOrderItemOptionParams{
-					OrderItemID:     uuid.NullUUID{UUID: *orderItemID, Valid: true},
-					OptionType:      option.OptionName,
-					OptionValue:     optionValue.ValueName,
-					AdditionalPrice: optionValue.AdditionalPrice,
-				}
-
-				err = s.orderItemRepository.CreateOrderItemOption(ctx, orderItemOption)
-				if err != nil {
-					s.logger.Fatal("failed to create order item option", zap.Error(err))
-					return nil, fmt.Errorf("failed to create order item option: %w", err)
-				}
-			}
-		}
-
-		if item.ColorID.Valid {
-			// Check if color exists
-			color, err := s.orderItemRepository.GetProductColorByID(ctx, item.ColorID.UUID)
-			if err != nil {
-				s.logger.Fatal("failed to get color", zap.Error(err))
-				return nil, fmt.Errorf("failed to get color: %w", err)
-			}
-
-			orderItemOption := &database.CreateOrderItemOptionParams{
-				OrderItemID:     uuid.NullUUID{UUID: *orderItemID, Valid: true},
-				OptionType:      "Color",
-				OptionValue:     color.ColorName,
-				AdditionalPrice: sql.NullString{String: "0", Valid: true},
-			}
-
-			err = s.orderItemRepository.CreateOrderItemOption(ctx, orderItemOption)
-			if err != nil {
-				s.logger.Fatal("failed to create order item option", zap.Error(err))
-				return nil, fmt.Errorf("failed to create order item option: %w", err)
-			}
-		}
-
-		if item.SizeID.Valid {
-			// Check if size exists
-			size, err := s.orderItemRepository.GetProductSizeByID(ctx, item.SizeID.UUID)
-			if err != nil {
-				s.logger.Fatal("failed to get size", zap.Error(err))
-				return nil, fmt.Errorf("failed to get size: %w", err)
-			}
-
-			orderItemOption := &database.CreateOrderItemOptionParams{
-				OrderItemID:     uuid.NullUUID{UUID: *orderItemID, Valid: true},
-				OptionType:      "Size",
-				OptionValue:     size.Size,
-				AdditionalPrice: size.AdditionalPrice,
-			}
-
-			err = s.orderItemRepository.CreateOrderItemOption(ctx, orderItemOption)
-			if err != nil {
-				s.logger.Fatal("failed to create order item option", zap.Error(err))
-				return nil, fmt.Errorf("failed to create order item option: %w", err)
+func (s *OrderService) createOrderItemOptions(ctx context.Context, orderItemID *uuid.UUID, item model.CreateOrderItemParams) error {
+	for _, optionID := range item.ProductOptionIDs {
+		if optionID.Valid {
+			if err := s.createOrderItemOption(ctx, *orderItemID, optionID.UUID); err != nil {
+				return err
 			}
 		}
 	}
 
-	// Create payment intent
+	if item.ColorID.Valid {
+		if err := s.createOrderItemOption(ctx, *orderItemID, item.ColorID.UUID); err != nil {
+			return err
+		}
+	}
+
+	if item.SizeID.Valid {
+		if err := s.createOrderItemOption(ctx, *orderItemID, item.SizeID.UUID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *OrderService) createOrderItemOption(ctx context.Context, orderItemID, optionID uuid.UUID) error {
+	optionValue, err := s.orderItemRepository.GetProductOptionValueByID(ctx, optionID)
+	if err != nil {
+		s.logger.Error("failed to get product option", zap.Error(err))
+		return fmt.Errorf("failed to get product option: %w", err)
+	}
+
+	option, err := s.orderItemRepository.GetProductOptionByID(ctx, optionValue.OptionID.UUID)
+	if err != nil {
+		s.logger.Error("failed to get product option", zap.Error(err))
+		return fmt.Errorf("failed to get product option: %w", err)
+	}
+
+	orderItemOption := &database.CreateOrderItemOptionParams{
+		OrderItemID:     uuid.NullUUID{UUID: orderItemID, Valid: true},
+		OptionType:      option.OptionName,
+		OptionValue:     optionValue.ValueName,
+		AdditionalPrice: optionValue.AdditionalPrice,
+	}
+
+	if err := s.orderItemRepository.CreateOrderItemOption(ctx, orderItemOption); err != nil {
+		s.logger.Error("failed to create order item option", zap.Error(err))
+		return fmt.Errorf("failed to create order item option: %w", err)
+	}
+
+	return nil
+}
+
+func (s *OrderService) createPayment(ctx context.Context, orderID uuid.UUID, total float64, paymentMethod string) (*model.OrderPayment, error) {
+	paymentMethodID := getPaymentMethodID(paymentMethod)
+
 	payment := &database.CreatePaymentParams{
-		OrderID:           *orderID,
-		Amount:            strconv.FormatFloat(orderParams.Total, 'f', -1, 64),
-		PaymentMethodID:   sql.NullInt32{Int32: 1, Valid: false},
+		OrderID:           orderID,
+		Amount:            strconv.FormatFloat(total, 'f', -1, 64),
+		PaymentMethodID:   sql.NullInt32{Int32: paymentMethodID, Valid: true},
 		PaymentStatusID:   sql.NullInt32{Int32: 1, Valid: true},
 		CheckoutRequestID: "",
 	}
 
 	orderPayment, err := s.paymentRepository.CreatePayment(ctx, payment)
 	if err != nil {
-		s.logger.Error("Failed to create payment", zap.Error(err), zap.Any("paymentParams", payment))
-		return nil, err
+		s.logger.Error("failed to create payment", zap.Error(err), zap.Any("paymentParams", payment))
+		return nil, fmt.Errorf("failed to create payment: %w", err)
 	}
 
-	return &orderPayment.OrderID, nil
+	return orderPayment, nil
+}
+
+func getPaymentMethodID(paymentMethod string) int32 {
+	switch paymentMethod {
+	case "delivery":
+		return 1
+	case "now":
+		return 2
+	default:
+		return 1
+	}
 }
 
 // ListOrders lists all orders

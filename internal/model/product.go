@@ -15,30 +15,32 @@ type ProductImage struct {
 }
 
 type Product struct {
-	ID          uuid.UUID
-	Name        string
-	Description string
-	Price       string
-	Stock       int32
-	CategoryID  uuid.UUID
-	IsActive    bool
-	Featured    bool
-	ImageURL    string
+	ID              uuid.UUID
+	Name            string
+	Description     string
+	Price           string
+	Stock           int32
+	CategoryID      uuid.UUID
+	IsActive        bool
+	Featured        bool
+	ImageURL        string
+	DiscountPercent float64
 }
 
 type ProductDetail struct {
-	ID             uuid.UUID
-	Name           string
-	Description    string
-	Price          string
-	Stock          int32
-	CategoryID     uuid.UUID
-	IsActive       bool
-	Featured       bool
-	Images         []ProductImage
-	Colors         []ProductColor
-	Specifications []ProductSpecification
-	Options        []ProductOption
+	ID              uuid.UUID
+	Name            string
+	Description     string
+	Price           string
+	Stock           int32
+	CategoryID      uuid.UUID
+	IsActive        bool
+	Featured        bool
+	DiscountPercent float64
+	Images          []ProductImage
+	Colors          []ProductColor
+	Specifications  []ProductSpecification
+	Options         []ProductOption
 }
 
 type ProductSchema struct {
@@ -72,11 +74,12 @@ type ProductVariant struct {
 }
 
 type ProductQueryResult struct {
-	ID       uuid.UUID
-	Name     string
-	Price    string
-	Stock    int32
-	ImageURL string
+	ID              uuid.UUID
+	Name            string
+	Price           string
+	Stock           int32
+	ImageURL        string
+	DiscountPercent float64
 }
 
 type ProductOption struct {
@@ -110,7 +113,23 @@ type ProductFilterOption struct {
 
 type ProductFilterOptions struct {
 	Categories    []ProductCategoryFilterOption
-	Colors        []ProductFilterOption
-	Sizes         []ProductFilterOption
 	TotalProducts int64
+}
+
+type FilterProduct struct {
+	ID              uuid.UUID
+	Name            string
+	Description     string
+	Price           string
+	Stock           int32
+	CategoryID      uuid.UUID
+	IsActive        bool
+	Featured        bool
+	ImageURL        string
+	DiscountPercent float64
+}
+
+type ProductSitemap struct {
+	ID        uuid.UUID
+	UpdatedAt time.Time
 }

@@ -76,6 +76,66 @@ func (q *Queries) GetDiscountByID(ctx context.Context, id uuid.UUID) (Discount, 
 	return i, err
 }
 
+const getDiscountByProductID = `-- name: GetDiscountByProductID :one
+SELECT id, product_id, discount_percentage, start_date, end_date, created_at, updated_at
+FROM discounts
+WHERE product_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetDiscountByProductID(ctx context.Context, productID uuid.NullUUID) (Discount, error) {
+	row := q.db.QueryRowContext(ctx, getDiscountByProductID, productID)
+	var i Discount
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.DiscountPercentage,
+		&i.StartDate,
+		&i.EndDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listDiscounts = `-- name: ListDiscounts :many
+SELECT id, product_id, discount_percentage, start_date, end_date, created_at, updated_at
+FROM discounts
+ORDER BY created_at
+`
+
+func (q *Queries) ListDiscounts(ctx context.Context) ([]Discount, error) {
+	rows, err := q.db.QueryContext(ctx, listDiscounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Discount
+	for rows.Next() {
+		var i Discount
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.DiscountPercentage,
+			&i.StartDate,
+			&i.EndDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDiscountsByProductID = `-- name: ListDiscountsByProductID :many
 SELECT id, product_id, discount_percentage, start_date, end_date, created_at, updated_at
 FROM discounts

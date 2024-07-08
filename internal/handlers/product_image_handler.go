@@ -1,40 +1,29 @@
 package handlers
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/gorilla/mux"
 	"net/http"
 	"weblineBackend/internal/services"
-	"weblineBackend/pkg/utils"
+
+	"github.com/gorilla/mux"
 )
 
 type ProductImageHandler struct {
 	productImageService *services.ProductService
-	s3Client            *s3.Client
-	bucketName          string
 }
 
-func NewProductImageHandler(productImageService *services.ProductService, s3Client *s3.Client, bucketName string) *ProductImageHandler {
+func NewProductImageHandler(productImageService *services.ProductService) *ProductImageHandler {
 	return &ProductImageHandler{
 		productImageService: productImageService,
-		s3Client:            s3Client,
-		bucketName:          bucketName,
 	}
 }
 
 // CreateProductImageHandler creates a new product image
 func (h *ProductImageHandler) CreateProductImageHandler(w http.ResponseWriter, r *http.Request) {
-	filePath, err := utils.UploadFileToS3(r, h.s3Client, h.bucketName, "product-images")
-	if err != nil {
-		RespondWithError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
 	// get product image ID
 	productID := r.FormValue("product_id")
 
 	// create product image
-	productImage, err := h.productImageService.CreateProductImage(r.Context(), productID, filePath)
+	productImage, err := h.productImageService.CreateProductImage(r.Context(), r, productID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product image")
 		return
@@ -78,17 +67,11 @@ func (h *ProductImageHandler) GetProductImagesByProductIDHandler(w http.Response
 
 // UpdateProductImageHandler updates a product image
 func (h *ProductImageHandler) UpdateProductImageHandler(w http.ResponseWriter, r *http.Request) {
-	filePath, err := utils.UploadFileToS3(r, h.s3Client, h.bucketName, "product-images")
-	if err != nil {
-		RespondWithError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
 	// get product image ID
 	productID := r.FormValue("product_id")
 
 	// update product image
-	productImage, err := h.productImageService.UpdateProductImage(r.Context(), productID, filePath)
+	productImage, err := h.productImageService.UpdateProductImage(r.Context(), r, productID)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to update product image")
 		return
