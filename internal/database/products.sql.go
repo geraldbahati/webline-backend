@@ -189,40 +189,6 @@ WITH RECURSIVE category_hierarchy AS (
             INNER JOIN
         category_hierarchy ch ON c.parent_id = ch.id
 ),
-filtered_products AS (
-    SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.stock,
-        p.category_id,
-        p.created_at,
-        p.updated_at,
-        p.is_active,
-        p.created_by,
-        p.updated_by,
-        p.featured,
-        s.size,
-        c.color_name
-    FROM
-        products p
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes s ON ps.size_id = s.id
-    LEFT JOIN
-        product_colors pc ON p.id = pc.product_id
-    LEFT JOIN
-        colors c ON pc.color_id = c.id
-    WHERE
-        p.category_id IN (SELECT id FROM category_hierarchy)
-        -- Size filter
-        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-        -- Color filter
-        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-        AND p.price BETWEEN $2 AND $3
-)
                filtered_products AS (
                    SELECT
                        p.id,
@@ -255,6 +221,41 @@ filtered_products AS (
                        product_processors pp ON p.id = pp.product_id
                            LEFT JOIN
                        processors pr ON pp.processor_id = pr.id
+                           LEFT JOIN
+                       product_storage_options pso ON p.id = pso.product_id
+                           LEFT JOIN
+                       storage_options so ON pso.storage_option_id = so.id
+                   WHERE
+                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+                     AND p.price BETWEEN $2 AND $3
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price,
+    fp.stock,
+    fp.category_id,
+    fp.created_at,
+    fp.updated_at,
+    fp.is_active,
+    fp.created_by,
+    fp.updated_by,
+    fp.featured,
+    fp.size,
+    fp.color_name,
+    fp.processor_name,
+    fp.storage_name
+FROM
+    filtered_products fp
+ORDER BY
+    fp.name
+LIMIT
+    $6 OFFSET $7
 `
 
 type GetAllProductsByFiltersNameAscParams struct {
@@ -299,6 +300,7 @@ func (q *Queries) GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAll
 		arg.Offset,
 		pq.Array(arg.Column8),
 		pq.Array(arg.Column9),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +599,8 @@ FROM
 ORDER BY
     fp.created_at DESC
 LIMIT
-
+    $6 OFFSET $7
+`
 
 type GetAllProductsByFiltersNewestParams struct {
 	Column1 []string
@@ -703,12 +706,22 @@ WITH RECURSIVE category_hierarchy AS (
         category_hierarchy ch ON c.parent_id = ch.id
 ),
 <<<<<<< HEAD
+<<<<<<< HEAD
 filtered_products AS (
     SELECT
         p.id,
         p.name,
         p.description,
         p.price,
+=======
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       p.price,
+                       p.stock,
+>>>>>>> 845a765 (chore: Add image_url field to Category model and update dependencies)
                        p.category_id,
                        p.created_at,
                        p.updated_at,
@@ -746,13 +759,20 @@ filtered_products AS (
                      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
                      AND p.price BETWEEN $2 AND $3
                )
+<<<<<<< HEAD
 >>>>>>> develop
+=======
+>>>>>>> 845a765 (chore: Add image_url field to Category model and update dependencies)
 SELECT
     fp.id,
     fp.name,
     fp.description,
     fp.price,
     fp.stock,
+<<<<<<< HEAD
+=======
+    fp.category_id,
+>>>>>>> 845a765 (chore: Add image_url field to Category model and update dependencies)
     fp.created_at,
     fp.updated_at,
     fp.is_active,
@@ -807,7 +827,16 @@ func (q *Queries) GetAllProductsByFiltersOldest(ctx context.Context, arg GetAllP
 		pq.Array(arg.Column1),
 		arg.Price,
 		arg.Price_2,
+<<<<<<< HEAD
 		pq.Array(arg.Column8),
+=======
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		arg.Limit,
+		arg.Offset,
+		pq.Array(arg.Column8),
+		pq.Array(arg.Column9),
+>>>>>>> 845a765 (chore: Add image_url field to Category model and update dependencies)
 	)
 	if err != nil {
 		return nil, err

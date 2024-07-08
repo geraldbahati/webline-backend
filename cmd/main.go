@@ -105,7 +105,7 @@ func main() {
 	)
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
-	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, productRepo, &cfg)
+	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, &cfg)
 	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
 	inquiryService := services.NewInquiryService(productRepo, logger, &cfg)
 

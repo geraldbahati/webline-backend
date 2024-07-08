@@ -41,14 +41,6 @@ type Color struct {
 	ColorValue sql.NullString
 }
 
-type Color struct {
-	ID         uuid.UUID
-	ColorName  string
-	CreatedAt  sql.NullTime
-	UpdatedAt  sql.NullTime
-	ColorValue sql.NullString
-}
-
 type Discount struct {
 	ID                 uuid.UUID
 	ProductID          uuid.NullUUID

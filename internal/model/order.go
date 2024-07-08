@@ -38,8 +38,8 @@ type CreateOrderParams struct {
 	Phone           string        `json:"phone"`
 	ShippingOption  string        `json:"shipping_option"`
 	Total           float64       `json:"total"`
+	PaymentMethod   string        `json:"payment_method"`
 	ShippingMethod  string        `json:"shipping_method"`
-	PaymentOption   string        `json:"payment_method"`
 }
 
 type OrderClientResponse struct {

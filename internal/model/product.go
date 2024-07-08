@@ -128,8 +128,3 @@ type FilterProduct struct {
 	ImageURL        string
 	DiscountPercent float64
 }
-
-type ProductSitemap struct {
-	ID        uuid.UUID
-	UpdatedAt time.Time
-}

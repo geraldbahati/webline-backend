@@ -302,11 +302,6 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 		colors = append(colors, color.ColorName)
 	}
 
-	var colors []string
-	for _, color := range *availableColors {
-		colors = append(colors, color.ColorName)
-	}
-
 	// create a new category model
 	var subCategories []model.CategoryDetail
 	for _, category := range categories {
