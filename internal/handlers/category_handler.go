@@ -176,7 +176,7 @@ func (h *CategoryHandler) GetCategoriesWithSubcategoryCountHandler(w http.Respon
 // GetCategoriesByParentIDHandler retrieves categories by their parent ID
 func (h *CategoryHandler) GetCategoriesByParentIDHandler(w http.ResponseWriter, r *http.Request) {
 	// get parent ID
-	parentID := r.URL.Query().Get("parent_id")
+	parentID := mux.Vars(r)["parentId"]
 
 	// get categories
 	categories, err := h.categoryService.GetCategoriesByParentIDService(r.Context(), parentID)

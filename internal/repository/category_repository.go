@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"weblineBackend/internal/database"
 
 	"github.com/google/uuid"
@@ -140,6 +141,7 @@ func (r *CategoryRepository) GetCategoriesByParentID(
 	ctx context.Context,
 	parentID uuid.NullUUID,
 ) ([]database.Category, error) {
+	log.Printf("parentID: %v", parentID)
 	categories, err := r.Queries.GetCategoriesByParentID(ctx, parentID)
 	if err != nil {
 		r.logger.Error("failed to get categories by parent ID", zap.Error(err))

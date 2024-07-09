@@ -7260,6 +7260,620 @@
           </option>
           <option name="workspaceId" value="drafts" />
         </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720504346203" />
+          <option name="id" value="92db0d69-11ea-4d4f-80b0-8e36eff9a04b" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/products/all/sitemap" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="W3siSUQiOiI1NTM2ZTg5ZS00YmUyLTRjZDUtODk1OS0yY2NkZmQzMjM2MTgiLCJVcGRhdGVkQXQiOiIyMDI0LTA2LTAzVDA1OjM4OjEyLjYyNDYxN1oifSx7IklEIjoiNzRkZjFmNTUtZmUzMi00ZjkwLWFmMDQtNGUwOTYwNmVjOGQ4IiwiVXBkYXRlZEF0IjoiMjAyNC0wNi0wM1QwNTo0NDo1Mi40NzIxOVoifSx7IklEIjoiNzQyNWJhODUtZmZmNC00YzcyLWEyY2EtNTgzZTg0NjJiNWE1IiwiVXBkYXRlZEF0IjoiMjAyNC0wNi0wM1QwNTo1Nzo1MS42ODc0NjdaIn1d" />
+              <option name="bodyString" value="[&#10;  {&#10;    &quot;ID&quot;: &quot;5536e89e-4be2-4cd5-8959-2ccdfd323618&quot;,&#10;    &quot;UpdatedAt&quot;: &quot;2024-06-03T05:38:12.624617Z&quot;&#10;  },&#10;  {&#10;    &quot;ID&quot;: &quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&#10;    &quot;UpdatedAt&quot;: &quot;2024-06-03T05:44:52.47219Z&quot;&#10;  },&#10;  {&#10;    &quot;ID&quot;: &quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&#10;    &quot;UpdatedAt&quot;: &quot;2024-06-03T05:57:51.687467Z&quot;&#10;  }&#10;]" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 05:52:26 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="264" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="92db0d69-11ea-4d4f-80b0-8e36eff9a04b" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="[{&quot;ID&quot;:&quot;5536e89e-4be2-4cd5-8959-2ccdfd323618&quot;,&quot;UpdatedAt&quot;:&quot;2024-06-03T05:38:12.624617Z&quot;},{&quot;ID&quot;:&quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&quot;UpdatedAt&quot;:&quot;2024-06-03T05:44:52.47219Z&quot;},{&quot;ID&quot;:&quot;7425ba85-fff4-4c72-a2ca-583e8462b5a5&quot;,&quot;UpdatedAt&quot;:&quot;2024-06-03T05:57:51.687467Z&quot;}]" />
+              <option name="size" value="264" />
+              <option name="time" value="16" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720505490131" />
+          <option name="id" value="16d64683-b48e-4143-9391-c881cabc5a05" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="W3siaWQiOiI0NThmY2YwNy0xYzNlLTRmMzQtOWYwZC1mZDQyMDM4MDJiZDIiLCJuYW1lIjoiQ29tcHV0aW5nIn0seyJpZCI6IjU1NmVjMTZhLTZmOGItNDc0Zi04YWJlLWE0ZThlYjhiNGYxMSIsIm5hbWUiOiJQb3dlciBTb2x1dGlvbnMifSx7ImlkIjoiZGM5ZDM5MTgtMDg1My00NWM0LTk1NWYtMDA0NTI3ODc3NmMyIiwibmFtZSI6IkNvbXB1dGVyIEFjY2Vzc29yaWVzIn0seyJpZCI6ImQ1Njk4MzUxLTc1MDMtNDE0ZC1hMDExLThjODFiMTliNWNiYSIsIm5hbWUiOiJTZWN1cml0eSBTeXN0ZW1zIn1d" />
+              <option name="bodyString" value="[&#10;  {&#10;    &quot;id&quot;: &quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&#10;    &quot;name&quot;: &quot;Computing&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;556ec16a-6f8b-474f-8abe-a4e8eb8b4f11&quot;,&#10;    &quot;name&quot;: &quot;Power Solutions&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;dc9d3918-0853-45c4-955f-0045278776c2&quot;,&#10;    &quot;name&quot;: &quot;Computer Accessories&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;d5698351-7503-414d-a011-8c81b19b5cba&quot;,&#10;    &quot;name&quot;: &quot;Security Systems&quot;&#10;  }&#10;]" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:11:29 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="285" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="16d64683-b48e-4143-9391-c881cabc5a05" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="[{&quot;id&quot;:&quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&quot;name&quot;:&quot;Computing&quot;},{&quot;id&quot;:&quot;556ec16a-6f8b-474f-8abe-a4e8eb8b4f11&quot;,&quot;name&quot;:&quot;Power Solutions&quot;},{&quot;id&quot;:&quot;dc9d3918-0853-45c4-955f-0045278776c2&quot;,&quot;name&quot;:&quot;Computer Accessories&quot;},{&quot;id&quot;:&quot;d5698351-7503-414d-a011-8c81b19b5cba&quot;,&quot;name&quot;:&quot;Security Systems&quot;}]" />
+              <option name="size" value="285" />
+              <option name="time" value="18" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720505684037" />
+          <option name="id" value="51d4c867-1f11-457a-bd2c-de5d25504254" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="NDA0IHBhZ2Ugbm90IGZvdW5kCg==" />
+              <option name="bodyString" value="404 page not found&#10;" />
+              <option name="code" value="404" />
+              <option name="contentType" value="text/plain; charset=utf-8" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="text/plain; charset=utf-8" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="X-Content-Type-Options" />
+                    <option name="value" value="nosniff" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:14:44 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="19" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="51d4c867-1f11-457a-bd2c-de5d25504254" />
+              <option name="message" value="Not Found" />
+              <option name="prettyResponseType" value="TEXT" />
+              <option name="rawBodyString" value="404 page not found&#10;" />
+              <option name="size" value="19" />
+              <option name="time" value="1" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720505687692" />
+          <option name="id" value="4f7f95ad-203f-4ced-9709-962db65772bb" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2/" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="bnVsbA==" />
+              <option name="bodyString" value="null" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:14:47 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="4" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="4f7f95ad-203f-4ced-9709-962db65772bb" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="null" />
+              <option name="size" value="4" />
+              <option name="time" value="6" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720505830570" />
+          <option name="id" value="770911fd-2481-489c-b4ef-1dac0abd7df8" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="bnVsbA==" />
+              <option name="bodyString" value="null" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:17:10 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="4" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="770911fd-2481-489c-b4ef-1dac0abd7df8" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="null" />
+              <option name="size" value="4" />
+              <option name="time" value="13" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720505863986" />
+          <option name="id" value="1eab66cd-7928-49de-b5bd-3422ed4bbdca" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="bnVsbA==" />
+              <option name="bodyString" value="null" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:17:43 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="4" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="1eab66cd-7928-49de-b5bd-3422ed4bbdca" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="null" />
+              <option name="size" value="4" />
+              <option name="time" value="9" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720505941139" />
+          <option name="id" value="0486c543-2da0-4bee-8717-42578d04cf15" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="bnVsbA==" />
+              <option name="bodyString" value="null" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:19:01 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="4" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="0486c543-2da0-4bee-8717-42578d04cf15" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="null" />
+              <option name="size" value="4" />
+              <option name="time" value="5" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720505993277" />
+          <option name="id" value="3f745914-df90-4dd0-a42c-4c4028e9a55f" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="W3siSUQiOiI5YTMzZDAyNy0wOGI0LTRiNzctYWRiOS0xMzljNTE3NWVkYjAiLCJOYW1lIjoiRGVza3RvcHMiLCJQYXJlbnRJRCI6IjQ1OGZjZjA3LTFjM2UtNGYzNC05ZjBkLWZkNDIwMzgwMmJkMiIsIkNyZWF0ZWRBdCI6eyJUaW1lIjoiMjAyNC0wNS0zMFQwNzo1MDozNS44MzU0ODJaIiwiVmFsaWQiOnRydWV9LCJVcGRhdGVkQXQiOnsiVGltZSI6IjIwMjQtMDUtMzBUMDc6NTA6MzUuODM1NDgyWiIsIlZhbGlkIjp0cnVlfSwiSXNBY3RpdmUiOnRydWUsIlBvc2l0aW9uIjowLCJJbWFnZVVybCI6eyJTdHJpbmciOiJjYXRlZ29yeV9pbWFnZXMvMTcxOTk4ODk0Mi1EZWxsIE9wdGlQbGV4IDMwMDAgVG93ZXItMS5wbmciLCJWYWxpZCI6dHJ1ZX19LHsiSUQiOiJiODZmZjgwNS00NzY0LTQ5YzUtYTBlNi1lOGU4MGIyMzc3YjciLCJOYW1lIjoiTGFwdG9wcyIsIlBhcmVudElEIjoiNDU4ZmNmMDctMWMzZS00ZjM0LTlmMGQtZmQ0MjAzODAyYmQyIiwiQ3JlYXRlZEF0Ijp7IlRpbWUiOiIyMDI0LTA1LTMwVDA3OjUxOjMwLjUzNDMzMVoiLCJWYWxpZCI6dHJ1ZX0sIlVwZGF0ZWRBdCI6eyJUaW1lIjoiMjAyNC0wNS0zMFQwNzo1MTozMC41MzQzMzFaIiwiVmFsaWQiOnRydWV9LCJJc0FjdGl2ZSI6dHJ1ZSwiUG9zaXRpb24iOjEsIkltYWdlVXJsIjp7IlN0cmluZyI6ImNhdGVnb3J5X2ltYWdlcy8xNzE5OTg4OTg2LWFzdXMtMS5wbmciLCJWYWxpZCI6dHJ1ZX19LHsiSUQiOiJhNDBkZjVmMS01NzVhLTQ1MTAtYmQzZC0wZDAwNmI1Mjc0M2YiLCJOYW1lIjoiUHJpbnRlcnMiLCJQYXJlbnRJRCI6IjQ1OGZjZjA3LTFjM2UtNGYzNC05ZjBkLWZkNDIwMzgwMmJkMiIsIkNyZWF0ZWRBdCI6eyJUaW1lIjoiMjAyNC0wNS0zMFQwNzo1Mjo0NC4wODYzOTRaIiwiVmFsaWQiOnRydWV9LCJVcGRhdGVkQXQiOnsiVGltZSI6IjIwMjQtMDUtMzBUMDc6NTI6NDQuMDg2Mzk0WiIsIlZhbGlkIjp0cnVlfSwiSXNBY3RpdmUiOnRydWUsIlBvc2l0aW9uIjoyLCJJbWFnZVVybCI6eyJTdHJpbmciOiJjYXRlZ29yeV9pbWFnZXMvMTcxOTk5NjU5MS1wcmludGVyLTMucG5nIiwiVmFsaWQiOnRydWV9fSx7IklEIjoiNDZmNzgxYjYtYTFkMi00NDg3LThhOGQtNTc2NTJhMmIyZjZmIiwiTmFtZSI6IlNvZnR3YXJlIiwiUGFyZW50SUQiOiI0NThmY2YwNy0xYzNlLTRmMzQtOWYwZC1mZDQyMDM4MDJiZDIiLCJDcmVhdGVkQXQiOnsiVGltZSI6IjIwMjQtMDUtMzBUMDc6NTM6NDYuNTgzNTk0WiIsIlZhbGlkIjp0cnVlfSwiVXBkYXRlZEF0Ijp7IlRpbWUiOiIyMDI0LTA1LTMwVDA3OjUzOjQ2LjU4MzU5NFoiLCJWYWxpZCI6dHJ1ZX0sIklzQWN0aXZlIjp0cnVlLCJQb3NpdGlvbiI6MywiSW1hZ2VVcmwiOnsiU3RyaW5nIjoiY2F0ZWdvcnlfaW1hZ2VzLzE3MTk5OTYwODAtc29mdHdhcmUucG5nIiwiVmFsaWQiOnRydWV9fSx7IklEIjoiN2VmZTAzMDgtZDFhOC00MjA1LWFlZTctZTE0ZDU4ZmVjMzc0IiwiTmFtZSI6IlByaW50ZXIgU3VwcGxpZXMiLCJQYXJlbnRJRCI6IjQ1OGZjZjA3LTFjM2UtNGYzNC05ZjBkLWZkNDIwMzgwMmJkMiIsIkNyZWF0ZWRBdCI6eyJUaW1lIjoiMjAyNC0wNS0zMFQwNzo1NDozMy4zNTQxNjZaIiwiVmFsaWQiOnRydWV9LCJVcGRhdGVkQXQiOnsiVGltZSI6IjIwMjQtMDUtMzBUMDc6NTQ6MzMuMzU0MTY2WiIsIlZhbGlkIjp0cnVlfSwiSXNBY3RpdmUiOnRydWUsIlBvc2l0aW9uIjo0LCJJbWFnZVVybCI6eyJTdHJpbmciOiJjYXRlZ29yeV9pbWFnZXMvMTcxOTk5NDM3OC1wcmludGVyLWFjY2Vzc29yeS5wbmciLCJWYWxpZCI6dHJ1ZX19LHsiSUQiOiJiM2U5ODE5NS1lMzk2LTRmODUtODQxNy1lOGI5MDg3MDk3NTEiLCJOYW1lIjoiQW50aXZpcnVzIiwiUGFyZW50SUQiOiI0NThmY2YwNy0xYzNlLTRmMzQtOWYwZC1mZDQyMDM4MDJiZDIiLCJDcmVhdGVkQXQiOnsiVGltZSI6IjIwMjQtMDUtMzBUMDc6NTc6MzYuMTY3MDE1WiIsIlZhbGlkIjp0cnVlfSwiVXBkYXRlZEF0Ijp7IlRpbWUiOiIyMDI0LTA1LTMwVDA3OjU3OjM2LjE2NzAxNVoiLCJWYWxpZCI6dHJ1ZX0sIklzQWN0aXZlIjp0cnVlLCJQb3NpdGlvbiI6NSwiSW1hZ2VVcmwiOnsiU3RyaW5nIjoiY2F0ZWdvcnlfaW1hZ2VzLzE3MTk5OTYzNzEtS2FzcGVyc2t5LnBuZyIsIlZhbGlkIjp0cnVlfX1d" />
+              <option name="bodyString" value="[&#10;  {&#10;    &quot;ID&quot;: &quot;9a33d027-08b4-4b77-adb9-139c5175edb0&quot;,&#10;    &quot;Name&quot;: &quot;Desktops&quot;,&#10;    &quot;ParentID&quot;: &quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&#10;    &quot;CreatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:50:35.835482Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;UpdatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:50:35.835482Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;IsActive&quot;: true,&#10;    &quot;Position&quot;: 0,&#10;    &quot;ImageUrl&quot;: {&#10;      &quot;String&quot;: &quot;category_images/1719988942-Dell OptiPlex 3000 Tower-1.png&quot;,&#10;      &quot;Valid&quot;: true&#10;    }&#10;  },&#10;  {&#10;    &quot;ID&quot;: &quot;b86ff805-4764-49c5-a0e6-e8e80b2377b7&quot;,&#10;    &quot;Name&quot;: &quot;Laptops&quot;,&#10;    &quot;ParentID&quot;: &quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&#10;    &quot;CreatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:51:30.534331Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;UpdatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:51:30.534331Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;IsActive&quot;: true,&#10;    &quot;Position&quot;: 1,&#10;    &quot;ImageUrl&quot;: {&#10;      &quot;String&quot;: &quot;category_images/1719988986-asus-1.png&quot;,&#10;      &quot;Valid&quot;: true&#10;    }&#10;  },&#10;  {&#10;    &quot;ID&quot;: &quot;a40df5f1-575a-4510-bd3d-0d006b52743f&quot;,&#10;    &quot;Name&quot;: &quot;Printers&quot;,&#10;    &quot;ParentID&quot;: &quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&#10;    &quot;CreatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:52:44.086394Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;UpdatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:52:44.086394Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;IsActive&quot;: true,&#10;    &quot;Position&quot;: 2,&#10;    &quot;ImageUrl&quot;: {&#10;      &quot;String&quot;: &quot;category_images/1719996591-printer-3.png&quot;,&#10;      &quot;Valid&quot;: true&#10;    }&#10;  },&#10;  {&#10;    &quot;ID&quot;: &quot;46f781b6-a1d2-4487-8a8d-57652a2b2f6f&quot;,&#10;    &quot;Name&quot;: &quot;Software&quot;,&#10;    &quot;ParentID&quot;: &quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&#10;    &quot;CreatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:53:46.583594Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;UpdatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:53:46.583594Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;IsActive&quot;: true,&#10;    &quot;Position&quot;: 3,&#10;    &quot;ImageUrl&quot;: {&#10;      &quot;String&quot;: &quot;category_images/1719996080-software.png&quot;,&#10;      &quot;Valid&quot;: true&#10;    }&#10;  },&#10;  {&#10;    &quot;ID&quot;: &quot;7efe0308-d1a8-4205-aee7-e14d58fec374&quot;,&#10;    &quot;Name&quot;: &quot;Printer Supplies&quot;,&#10;    &quot;ParentID&quot;: &quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&#10;    &quot;CreatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:54:33.354166Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;UpdatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:54:33.354166Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;IsActive&quot;: true,&#10;    &quot;Position&quot;: 4,&#10;    &quot;ImageUrl&quot;: {&#10;      &quot;String&quot;: &quot;category_images/1719994378-printer-accessory.png&quot;,&#10;      &quot;Valid&quot;: true&#10;    }&#10;  },&#10;  {&#10;    &quot;ID&quot;: &quot;b3e98195-e396-4f85-8417-e8b908709751&quot;,&#10;    &quot;Name&quot;: &quot;Antivirus&quot;,&#10;    &quot;ParentID&quot;: &quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&#10;    &quot;CreatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:57:36.167015Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;UpdatedAt&quot;: {&#10;      &quot;Time&quot;: &quot;2024-05-30T07:57:36.167015Z&quot;,&#10;      &quot;Valid&quot;: true&#10;    },&#10;    &quot;IsActive&quot;: true,&#10;    &quot;Position&quot;: 5,&#10;    &quot;ImageUrl&quot;: {&#10;      &quot;String&quot;: &quot;category_images/1719996371-Kaspersky.png&quot;,&#10;      &quot;Valid&quot;: true&#10;    }&#10;  }&#10;]" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:19:53 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Transfer-Encoding" />
+                    <option name="value" value="chunked" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="3f745914-df90-4dd0-a42c-4c4028e9a55f" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="[{&quot;ID&quot;:&quot;9a33d027-08b4-4b77-adb9-139c5175edb0&quot;,&quot;Name&quot;:&quot;Desktops&quot;,&quot;ParentID&quot;:&quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&quot;CreatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:50:35.835482Z&quot;,&quot;Valid&quot;:true},&quot;UpdatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:50:35.835482Z&quot;,&quot;Valid&quot;:true},&quot;IsActive&quot;:true,&quot;Position&quot;:0,&quot;ImageUrl&quot;:{&quot;String&quot;:&quot;category_images/1719988942-Dell OptiPlex 3000 Tower-1.png&quot;,&quot;Valid&quot;:true}},{&quot;ID&quot;:&quot;b86ff805-4764-49c5-a0e6-e8e80b2377b7&quot;,&quot;Name&quot;:&quot;Laptops&quot;,&quot;ParentID&quot;:&quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&quot;CreatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:51:30.534331Z&quot;,&quot;Valid&quot;:true},&quot;UpdatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:51:30.534331Z&quot;,&quot;Valid&quot;:true},&quot;IsActive&quot;:true,&quot;Position&quot;:1,&quot;ImageUrl&quot;:{&quot;String&quot;:&quot;category_images/1719988986-asus-1.png&quot;,&quot;Valid&quot;:true}},{&quot;ID&quot;:&quot;a40df5f1-575a-4510-bd3d-0d006b52743f&quot;,&quot;Name&quot;:&quot;Printers&quot;,&quot;ParentID&quot;:&quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&quot;CreatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:52:44.086394Z&quot;,&quot;Valid&quot;:true},&quot;UpdatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:52:44.086394Z&quot;,&quot;Valid&quot;:true},&quot;IsActive&quot;:true,&quot;Position&quot;:2,&quot;ImageUrl&quot;:{&quot;String&quot;:&quot;category_images/1719996591-printer-3.png&quot;,&quot;Valid&quot;:true}},{&quot;ID&quot;:&quot;46f781b6-a1d2-4487-8a8d-57652a2b2f6f&quot;,&quot;Name&quot;:&quot;Software&quot;,&quot;ParentID&quot;:&quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&quot;CreatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:53:46.583594Z&quot;,&quot;Valid&quot;:true},&quot;UpdatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:53:46.583594Z&quot;,&quot;Valid&quot;:true},&quot;IsActive&quot;:true,&quot;Position&quot;:3,&quot;ImageUrl&quot;:{&quot;String&quot;:&quot;category_images/1719996080-software.png&quot;,&quot;Valid&quot;:true}},{&quot;ID&quot;:&quot;7efe0308-d1a8-4205-aee7-e14d58fec374&quot;,&quot;Name&quot;:&quot;Printer Supplies&quot;,&quot;ParentID&quot;:&quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&quot;CreatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:54:33.354166Z&quot;,&quot;Valid&quot;:true},&quot;UpdatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:54:33.354166Z&quot;,&quot;Valid&quot;:true},&quot;IsActive&quot;:true,&quot;Position&quot;:4,&quot;ImageUrl&quot;:{&quot;String&quot;:&quot;category_images/1719994378-printer-accessory.png&quot;,&quot;Valid&quot;:true}},{&quot;ID&quot;:&quot;b3e98195-e396-4f85-8417-e8b908709751&quot;,&quot;Name&quot;:&quot;Antivirus&quot;,&quot;ParentID&quot;:&quot;458fcf07-1c3e-4f34-9f0d-fd4203802bd2&quot;,&quot;CreatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:57:36.167015Z&quot;,&quot;Valid&quot;:true},&quot;UpdatedAt&quot;:{&quot;Time&quot;:&quot;2024-05-30T07:57:36.167015Z&quot;,&quot;Valid&quot;:true},&quot;IsActive&quot;:true,&quot;Position&quot;:5,&quot;ImageUrl&quot;:{&quot;String&quot;:&quot;category_images/1719996371-Kaspersky.png&quot;,&quot;Valid&quot;:true}}]" />
+              <option name="size" value="2124" />
+              <option name="time" value="17" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720506076968" />
+          <option name="id" value="3df68d24-0e3b-4762-98ba-253b9a45750b" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="W3siaWQiOiI5YTMzZDAyNy0wOGI0LTRiNzctYWRiOS0xMzljNTE3NWVkYjAiLCJuYW1lIjoiRGVza3RvcHMifSx7ImlkIjoiYjg2ZmY4MDUtNDc2NC00OWM1LWEwZTYtZThlODBiMjM3N2I3IiwibmFtZSI6IkxhcHRvcHMifSx7ImlkIjoiYTQwZGY1ZjEtNTc1YS00NTEwLWJkM2QtMGQwMDZiNTI3NDNmIiwibmFtZSI6IlByaW50ZXJzIn0seyJpZCI6IjQ2Zjc4MWI2LWExZDItNDQ4Ny04YThkLTU3NjUyYTJiMmY2ZiIsIm5hbWUiOiJTb2Z0d2FyZSJ9LHsiaWQiOiI3ZWZlMDMwOC1kMWE4LTQyMDUtYWVlNy1lMTRkNThmZWMzNzQiLCJuYW1lIjoiUHJpbnRlciBTdXBwbGllcyJ9LHsiaWQiOiJiM2U5ODE5NS1lMzk2LTRmODUtODQxNy1lOGI5MDg3MDk3NTEiLCJuYW1lIjoiQW50aXZpcnVzIn1d" />
+              <option name="bodyString" value="[&#10;  {&#10;    &quot;id&quot;: &quot;9a33d027-08b4-4b77-adb9-139c5175edb0&quot;,&#10;    &quot;name&quot;: &quot;Desktops&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;b86ff805-4764-49c5-a0e6-e8e80b2377b7&quot;,&#10;    &quot;name&quot;: &quot;Laptops&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;a40df5f1-575a-4510-bd3d-0d006b52743f&quot;,&#10;    &quot;name&quot;: &quot;Printers&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;46f781b6-a1d2-4487-8a8d-57652a2b2f6f&quot;,&#10;    &quot;name&quot;: &quot;Software&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;7efe0308-d1a8-4205-aee7-e14d58fec374&quot;,&#10;    &quot;name&quot;: &quot;Printer Supplies&quot;&#10;  },&#10;  {&#10;    &quot;id&quot;: &quot;b3e98195-e396-4f85-8417-e8b908709751&quot;,&#10;    &quot;name&quot;: &quot;Antivirus&quot;&#10;  }&#10;]" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Tue, 09 Jul 2024 06:21:16 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="393" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="3df68d24-0e3b-4762-98ba-253b9a45750b" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="[{&quot;id&quot;:&quot;9a33d027-08b4-4b77-adb9-139c5175edb0&quot;,&quot;name&quot;:&quot;Desktops&quot;},{&quot;id&quot;:&quot;b86ff805-4764-49c5-a0e6-e8e80b2377b7&quot;,&quot;name&quot;:&quot;Laptops&quot;},{&quot;id&quot;:&quot;a40df5f1-575a-4510-bd3d-0d006b52743f&quot;,&quot;name&quot;:&quot;Printers&quot;},{&quot;id&quot;:&quot;46f781b6-a1d2-4487-8a8d-57652a2b2f6f&quot;,&quot;name&quot;:&quot;Software&quot;},{&quot;id&quot;:&quot;7efe0308-d1a8-4205-aee7-e14d58fec374&quot;,&quot;name&quot;:&quot;Printer Supplies&quot;},{&quot;id&quot;:&quot;b3e98195-e396-4f85-8417-e8b908709751&quot;,&quot;name&quot;:&quot;Antivirus&quot;}]" />
+              <option name="size" value="393" />
+              <option name="time" value="14" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
       </list>
     </option>
   </component>

@@ -340,3 +340,16 @@ func (h *ProductHandler) GetFilterOptionsByCategoryNameHandler(w http.ResponseWr
 	// respond with filter options
 	RespondWithJSON(w, http.StatusOK, filterOptions)
 }
+
+// GetAllProductSitemapHandler gets all products for sitemap
+func (h *ProductHandler) GetAllProductSitemapHandler(w http.ResponseWriter, r *http.Request) {
+	// get products
+	products, err := h.productService.GetAllProductSitemap(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get products for sitemap")
+		return
+	}
+
+	// respond with products
+	RespondWithJSON(w, http.StatusOK, products)
+}

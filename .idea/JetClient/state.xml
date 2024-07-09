@@ -232,7 +232,7 @@
               <option name="method" value="GET" />
               <option name="name" value="get products" />
               <option name="sortWeight" value="11000000" />
-              <option name="url" value="http://localhost:8080/api/products/5536e89e-4be2-4cd5-8959-2ccdfd323618" />
+              <option name="url" value="http://localhost:8080/api/categories/parent/458fcf07-1c3e-4f34-9f0d-fd4203802bd2" />
             </requestState>
             <requestState>
               <option name="body">

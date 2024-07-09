@@ -42,7 +42,7 @@ type CreateOrderRequest struct {
 	ShippingOption string                  `json:"shipping_option"`
 	OrderItems     []CreateOrderItemParams `json:"order_items"`
 	Total          float64                 `json:"total"`
-	PaymentOption  string                  `json:"payment_method"`
+	PaymentOption  string                  `json:"payment_option"`
 }
 
 type CreateOrderItemParams struct {
@@ -61,6 +61,8 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
+
+	log.Println(req.PaymentOption)
 
 	// Create order Params
 	orderParams := &model.CreateOrderParams{

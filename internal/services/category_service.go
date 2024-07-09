@@ -165,7 +165,7 @@ func (s *CategoryService) SoftDeleteCategoryService(ctx context.Context, id stri
 }
 
 // GetCategoriesByParentIDService retrieves categories by their parent ID
-func (s *CategoryService) GetCategoriesByParentIDService(ctx context.Context, parentID string) ([]database.Category, error) {
+func (s *CategoryService) GetCategoriesByParentIDService(ctx context.Context, parentID string) ([]*model.Category, error) {
 	// parse parentID to null uuid
 	var parentIDValue uuid.NullUUID
 	if parentID != "" {
@@ -191,7 +191,16 @@ func (s *CategoryService) GetCategoriesByParentIDService(ctx context.Context, pa
 		return nil, err
 	}
 
-	return categories, nil
+	categoriesModel := make([]*model.Category, 0, len(categories))
+	for _, category := range categories {
+		categoryModel := &model.Category{
+			ID:   category.ID,
+			Name: category.Name,
+		}
+		categoriesModel = append(categoriesModel, categoryModel)
+	}
+
+	return categoriesModel, nil
 }
 
 // GetCategoriesWithProductsCountService retrieves categories along with the count of products in each category
