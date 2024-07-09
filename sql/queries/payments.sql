@@ -26,3 +26,18 @@ WHERE order_id = $2;
 SELECT status
 FROM payment_statuses
 WHERE id = $1;
+
+-- name: ChangeOrderPaymentMethod :one
+WITH updated_payment AS (
+    UPDATE order_payments
+        SET payment_method_id = (
+            SELECT pm.id
+            FROM payment_methods pm
+            WHERE pm.method = $2
+        )
+        WHERE order_payments.order_id = $1
+        RETURNING order_id
+)
+SELECT o.order_number
+FROM orders o
+         JOIN updated_payment up ON o.id = up.order_id;

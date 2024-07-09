@@ -253,3 +253,156 @@ func SendInquiryEmail(emailConfig *appconfig.Config, productName, userEmail, use
 	}
 	return nil
 }
+
+// SendOrderCancellationNotification sends an email notification for a cancelled order.
+func SendOrderCancellationNotification(emailConfig *appconfig.Config, orderNumber string, reason string) error {
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", emailConfig.ToEmail)
+	m.SetHeader("Subject", "Order Cancellation Notification")
+
+	// Set email body
+	plainTextBody := fmt.Sprintf("Order %s has been cancelled.\n\nReason: %s", orderNumber, reason)
+	htmlBody := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<style>
+				body {
+					font-family: Arial, sans-serif;
+					color: #333333;
+				}
+				.container {
+					width: 80%%;
+					margin: auto;
+					padding: 20px;
+					border: 1px solid #dcdcdc;
+					border-radius: 10px;
+					background-color: #f9f9f9;
+				}
+				.header {
+					text-align: center;
+					padding: 10px 0;
+					background-color: #FF0000;
+					color: #ffffff;
+					border-radius: 10px 10px 0 0;
+				}
+				.content {
+					padding: 20px;
+				}
+				.footer {
+					text-align: center;
+					padding: 10px 0;
+					color: #999999;
+					font-size: 12px;
+				}
+				strong {
+					color: #FF0000;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h1>Order Cancellation Notification</h1>
+				</div>
+				<div class="content">
+					<p>Order <strong>%s</strong> has been cancelled.</p>
+					<p>Reason: <strong>%s</strong></p>
+				</div>
+				<div class="footer">
+					<p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
+				</div>
+			</div>
+		</body>
+		</html>`, orderNumber, reason)
+
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", htmlBody)
+
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	return nil
+}
+
+// SendOrderPaymentMethodChangeNotification sends an email notification for an order payment method change.
+func SendOrderPaymentMethodChangeNotification(emailConfig *appconfig.Config, orderNumber string, method string) error {
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", emailConfig.ToEmail)
+	m.SetHeader("Subject", "Order Payment Method Change Notification")
+
+	// Set email body
+	plainTextBody := fmt.Sprintf("The payment method for order %s has been changed to %s.", orderNumber, method)
+	htmlBody := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<style>
+				body {
+					font-family: Arial, sans-serif;
+					color: #333333;
+				}
+				.container {
+					width: 80%%;
+					margin: auto;
+					padding: 20px;
+					border: 1px solid #dcdcdc;
+					border-radius: 10px;
+					background-color: #f9f9f9;
+				}
+				.header {
+					text-align: center;
+					padding: 10px 0;
+					background-color: #007BFF;
+					color: #ffffff;
+					border-radius: 10px 10px 0 0;
+				}
+				.content {
+					padding: 20px;
+				}
+				.footer {
+					text-align: center;
+					padding: 10px 0;
+					color: #999999;
+					font-size: 12px;
+				}
+				strong {
+					color: #007BFF;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h1>Order Payment Method Change Notification</h1>
+				</div>
+				<div class="content">
+					<p>The payment method for order <strong>%s</strong> has been changed to <strong>%s</strong>.</p>
+				</div>
+				<div class="footer">
+					<p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
+				</div>
+			</div>
+		</body>
+		</html>`, orderNumber, method)
+
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", htmlBody)
+
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	return nil
+}

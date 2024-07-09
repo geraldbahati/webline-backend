@@ -298,6 +298,8 @@ func setupRouter(
 	orderRouter.HandleFunc("/pay", orderHandler.PayOrder).Methods(http.MethodPost)
 	orderRouter.HandleFunc("/pay/status", orderHandler.GetPaymentStatus).Methods(http.MethodGet)
 	orderRouter.HandleFunc("/pay/mpesa-callback", orderHandler.HandleMpesaCallback).Methods(http.MethodPost)
+	orderRouter.HandleFunc("/{id}/cancel", orderHandler.CancelOrder).Methods(http.MethodPut)
+	orderRouter.HandleFunc("/{id}/pay", orderHandler.ChangeOrderPaymentMethod).Methods(http.MethodPut)
 
 	return r
 }

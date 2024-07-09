@@ -124,11 +124,12 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 		})
 	}
 
+	payingNow := orderParams.PaymentOption == "now"
+
 	if err := utils.SendOrderNotification(s.cfg, orderID, orderParams, orderItems); err != nil {
 		s.logger.Error("failed to send order notification", zap.Error(err))
 	}
 
-	payingNow := orderParams.PaymentOption == "now"
 	return &OrderResponse{OrderID: orderPayment.OrderID, PayingNow: payingNow}, nil
 }
 
@@ -389,4 +390,38 @@ func (s *OrderService) GetOrder(ctx context.Context, orderID uuid.UUID) (*model.
 	s.logger.Info("Order details", zap.Any("order", response))
 
 	return response, nil
+}
+
+// CancelOrder cancels an order
+func (s *OrderService) CancelOrder(ctx context.Context, orderID uuid.UUID, reason string) error {
+	orderNumber, err := s.orderRepository.CancelOrder(ctx, orderID)
+	if err != nil {
+		s.logger.Error("failed to cancel order", zap.Error(err))
+		return fmt.Errorf("failed to cancel order: %w", err)
+	}
+
+	// Send order cancellation notification
+	if err := utils.SendOrderCancellationNotification(s.cfg, orderNumber, reason); err != nil {
+		s.logger.Error("failed to send order cancellation notification", zap.Error(err))
+		return fmt.Errorf("failed to send order cancellation notification: %w", err)
+	}
+
+	return nil
+}
+
+// ChangeOrderPaymentMethod changes the payment method of an order
+func (s *OrderService) ChangeOrderPaymentMethod(ctx context.Context, orderID uuid.UUID, method string) error {
+	orderNumber, err := s.paymentRepository.ChangeOrderPaymentMethod(ctx, orderID, method)
+	if err != nil {
+		s.logger.Error("failed to change payment method", zap.Error(err))
+		return fmt.Errorf("failed to change payment method: %w", err)
+	}
+
+	// Send order payment method change notification
+	if err := utils.SendOrderPaymentMethodChangeNotification(s.cfg, orderNumber, method); err != nil {
+		s.logger.Error("failed to send order payment method change notification", zap.Error(err))
+		return fmt.Errorf("failed to send order payment method change notification: %w", err)
+	}
+
+	return nil
 }

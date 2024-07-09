@@ -12,6 +12,34 @@ import (
 	"github.com/google/uuid"
 )
 
+const changeOrderPaymentMethod = `-- name: ChangeOrderPaymentMethod :one
+WITH updated_payment AS (
+    UPDATE order_payments
+        SET payment_method_id = (
+            SELECT pm.id
+            FROM payment_methods pm
+            WHERE pm.method = $2
+        )
+        WHERE order_payments.order_id = $1
+        RETURNING order_id
+)
+SELECT o.order_number
+FROM orders o
+         JOIN updated_payment up ON o.id = up.order_id
+`
+
+type ChangeOrderPaymentMethodParams struct {
+	OrderID uuid.UUID
+	Method  string
+}
+
+func (q *Queries) ChangeOrderPaymentMethod(ctx context.Context, arg ChangeOrderPaymentMethodParams) (sql.NullString, error) {
+	row := q.db.QueryRowContext(ctx, changeOrderPaymentMethod, arg.OrderID, arg.Method)
+	var order_number sql.NullString
+	err := row.Scan(&order_number)
+	return order_number, err
+}
+
 const createPayment = `-- name: CreatePayment :one
 INSERT INTO order_payments (order_id, checkout_request_id, payment_method_id, payment_status_id, amount)
 VALUES ($1, $2, $3, $4, $5)

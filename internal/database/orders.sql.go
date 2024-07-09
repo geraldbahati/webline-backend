@@ -12,6 +12,20 @@ import (
 	"github.com/google/uuid"
 )
 
+const cancelOrder = `-- name: CancelOrder :one
+UPDATE orders
+SET status = 'cancelled', updated_at = NOW()
+WHERE id = $1
+RETURNING order_number
+`
+
+func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) (sql.NullString, error) {
+	row := q.db.QueryRowContext(ctx, cancelOrder, id)
+	var order_number sql.NullString
+	err := row.Scan(&order_number)
+	return order_number, err
+}
+
 const createGuestCheckout = `-- name: CreateGuestCheckout :one
 INSERT INTO guest_checkouts (id, email, first_name, last_name, phone, street_address, city, state, country, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
