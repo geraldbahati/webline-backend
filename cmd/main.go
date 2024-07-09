@@ -140,8 +140,6 @@ func main() {
 		inquiryHandler,
 	)
 
-	log.Println("Server started successfully")
-
 	// Start server
 	serverAddress := ":" + cfg.Port
 	logger.Info("Server listening", zap.String("port", cfg.Port))
