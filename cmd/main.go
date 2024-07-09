@@ -140,6 +140,8 @@ func main() {
 		inquiryHandler,
 	)
 
+	logger.Info("Router setup completed")
+
 	// Start server
 	serverAddress := ":" + cfg.Port
 	logger.Info("Server listening", zap.String("port", cfg.Port))
