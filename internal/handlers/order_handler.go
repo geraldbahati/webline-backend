@@ -42,8 +42,7 @@ type CreateOrderRequest struct {
 	ShippingOption string                  `json:"shipping_option"`
 	OrderItems     []CreateOrderItemParams `json:"order_items"`
 	Total          float64                 `json:"total"`
-	PaymentMethod  string                  `json:"payment_method"`
-	ShippingMethod string                  `json:"shipping_method"`
+	PaymentOption  string                  `json:"payment_method"`
 }
 
 type CreateOrderItemParams struct {
@@ -78,8 +77,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Email:           req.Email,
 		ShippingOption:  req.ShippingOption,
 		Total:           req.Total,
-		PaymentMethod:   req.PaymentMethod,
-		ShippingMethod:  req.ShippingMethod,
+		PaymentOption:   req.PaymentOption,
 	}
 
 	// Create order items

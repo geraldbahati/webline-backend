@@ -95,7 +95,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 		}
 	}
 
-	orderPayment, err := s.createPayment(ctx, orderID, orderParams.Total, orderParams.PaymentMethod)
+	orderPayment, err := s.createPayment(ctx, orderID, orderParams.Total, orderParams.PaymentOption)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 		s.logger.Error("failed to send order notification", zap.Error(err))
 	}
 
-	payingNow := orderParams.PaymentMethod == "now"
+	payingNow := orderParams.PaymentOption == "now"
 	return &OrderResponse{OrderID: orderPayment.OrderID, PayingNow: payingNow}, nil
 }
 
