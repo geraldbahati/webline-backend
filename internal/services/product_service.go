@@ -2165,3 +2165,25 @@ func (s *ProductService) GetAllProductsByFiltersOldest(
 
 	return paginatedProducts, nil
 }
+
+// GetAllProductSitemap retrieves all products for sitemap
+func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.ProductSitemap, error) {
+	products, err := s.productRepo.ListProducts(ctx, database.ListProductsParams{
+		Offset: 0,
+		Limit:  100,
+	})
+	if err != nil {
+		s.logger.Error("failed to get all product sitemap", zap.Error(err))
+		return nil, fmt.Errorf("failed to get all product sitemap: %w", err)
+	}
+
+	productSitemap := make([]*model.ProductSitemap, 0, len(products))
+	for _, product := range products {
+		productSitemap = append(productSitemap, &model.ProductSitemap{
+			ID:        product.ID,
+			UpdatedAt: product.UpdatedAt.Time,
+		})
+	}
+
+	return productSitemap, nil
+}

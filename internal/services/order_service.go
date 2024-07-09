@@ -23,10 +23,11 @@ type OrderService struct {
 	orderItemRepository *repository.OrderItemRepository
 	paymentRepository   *repository.PaymentRepository
 	userRepo            *repository.UserRepository
+	productRepo         *repository.ProductRepository
 	cfg                 *appconfig.Config
 }
 
-func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository, cfg *appconfig.Config) *OrderService {
+func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository, productRepo *repository.ProductRepository, cfg *appconfig.Config) *OrderService {
 	return &OrderService{
 		logger:              logger,
 		guestCheckoutRepo:   guestCheckoutRepo,
@@ -34,6 +35,7 @@ func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestChec
 		orderItemRepository: orderItemRepository,
 		paymentRepository:   paymentRepository,
 		userRepo:            userRepo,
+		productRepo:         productRepo,
 		cfg:                 cfg,
 	}
 }
@@ -100,7 +102,29 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 		return nil, err
 	}
 
-	if err := utils.SendOrderNotification(s.cfg, orderID, orderParams.Email); err != nil {
+	orderItems := make([]utils.OrderItem, 0)
+	for _, item := range items {
+		// get the product by id
+		product, err := s.productRepo.GetProductByID(ctx, item.ProductID)
+		if err != nil {
+			s.logger.Error("failed to get product", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product: %w", err)
+		}
+
+		price, err := strconv.ParseFloat(product.Price, 64)
+		if err != nil {
+			s.logger.Error("failed to parse price", zap.Error(err))
+			return nil, fmt.Errorf("failed to parse price: %w", err)
+		}
+
+		orderItems = append(orderItems, utils.OrderItem{
+			ProductName: product.Name,
+			Quantity:    item.Quantity,
+			Price:       price,
+		})
+	}
+
+	if err := utils.SendOrderNotification(s.cfg, orderID, orderParams, orderItems); err != nil {
 		s.logger.Error("failed to send order notification", zap.Error(err))
 	}
 

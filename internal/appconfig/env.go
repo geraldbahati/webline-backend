@@ -61,4 +61,21 @@ func LoadConfig() Config {
 		CallbackURL:        getEnv("CALLBACK_URL", ""),
 		ConsumerKey:        getEnv("CONSUMER_KEY", ""),
 		ConsumerSecret:     getEnv("CONSUMER_SECRET", ""),
-		Accoun
+		AccountReference:   getEnv("ACCOUNT_REFERENCE", ""),
+		SMTPHost:           getEnv("SMTP_HOST", ""),
+		SMTPPort:           port,
+		SMTPUsername:       getEnv("SMTP_USERNAME", ""),
+		SMTPPassword:       getEnv("SMTP_PASSWORD", ""),
+		FromEmail:          getEnv("FROM_EMAIL", ""),
+		FromName:           getEnv("FROM_NAME", ""),
+		ToEmail:            getEnv("TO_EMAIL", ""),
+	}
+}
+
+func getEnv(key string, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+
+	return fallback
+}

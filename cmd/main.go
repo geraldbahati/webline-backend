@@ -105,7 +105,7 @@ func main() {
 	)
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
-	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, &cfg)
+	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, productRepo, &cfg)
 	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
 	inquiryService := services.NewInquiryService(productRepo, logger, &cfg)
 
@@ -295,4 +295,7 @@ func setupRouter(
 	orderRouter.HandleFunc("/{id}", orderHandler.GetOrder).Methods(http.MethodGet)
 	orderRouter.HandleFunc("/pay", orderHandler.PayOrder).Methods(http.MethodPost)
 	orderRouter.HandleFunc("/pay/status", orderHandler.GetPaymentStatus).Methods(http.MethodGet)
-	orderRouter.HandleFunc("/pay/mpe
+	orderRouter.HandleFunc("/pay/mpesa-callback", orderHandler.HandleMpesaCallback).Methods(http.MethodPost)
+
+	return r
+}

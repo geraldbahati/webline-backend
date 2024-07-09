@@ -42,7 +42,7 @@ type CreateOrderRequest struct {
 	ShippingOption string                  `json:"shipping_option"`
 	OrderItems     []CreateOrderItemParams `json:"order_items"`
 	Total          float64                 `json:"total"`
-	PaymentOption  string                  `json:"payment_method"`
+	PaymentOption  string                  `json:"payment_option"`
 }
 
 type CreateOrderItemParams struct {
