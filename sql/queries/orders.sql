@@ -8,6 +8,12 @@ UPDATE orders
 SET status = $2, updated_at = NOW()
 WHERE id = $1;
 
+-- name: CancelOrder :one
+UPDATE orders
+SET status = 'cancelled', updated_at = NOW()
+WHERE id = $1
+RETURNING order_number;
+
 -- name: UpdateOrderPaymentStatus :exec
 UPDATE orders
 SET payment_status = $2, updated_at = NOW()

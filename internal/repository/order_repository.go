@@ -175,3 +175,23 @@ func (r *OrderRepository) GetUserOrGuestCheckoutNameByOrderID(ctx context.Contex
 	r.logger.Info("User or guest checkout name retrieved successfully", zap.Any("names", names))
 	return &names, nil
 }
+
+// CancelOrder cancels an order
+func (r *OrderRepository) CancelOrder(ctx context.Context, orderID uuid.UUID) (string, error) {
+	var orderNumber string
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		orderNum, err := q.CancelOrder(ctx, orderID)
+		if err != nil {
+			r.logger.Error("cancel order failed", zap.Error(err))
+			return fmt.Errorf("cancel order: %w", err)
+		}
+		orderNumber = orderNum.String
+		return nil
+	}); err != nil {
+		r.logger.Error("cancel order transaction failed", zap.Error(err))
+		return "", fmt.Errorf("cancel order transaction: %w", err)
+	}
+
+	r.logger.Info("Order cancelled successfully", zap.String("orderNumber", orderNumber))
+	return orderNumber, nil
+}

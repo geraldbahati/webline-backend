@@ -29,7 +29,7 @@ func NewOrderHandler(logger *zap.Logger, orderService *services.OrderService, pa
 	}
 }
 
-// CreateOrder creates a new order
+// CreateOrderRequest creates a new order
 type CreateOrderRequest struct {
 	FirstName      string                  `json:"first_name"`
 	LastName       string                  `json:"last_name"`
@@ -273,4 +273,62 @@ func (h *OrderHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request) 
 	}
 
 	RespondWithJSON(w, http.StatusOK, status)
+}
+
+// CancelOrder cancels an order
+func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
+	// Get order ID from URL
+	orderID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid order ID")
+		return
+	}
+
+	// Get reason from body
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	// Cancel order
+	err = h.orderService.CancelOrder(r.Context(), orderID, req.Reason)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to cancel order: %v", err))
+		return
+	}
+
+	// Write response
+	RespondWithSuccess(w, http.StatusOK, "Order cancelled successfully")
+}
+
+// ChangeOrderPaymentMethod changes the payment method of an order
+func (h *OrderHandler) ChangeOrderPaymentMethod(w http.ResponseWriter, r *http.Request) {
+	// Get order ID from URL
+	orderID, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid order ID")
+		return
+	}
+
+	// Get payment status from body
+	var req struct {
+		Method string `json:"method"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	// Change payment status
+	err = h.orderService.ChangeOrderPaymentMethod(r.Context(), orderID, req.Method)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to change payment status: %v", err))
+		return
+	}
+
+	// Write response
+	RespondWithSuccess(w, http.StatusOK, "Payment status changed successfully")
 }

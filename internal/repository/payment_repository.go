@@ -173,3 +173,26 @@ func (r *PaymentRepository) GetStatusByID(ctx context.Context, statusID int32) (
 
 	return status, nil
 }
+
+// ChangeOrderPaymentMethod changes the payment method of an order
+func (r *PaymentRepository) ChangeOrderPaymentMethod(ctx context.Context, orderID uuid.UUID, paymentMethod string) (string, error) {
+	var orderNumber string
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		orderNum, err := q.ChangeOrderPaymentMethod(ctx, database.ChangeOrderPaymentMethodParams{
+			OrderID: orderID,
+			Method:  paymentMethod,
+		})
+		if err != nil {
+			r.logger.Error("Failed to change payment method", zap.Error(err), zap.String("orderID", orderID.String()), zap.String("paymentMethod", paymentMethod))
+			return fmt.Errorf("change payment method: %w", err)
+		}
+		orderNumber = orderNum.String
+		return nil
+	}); err != nil {
+		r.logger.Error("Failed to change payment method", zap.Error(err), zap.String("orderID", orderID.String()), zap.String("paymentMethod", paymentMethod))
+		return "", fmt.Errorf("change payment method: %w", err)
+	}
+
+	r.logger.Info("Payment method changed successfully", zap.String("orderID", orderID.String()), zap.String("paymentMethod", paymentMethod))
+	return orderNumber, nil
+}
