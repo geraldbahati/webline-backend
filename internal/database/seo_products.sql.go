@@ -19,8 +19,11 @@ SELECT
     p.meta_title,
     p.meta_description,
     p.meta_keywords,
+    p.price,
+    c.name AS brand_name,
     (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY created_at LIMIT 1) AS image_url
 FROM products p
+         JOIN categories c ON p.category_id = c.id
 WHERE p.id = $1
 `
 
@@ -30,6 +33,8 @@ type GetProductSEORow struct {
 	MetaTitle       sql.NullString
 	MetaDescription sql.NullString
 	MetaKeywords    sql.NullString
+	Price           string
+	BrandName       string
 	ImageUrl        string
 }
 
@@ -42,6 +47,8 @@ func (q *Queries) GetProductSEO(ctx context.Context, id uuid.UUID) (GetProductSE
 		&i.MetaTitle,
 		&i.MetaDescription,
 		&i.MetaKeywords,
+		&i.Price,
+		&i.BrandName,
 		&i.ImageUrl,
 	)
 	return i, err

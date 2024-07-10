@@ -7874,6 +7874,213 @@
           </option>
           <option name="workspaceId" value="drafts" />
         </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720595350173" />
+          <option name="id" value="3ea7612e-51bc-4bef-95be-5483687208bd" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/products/458fcf07-1c3e-4f34-9f0d-fd4203802bd2/seo" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJlcnJvciI6IkZhaWxlZCB0byBnZXQgcHJvZHVjdCBTRU8ifQ==" />
+              <option name="bodyString" value="{&#10;  &quot;error&quot;: &quot;Failed to get product SEO&quot;&#10;}" />
+              <option name="code" value="500" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Wed, 10 Jul 2024 07:09:10 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="37" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="3ea7612e-51bc-4bef-95be-5483687208bd" />
+              <option name="message" value="Internal Server Error" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;error&quot;:&quot;Failed to get product SEO&quot;}" />
+              <option name="size" value="37" />
+              <option name="time" value="25" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720595393664" />
+          <option name="id" value="e38111b6-3b82-4fc3-8dc0-aaafa6024c4f" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/products/74df1f55-fe32-4f90-af04-4e09606ec8d8/seo" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJpZCI6Ijc0ZGYxZjU1LWZlMzItNGY5MC1hZjA0LTRlMDk2MDZlYzhkOCIsInBhcnROdW1iZXIiOiJOMDE1TzMwMDBNVEFDX0VNIiwidGl0bGUiOiJEZWxsIEluc3Bpcm9uIDE0IDc0MzAgLSBIaWdoIFBlcmZvcm1hbmNlIExhcHRvcCB8IFdlYmxpbmUgVGVjaG5vbG9naWVzIiwiZGVzY3JpcHRpb24iOiJTaG9wIHRoZSBEZWxsIEluc3Bpcm9uIDE0IDc0MzAgd2l0aCBJbnRlbCBDb3JlIGk3LCAxNkdCIFJBTSwgYW5kIDFUQiBTU0QuIEZlYXR1cmluZyBhIDE0XCIgRkhEKyBUb3VjaCBTY3JlZW4gYW5kIFdpbmRvd3MgMTEgSG9tZS4gQXZhaWxhYmxlIGF0IFdlYmxpbmUgVGVjaG5vbG9naWVzLiIsImtleXdvcmRzIjoiRGVsbCBJbnNwaXJvbiAxNCA3NDMwLCBoaWdoIHBlcmZvcm1hbmNlIGxhcHRvcCwgSW50ZWwgQ29yZSBpNywgMTZHQiBSQU0sIDFUQiBTU0QsIFdpbmRvd3MgMTEgSG9tZSwgV2VibGluZSBUZWNobm9sb2dpZXMiLCJwcmljZSI6IjEzMDAwMC4wMCIsImJyYW5kIjoiQXBwbGUiLCJpbWFnZVVybCI6InByb2R1Y3QtaW1hZ2VzLzE3MTczOTQ2NjUtRGVsbCBJbnNwaXJvbi0zLnBuZyJ9" />
+              <option name="bodyString" value="{&#10;  &quot;id&quot;: &quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&#10;  &quot;partNumber&quot;: &quot;N015O3000MTAC_EM&quot;,&#10;  &quot;title&quot;: &quot;Dell Inspiron 14 7430 - High Performance Laptop | Webline Technologies&quot;,&#10;  &quot;description&quot;: &quot;Shop the Dell Inspiron 14 7430 with Intel Core i7, 16GB RAM, and 1TB SSD. Featuring a 14\&quot; FHD+ Touch Screen and Windows 11 Home. Available at Webline Technologies.&quot;,&#10;  &quot;keywords&quot;: &quot;Dell Inspiron 14 7430, high performance laptop, Intel Core i7, 16GB RAM, 1TB SSD, Windows 11 Home, Webline Technologies&quot;,&#10;  &quot;price&quot;: &quot;130000.00&quot;,&#10;  &quot;brand&quot;: &quot;Apple&quot;,&#10;  &quot;imageUrl&quot;: &quot;product-images/1717394665-Dell Inspiron-3.png&quot;&#10;}" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Wed, 10 Jul 2024 07:09:53 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="567" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e38111b6-3b82-4fc3-8dc0-aaafa6024c4f" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;id&quot;:&quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&quot;partNumber&quot;:&quot;N015O3000MTAC_EM&quot;,&quot;title&quot;:&quot;Dell Inspiron 14 7430 - High Performance Laptop | Webline Technologies&quot;,&quot;description&quot;:&quot;Shop the Dell Inspiron 14 7430 with Intel Core i7, 16GB RAM, and 1TB SSD. Featuring a 14\&quot; FHD+ Touch Screen and Windows 11 Home. Available at Webline Technologies.&quot;,&quot;keywords&quot;:&quot;Dell Inspiron 14 7430, high performance laptop, Intel Core i7, 16GB RAM, 1TB SSD, Windows 11 Home, Webline Technologies&quot;,&quot;price&quot;:&quot;130000.00&quot;,&quot;brand&quot;:&quot;Apple&quot;,&quot;imageUrl&quot;:&quot;product-images/1717394665-Dell Inspiron-3.png&quot;}" />
+              <option name="size" value="567" />
+              <option name="time" value="14" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
+        <requestHistoryState>
+          <option name="dateTime" value="1720596500542" />
+          <option name="id" value="cb059dd0-25e3-43c5-b35d-1a67ed960274" />
+          <option name="request">
+            <requestState>
+              <option name="body">
+                <bodyState>
+                  <option name="raw" value="{&#10;  &quot;name&quot;: &quot;ASUS E410MA-BV1517&quot;,&#10;  &quot;description&quot;: &quot;Intel Celeron N4020, 4GB DDR4 2666, 256GB M.2 NVMe PCIe 3.0 SSD, No OS, 14\&quot; HD, No ODD, Wi-Fi 5 (802.11ac) (Dual band) 1*1 + Bluetooth 5.1, Webcam, Chiclet Keyboard, Star Black, 1 Year Warranty&quot;,&#10;  &quot;price&quot;: 27000,&#10;  &quot;stock&quot;: 1,&#10;  &quot;category_id&quot;: &quot;0c79c652-6483-40e6-b63f-114194972fc6&quot;&#10;}&#10;" />
+                  <option name="type" value="JSON" />
+                </bodyState>
+              </option>
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="e98b443d-420d-488d-855e-b97ea3a6fb7a" />
+              <option name="method" value="GET" />
+              <option name="name" value="get products" />
+              <option name="sortWeight" value="11000000" />
+              <option name="url" value="http://localhost:8080/api/products/74df1f55-fe32-4f90-af04-4e09606ec8d8/seo" />
+            </requestState>
+          </option>
+          <option name="response">
+            <responseState>
+              <option name="bodyBytesBase64" value="eyJpZCI6Ijc0ZGYxZjU1LWZlMzItNGY5MC1hZjA0LTRlMDk2MDZlYzhkOCIsInBhcnROdW1iZXIiOiJOMDE1TzMwMDBNVEFDX0VNIiwidGl0bGUiOiJEZWxsIEluc3Bpcm9uIDE0IDc0MzAgLSBIaWdoIFBlcmZvcm1hbmNlIExhcHRvcCB8IFdlYmxpbmUgVGVjaG5vbG9naWVzIiwiZGVzY3JpcHRpb24iOiJTaG9wIHRoZSBEZWxsIEluc3Bpcm9uIDE0IDc0MzAgd2l0aCBJbnRlbCBDb3JlIGk3LCAxNkdCIFJBTSwgYW5kIDFUQiBTU0QuIEZlYXR1cmluZyBhIDE0XCIgRkhEKyBUb3VjaCBTY3JlZW4gYW5kIFdpbmRvd3MgMTEgSG9tZS4gQXZhaWxhYmxlIGF0IFdlYmxpbmUgVGVjaG5vbG9naWVzLiIsImtleXdvcmRzIjoiRGVsbCBJbnNwaXJvbiAxNCA3NDMwLCBoaWdoIHBlcmZvcm1hbmNlIGxhcHRvcCwgSW50ZWwgQ29yZSBpNywgMTZHQiBSQU0sIDFUQiBTU0QsIFdpbmRvd3MgMTEgSG9tZSwgV2VibGluZSBUZWNobm9sb2dpZXMiLCJwcmljZSI6IjEzMDAwMC4wMCIsImJyYW5kIjoiQXBwbGUiLCJpbWFnZVVybCI6Imh0dHBzOi8vd2VibGluZWJ1Y2tldC5zMy51cy1lYXN0LTEuYW1hem9uYXdzLmNvbS9wcm9kdWN0LWltYWdlcy8xNzE3Mzk0NjY1LURlbGwgSW5zcGlyb24tMy5wbmcifQ==" />
+              <option name="bodyString" value="{&#10;  &quot;id&quot;: &quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&#10;  &quot;partNumber&quot;: &quot;N015O3000MTAC_EM&quot;,&#10;  &quot;title&quot;: &quot;Dell Inspiron 14 7430 - High Performance Laptop | Webline Technologies&quot;,&#10;  &quot;description&quot;: &quot;Shop the Dell Inspiron 14 7430 with Intel Core i7, 16GB RAM, and 1TB SSD. Featuring a 14\&quot; FHD+ Touch Screen and Windows 11 Home. Available at Webline Technologies.&quot;,&#10;  &quot;keywords&quot;: &quot;Dell Inspiron 14 7430, high performance laptop, Intel Core i7, 16GB RAM, 1TB SSD, Windows 11 Home, Webline Technologies&quot;,&#10;  &quot;price&quot;: &quot;130000.00&quot;,&#10;  &quot;brand&quot;: &quot;Apple&quot;,&#10;  &quot;imageUrl&quot;: &quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717394665-Dell Inspiron-3.png&quot;&#10;}" />
+              <option name="code" value="200" />
+              <option name="contentType" value="application/json" />
+              <option name="headers">
+                <list>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Headers" />
+                    <option name="value" value="Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Methods" />
+                    <option name="value" value="GET, POST, PATCH, PUT, DELETE, OPTIONS" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Access-Control-Allow-Origin" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Type" />
+                    <option name="value" value="application/json" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Date" />
+                    <option name="value" value="Wed, 10 Jul 2024 07:28:20 GMT" />
+                  </headerState>
+                  <headerState>
+                    <option name="key" value="Content-Length" />
+                    <option name="value" value="616" />
+                  </headerState>
+                </list>
+              </option>
+              <option name="id" value="cb059dd0-25e3-43c5-b35d-1a67ed960274" />
+              <option name="message" value="OK" />
+              <option name="prettyResponseType" value="JSON" />
+              <option name="rawBodyString" value="{&quot;id&quot;:&quot;74df1f55-fe32-4f90-af04-4e09606ec8d8&quot;,&quot;partNumber&quot;:&quot;N015O3000MTAC_EM&quot;,&quot;title&quot;:&quot;Dell Inspiron 14 7430 - High Performance Laptop | Webline Technologies&quot;,&quot;description&quot;:&quot;Shop the Dell Inspiron 14 7430 with Intel Core i7, 16GB RAM, and 1TB SSD. Featuring a 14\&quot; FHD+ Touch Screen and Windows 11 Home. Available at Webline Technologies.&quot;,&quot;keywords&quot;:&quot;Dell Inspiron 14 7430, high performance laptop, Intel Core i7, 16GB RAM, 1TB SSD, Windows 11 Home, Webline Technologies&quot;,&quot;price&quot;:&quot;130000.00&quot;,&quot;brand&quot;:&quot;Apple&quot;,&quot;imageUrl&quot;:&quot;https://weblinebucket.s3.us-east-1.amazonaws.com/product-images/1717394665-Dell Inspiron-3.png&quot;}" />
+              <option name="size" value="616" />
+              <option name="time" value="25" />
+            </responseState>
+          </option>
+          <option name="workspaceId" value="drafts" />
+        </requestHistoryState>
       </list>
     </option>
   </component>

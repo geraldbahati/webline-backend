@@ -1058,4 +1058,3 @@ SELECT
 FROM
     filtered_products;
 
-

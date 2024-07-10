@@ -108,11 +108,12 @@ func main() {
 	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, productRepo, &cfg)
 	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
 	inquiryService := services.NewInquiryService(productRepo, logger, &cfg)
+	productSEOService := services.NewProductSEOService(logger, &cfg, productRepo)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
-	productHandler := handlers.NewProductHandler(productService)
+	productHandler := handlers.NewProductHandler(productService, productSEOService)
 	productVariantHandler := handlers.NewProductVariantHandler(productService)
 	productImageHandler := handlers.NewProductImageHandler(productService)
 	productSpecificationHandler := handlers.NewProductSpecificationHandler(productService)
@@ -218,6 +219,7 @@ func setupRouter(
 	productRouter.HandleFunc("", productHandler.GetAllProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{id}", productHandler.UpdateProductHandler).Methods(http.MethodPut)
 	productRouter.HandleFunc("/{id}", productHandler.SoftDeleteProductHandler).Methods(http.MethodDelete)
+	productRouter.HandleFunc("/{id}/seo", productHandler.GetProductSEOHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/all/sitemap", productHandler.GetAllProductSitemapHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/actions/search", productHandler.SearchProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/category/{id}", productHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
