@@ -57,7 +57,7 @@ FROM
     products
 WHERE
     is_active = true
-  AND created_at >= NOW() - INTERVAL '30 days'
+  AND created_at >= NOW() - INTERVAL '100 days'
 ORDER BY
     created_at DESC
 LIMIT $1;

@@ -259,6 +259,22 @@ type ProductVariant struct {
 	Stock        sql.NullInt32
 }
 
+type Promotion struct {
+	ID          uuid.UUID
+	Title       string
+	Description sql.NullString
+	ImageUrl    sql.NullString
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
+type PromotionProduct struct {
+	PromotionID uuid.UUID
+	ProductID   uuid.UUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
 type Recommendation struct {
 	UserID    uuid.NullUUID
 	ProductID uuid.NullUUID

@@ -52,3 +52,97 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 	)
 	return i, err
 }
+
+const getPromotionsWithProducts = `-- name: GetPromotionsWithProducts :many
+WITH first_images AS (
+    SELECT DISTINCT ON (product_id)
+        product_id,
+        image_url
+    FROM
+        product_images
+    ORDER BY
+        product_id,
+        created_at
+),
+     active_discounts AS (
+         SELECT
+             product_id,
+             discount_percentage
+         FROM
+             discounts
+         WHERE
+             start_date <= NOW() AND end_date >= NOW()
+     )
+SELECT
+    p.id AS promotion_id,
+    p.title,
+    p.description,
+    p.image_url AS promotion_image_url,
+    p.created_at,
+    p.updated_at,
+    pr.id AS product_id,
+    pr.name AS product_name,
+    pr.description AS product_description,
+    pr.price,
+    COALESCE(ad.discount_percentage, 0) AS discount_percentage,
+    fi.image_url AS product_image_url
+FROM
+    promotions p
+        JOIN promotion_products pp ON p.id = pp.promotion_id
+        JOIN products pr ON pp.product_id = pr.id
+        LEFT JOIN first_images fi ON pr.id = fi.product_id
+        LEFT JOIN active_discounts ad ON pr.id = ad.product_id
+ORDER BY
+    p.created_at DESC
+`
+
+type GetPromotionsWithProductsRow struct {
+	PromotionID        uuid.UUID
+	Title              string
+	Description        sql.NullString
+	PromotionImageUrl  sql.NullString
+	CreatedAt          sql.NullTime
+	UpdatedAt          sql.NullTime
+	ProductID          uuid.UUID
+	ProductName        string
+	ProductDescription sql.NullString
+	Price              string
+	DiscountPercentage string
+	ProductImageUrl    sql.NullString
+}
+
+func (q *Queries) GetPromotionsWithProducts(ctx context.Context) ([]GetPromotionsWithProductsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPromotionsWithProducts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPromotionsWithProductsRow
+	for rows.Next() {
+		var i GetPromotionsWithProductsRow
+		if err := rows.Scan(
+			&i.PromotionID,
+			&i.Title,
+			&i.Description,
+			&i.PromotionImageUrl,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ProductID,
+			&i.ProductName,
+			&i.ProductDescription,
+			&i.Price,
+			&i.DiscountPercentage,
+			&i.ProductImageUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
