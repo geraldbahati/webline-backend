@@ -471,3 +471,58 @@ func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, p
 func (r *ProductRepository) GetTotalProductsByFilters(ctx context.Context, params database.GetTotalProductsByFiltersParams) (int64, error) {
 	return r.Queries.GetTotalProductsByFilters(ctx, params)
 }
+
+// UpdateProductSEO updates the SEO fields of a product
+func (r *ProductRepository) UpdateProductSEO(
+	ctx context.Context,
+	params *database.UpdateProductSEOParams,
+) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.UpdateProductSEO(ctx, *params); err != nil {
+			return fmt.Errorf("failed to update product SEO: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update product SEO", zap.Error(err))
+		return fmt.Errorf("failed to update product SEO: %w", err)
+	}
+	return nil
+}
+
+// GetProductSEO retrieves the SEO fields of a product
+func (r *ProductRepository) GetProductSEO(
+	ctx context.Context,
+	id uuid.UUID,
+) (*model.ProductSEO, error) {
+	seo, err := r.Queries.GetProductSEO(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get product SEO", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product SEO: %w", err)
+	}
+
+	var partNumber, metaTitle, metaDescription, metaKeywords string
+	if seo.PartNumber.Valid {
+		partNumber = seo.PartNumber.String
+	}
+	if seo.MetaTitle.Valid {
+		metaTitle = seo.MetaTitle.String
+	}
+	if seo.MetaDescription.Valid {
+		metaDescription = seo.MetaDescription.String
+	}
+	if seo.MetaKeywords.Valid {
+		metaKeywords = seo.MetaKeywords.String
+	}
+
+	return &model.ProductSEO{
+		ID:          seo.ID,
+		PartNumber:  partNumber,
+		Title:       metaTitle,
+		Description: metaDescription,
+		Keywords:    metaKeywords,
+		Price:       seo.Price,
+		Brand:       seo.BrandName,
+		ImageUrl:    seo.ImageUrl,
+	}, nil
+}

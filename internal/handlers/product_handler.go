@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -14,12 +16,14 @@ import (
 )
 
 type ProductHandler struct {
-	productService *services.ProductService
+	productService    *services.ProductService
+	productSEOService *services.ProductSEOService
 }
 
-func NewProductHandler(productService *services.ProductService) *ProductHandler {
+func NewProductHandler(productService *services.ProductService, productSEOService *services.ProductSEOService) *ProductHandler {
 	return &ProductHandler{
-		productService: productService,
+		productService:    productService,
+		productSEOService: productSEOService,
 	}
 }
 
@@ -352,4 +356,34 @@ func (h *ProductHandler) GetAllProductSitemapHandler(w http.ResponseWriter, r *h
 
 	// respond with products
 	RespondWithJSON(w, http.StatusOK, products)
+}
+
+// GetProductSEOHandler gets the SEO information of a product
+func (h *ProductHandler) GetProductSEOHandler(w http.ResponseWriter, r *http.Request) {
+	// get product ID
+	vars := mux.Vars(r)
+	productID := vars["id"]
+
+	// parse product ID
+	productUUID, err := uuid.Parse(productID)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid product ID")
+		return
+	}
+
+	// get product SEO
+	productSEO, err := h.productSEOService.GetProductSEO(r.Context(), &productUUID)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			RespondWithError(w, http.StatusNotFound, "Product SEO not found")
+			return
+		default:
+			RespondWithError(w, http.StatusInternalServerError, "Failed to get product SEO")
+			return
+		}
+	}
+
+	// respond with product SEO
+	RespondWithJSON(w, http.StatusOK, productSEO)
 }

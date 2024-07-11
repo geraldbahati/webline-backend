@@ -6,14 +6,18 @@
     <file url="file://$PROJECT_DIR$/sql/queries/discounts.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/orders.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/payments.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/sql/queries/product_analytics.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/product_colors.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/product_option.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/product_variants.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/products.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/sql/queries/promotions.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/sql/queries/seo_products.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/queries/shopping_cart.sql" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/sql/schema/0001_initial.sql" dialect="Greenplum" />
     <file url="file://$PROJECT_DIR$/sql/schema/0002_tables_indexes.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/schema/20240703083628_add_image_url_to_categories.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/sql/schema/20240710091121_add_seo_fields_to_products.sql" dialect="PostgreSQL" />
     <file url="PROJECT" dialect="PostgreSQL" />
   </component>
 </project>

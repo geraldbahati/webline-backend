@@ -143,19 +143,23 @@ type Processor struct {
 }
 
 type Product struct {
-	ID            uuid.UUID
-	Name          string
-	Description   sql.NullString
-	Price         string
-	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
-	IsActive      sql.NullBool
-	CreatedBy     uuid.NullUUID
-	UpdatedBy     uuid.NullUUID
-	Featured      sql.NullBool
-	SearchKeyword interface{}
+	ID              uuid.UUID
+	Name            string
+	Description     sql.NullString
+	Price           string
+	Stock           sql.NullInt32
+	CategoryID      uuid.NullUUID
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	IsActive        sql.NullBool
+	CreatedBy       uuid.NullUUID
+	UpdatedBy       uuid.NullUUID
+	Featured        sql.NullBool
+	SearchKeyword   interface{}
+	PartNumber      sql.NullString
+	MetaTitle       sql.NullString
+	MetaDescription sql.NullString
+	MetaKeywords    sql.NullString
 }
 
 type ProductColor struct {
@@ -253,6 +257,22 @@ type ProductVariant struct {
 	UpdatedAt    sql.NullTime
 	Price        string
 	Stock        sql.NullInt32
+}
+
+type Promotion struct {
+	ID          uuid.UUID
+	Title       string
+	Description sql.NullString
+	ImageUrl    sql.NullString
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
+type PromotionProduct struct {
+	PromotionID uuid.UUID
+	ProductID   uuid.UUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
 }
 
 type Recommendation struct {

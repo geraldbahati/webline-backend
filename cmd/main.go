@@ -85,6 +85,8 @@ func main() {
 	orderItemRepo := repository.NewOrderItemRepository(conn, logger)
 	paymentRepo := repository.NewPaymentRepository(conn, logger)
 	discountRepo := repository.NewDiscountRepository(conn, logger)
+	productAnalyticRepo := repository.NewProductAnalyticRepository(conn, logger)
+	promotionRepo := repository.NewPromotionRepository(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
@@ -108,11 +110,14 @@ func main() {
 	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, productRepo, &cfg)
 	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
 	inquiryService := services.NewInquiryService(productRepo, logger, &cfg)
+	productSEOService := services.NewProductSEOService(logger, &cfg, productRepo)
+	productAnalyticService := services.NewProductAnalyticService(logger, &cfg, productAnalyticRepo, productImageRepo, discountRepo)
+	promotionService := services.NewPromotionService(logger, &cfg, s3Client, promotionRepo, productRepo, productImageRepo, discountRepo)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
-	productHandler := handlers.NewProductHandler(productService)
+	productHandler := handlers.NewProductHandler(productService, productSEOService)
 	productVariantHandler := handlers.NewProductVariantHandler(productService)
 	productImageHandler := handlers.NewProductImageHandler(productService)
 	productSpecificationHandler := handlers.NewProductSpecificationHandler(productService)
@@ -122,6 +127,8 @@ func main() {
 	cartHandler := handlers.NewCartHandler(cartService)
 	orderHandler := handlers.NewOrderHandler(logger, orderService, paymentService)
 	inquiryHandler := handlers.NewInquiryHandler(logger, inquiryService)
+	productAnalyticHandler := handlers.NewProductAnalyticHandler(productAnalyticService)
+	promotionHandler := handlers.NewPromotionHandler(promotionService)
 
 	// Setup router
 	r := setupRouter(
@@ -138,6 +145,8 @@ func main() {
 		cartHandler,
 		orderHandler,
 		inquiryHandler,
+		productAnalyticHandler,
+		promotionHandler,
 	)
 
 	logger.Info("Router setup completed")
@@ -164,6 +173,8 @@ func setupRouter(
 	cartHandler *handlers.CartHandler,
 	orderHandler *handlers.OrderHandler,
 	inquiryHandler *handlers.InquiryHandler,
+	productAnalyticHandler *handlers.ProductAnalyticHandler,
+	promotionHandler *handlers.PromotionHandler,
 ) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
@@ -218,6 +229,7 @@ func setupRouter(
 	productRouter.HandleFunc("", productHandler.GetAllProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{id}", productHandler.UpdateProductHandler).Methods(http.MethodPut)
 	productRouter.HandleFunc("/{id}", productHandler.SoftDeleteProductHandler).Methods(http.MethodDelete)
+	productRouter.HandleFunc("/{id}/seo", productHandler.GetProductSEOHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/all/sitemap", productHandler.GetAllProductSitemapHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/actions/search", productHandler.SearchProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/category/{id}", productHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
@@ -300,6 +312,17 @@ func setupRouter(
 	orderRouter.HandleFunc("/pay/mpesa-callback", orderHandler.HandleMpesaCallback).Methods(http.MethodPost)
 	orderRouter.HandleFunc("/{id}/cancel", orderHandler.CancelOrder).Methods(http.MethodPut)
 	orderRouter.HandleFunc("/{id}/pay", orderHandler.ChangeOrderPaymentMethod).Methods(http.MethodPut)
+
+	// Product analytic routes
+	productAnalyticRouter := r.PathPrefix("/api/product-analytics").Subrouter()
+	productAnalyticRouter.HandleFunc("/best-sellers", productAnalyticHandler.GetBestSellerProducts).Methods(http.MethodGet)
+	productAnalyticRouter.HandleFunc("/featured", productAnalyticHandler.GetFeaturedProducts).Methods(http.MethodGet)
+	productAnalyticRouter.HandleFunc("/new-arrivals", productAnalyticHandler.GetNewArrivalProducts).Methods(http.MethodGet)
+
+	// Promotion routes
+	promotionRouter := r.PathPrefix("/api/promotions").Subrouter()
+	promotionRouter.HandleFunc("", promotionHandler.CreatePromotion).Methods(http.MethodPost)
+	promotionRouter.HandleFunc("", promotionHandler.GetPromotions).Methods(http.MethodGet)
 
 	return r
 }

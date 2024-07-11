@@ -133,3 +133,14 @@ type ProductSitemap struct {
 	ID        uuid.UUID
 	UpdatedAt time.Time
 }
+
+type ProductSEO struct {
+	ID          uuid.UUID `json:"id"`
+	PartNumber  string    `json:"partNumber"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Keywords    string    `json:"keywords"`
+	Price       string    `json:"price"`
+	Brand       string    `json:"brand"`
+	ImageUrl    string    `json:"imageUrl"`
+}
