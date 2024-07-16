@@ -26,6 +26,4 @@ go.work
 .DS_Store
 
 /.idea
-
-.DS_Store
 internal/.DS_Store
