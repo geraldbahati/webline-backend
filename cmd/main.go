@@ -211,6 +211,7 @@ func setupRouter(
 	categoryRouter.HandleFunc("", categoryHandler.GetCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.UpdateCategoryHandler).Methods(http.MethodPut)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodDelete)
+	categoryRouter.HandleFunc("/collections", categoryHandler.GetCollectionCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/name/{name}", categoryHandler.GetCategoryByNameHandler).Methods(http.MethodOptions)
 	categoryRouter.HandleFunc("/name/{name}", categoryHandler.GetCategoryByNameHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/parent/{parentId}", categoryHandler.GetCategoriesByParentIDHandler).Methods(http.MethodGet)

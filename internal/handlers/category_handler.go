@@ -246,3 +246,16 @@ func (h *CategoryHandler) UploadCategoryImageHandler(w http.ResponseWriter, r *h
 	// respond with success
 	RespondWithSuccess(w, http.StatusOK, "Category image uploaded successfully")
 }
+
+// GetCollectionCategoriesHandler retrieves collection categories
+func (h *CategoryHandler) GetCollectionCategoriesHandler(w http.ResponseWriter, r *http.Request) {
+	// get collection categories
+	collectionCategories, err := h.categoryService.GetCollectionCategoriesService(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get collection categories")
+		return
+	}
+
+	// respond with collection categories
+	RespondWithJSON(w, http.StatusOK, collectionCategories)
+}

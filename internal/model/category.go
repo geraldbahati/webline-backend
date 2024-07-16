@@ -20,6 +20,7 @@ type CategoryHierarchy struct {
 }
 
 type Category struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	ImageUrl string    `json:"imageUrl"`
 }

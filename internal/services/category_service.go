@@ -518,3 +518,40 @@ func (s *CategoryService) UpdateCategoryImageService(ctx context.Context, r *htt
 
 	return nil
 }
+
+// GetCollectionCategoriesService retrieves categories that are collections
+func (s *CategoryService) GetCollectionCategoriesService(ctx context.Context) ([]model.Category, error) {
+	// get the parent categories
+	parentCategories, err := s.categoryRepo.GetParentCategories(ctx)
+	if err != nil {
+		s.logger.Error("failed to get parent categories", zap.Error(err))
+		return nil, err
+	}
+
+	// get the child categories
+	collections := make([]model.Category, 0)
+
+	for _, category := range parentCategories {
+		childCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+		if err != nil {
+			s.logger.Error("failed to get child categories", zap.Error(err))
+			return nil, err
+		}
+
+		for _, childCategory := range childCategories {
+			imageUrl := ""
+			if childCategory.ImageUrl.Valid {
+				imageUrl = s.constructS3URL(childCategory.ImageUrl.String)
+			}
+			collection := model.Category{
+				ID:       childCategory.ID,
+				Name:     childCategory.Name,
+				ImageUrl: imageUrl,
+			}
+			collections = append(collections, collection)
+		}
+
+	}
+
+	return collections, nil
+}
