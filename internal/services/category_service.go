@@ -268,9 +268,14 @@ func (s *CategoryService) GetParentCategoriesService(ctx context.Context) ([]mod
 
 	categoriesModel := make([]model.Category, 0)
 	for _, category := range categories {
+		imageUrl := ""
+		if category.ImageUrl.Valid {
+			imageUrl = s.constructS3URL(category.ImageUrl.String)
+		}
 		categoryModel := model.Category{
-			ID:   category.ID,
-			Name: category.Name,
+			ID:       category.ID,
+			Name:     category.Name,
+			ImageUrl: imageUrl,
 		}
 		categoriesModel = append(categoriesModel, categoryModel)
 	}
