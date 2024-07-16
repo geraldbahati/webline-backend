@@ -2187,5 +2187,3 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 
 	return productSitemap, nil
 }
-
-//
