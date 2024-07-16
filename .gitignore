@@ -24,3 +24,6 @@ vendor/
 go.work
 
 .DS_Store
+
+.idea
+internal/.DS_Store
