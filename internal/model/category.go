@@ -24,3 +24,10 @@ type Category struct {
 	Name     string    `json:"name"`
 	ImageUrl string    `json:"imageUrl"`
 }
+
+type Collection struct {
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	ParentName string    `json:"parentName"`
+	ImageUrl   string    `json:"imageUrl"`
+}
