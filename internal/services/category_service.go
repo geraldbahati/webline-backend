@@ -82,6 +82,10 @@ func (s *CategoryService) CreateCategoryService(
 func (s *CategoryService) GetCategoryByIDService(ctx context.Context, id string) (database.Category, error) {
 	// parse id to uuid
 	categoryID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("failed to parse category ID", zap.Error(err))
+		return database.Category{}, err
+	}
 
 	category, err := s.categoryRepo.GetCategoryByID(ctx, categoryID)
 	if err != nil {
@@ -406,7 +410,7 @@ func (s *CategoryService) buildCategoryHierarchy(categories []database.GetCatego
 
 		if row.ProductID.Valid {
 			category := categoryMap[row.CategoryID]
-			log.Printf(s.constructS3URL(row.ImageUrl.String))
+
 			product := Product{
 				ProductID:   row.ProductID.UUID.String(),
 				ProductName: row.ProductName.String,
