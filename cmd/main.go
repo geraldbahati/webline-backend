@@ -319,6 +319,7 @@ func setupRouter(
 	productAnalyticRouter.HandleFunc("/best-sellers", productAnalyticHandler.GetBestSellerProducts).Methods(http.MethodGet)
 	productAnalyticRouter.HandleFunc("/featured", productAnalyticHandler.GetFeaturedProducts).Methods(http.MethodGet)
 	productAnalyticRouter.HandleFunc("/new-arrivals", productAnalyticHandler.GetNewArrivalProducts).Methods(http.MethodGet)
+	productAnalyticRouter.HandleFunc("/daily-deals", productAnalyticHandler.GetDailyDealsProducts).Methods(http.MethodGet)
 
 	// Promotion routes
 	promotionRouter := r.PathPrefix("/api/promotions").Subrouter()

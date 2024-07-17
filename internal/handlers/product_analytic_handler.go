@@ -103,3 +103,16 @@ func (h *ProductAnalyticHandler) GetNewArrivalProducts(w http.ResponseWriter, r 
 	// respond with products
 	RespondWithJSON(w, http.StatusOK, newArrivalProducts)
 }
+
+// GetDailyDealsProducts retrieves the daily deals products
+func (h *ProductAnalyticHandler) GetDailyDealsProducts(w http.ResponseWriter, r *http.Request) {
+	// get daily deals products
+	dailyDealsProducts, err := h.productAnalyticService.GetDailyDealsProducts(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get daily deals products")
+		return
+	}
+
+	// respond with products
+	RespondWithJSON(w, http.StatusOK, dailyDealsProducts)
+}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"go.uber.org/zap"
+	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 )
@@ -121,5 +122,44 @@ func (r *ProductAnalyticRepository) GetNewArrivalProducts(ctx context.Context, l
 	}
 
 	r.logger.Info("New arrival products retrieved successfully")
+	return products, nil
+}
+
+// GetDailyDealsProducts returns the daily deals products
+func (r *ProductAnalyticRepository) GetDailyDealsProducts(ctx context.Context) ([]*model.Product, error) {
+	rows, err := r.Queries.GetDailyDeals(ctx)
+	if err != nil {
+		r.logger.Error("Failed to get daily deals products", zap.Error(err))
+		return nil, fmt.Errorf("get daily deals products: %w", err)
+	}
+
+	var products []*model.Product
+	for _, row := range rows {
+		discount, err := strconv.ParseFloat(row.DiscountPercentage, 64)
+		if err != nil {
+			r.logger.Error("Failed to parse discount percent", zap.Error(err))
+			return nil, fmt.Errorf("parse discount percent: %w", err)
+		}
+
+		imageUrl := ""
+		if row.ImageUrl.Valid {
+			imageUrl = row.ImageUrl.String
+		}
+
+		products = append(products, &model.Product{
+			ID:              row.ID,
+			Name:            row.Name,
+			Description:     row.Description.String,
+			Price:           row.Price,
+			Stock:           row.Stock.Int32,
+			CategoryID:      row.CategoryID.UUID,
+			IsActive:        row.IsActive.Bool,
+			Featured:        row.Featured.Bool,
+			ImageURL:        imageUrl,
+			DiscountPercent: discount,
+		})
+	}
+
+	r.logger.Info("Daily deals products retrieved successfully")
 	return products, nil
 }
