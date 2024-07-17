@@ -32,13 +32,56 @@ WHERE category_id = $1
 ORDER BY name;
 
 -- name: SearchProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
-FROM products
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        id,
+        name,
+        parent_id
+    FROM
+        categories
+    WHERE
+        name ILIKE '%' || $1 || '%'
+    UNION ALL
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            INNER JOIN category_hierarchy ch ON c.parent_id = ch.id
+)
+SELECT DISTINCT ON (p.id)
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.is_active,
+    p.created_by,
+    p.updated_by,
+    p.featured,
+    p.search_keyword
+FROM
+    products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN category_hierarchy ch ON p.category_id = ch.id
 WHERE
-    name ILIKE '%' || $1 || '%' OR
-    description ILIKE '%' || $1 || '%' OR
-    search_keyword @@ websearch_to_tsquery('english', $1)
-ORDER BY ts_rank(search_keyword, websearch_to_tsquery('english', $1)) DESC;
+    (
+        p.name ILIKE '%' || $1 || '%' OR
+        p.description ILIKE '%' || $1 || '%' OR
+        COALESCE(c.name, '') ILIKE '%' || $1 || '%' OR
+        p.search_keyword @@ plainto_tsquery('english', $1) OR
+        ch.id IS NOT NULL
+        )
+  AND p.is_active = true
+ORDER BY
+    p.id,
+    ts_rank(p.search_keyword, plainto_tsquery('english', $1)) DESC,
+    p.created_at DESC;
+
 
 -- name: CountProducts :one
 SELECT COUNT(*) AS count
