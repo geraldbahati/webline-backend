@@ -113,6 +113,7 @@ func main() {
 	productSEOService := services.NewProductSEOService(logger, &cfg, productRepo)
 	productAnalyticService := services.NewProductAnalyticService(logger, &cfg, productAnalyticRepo, productImageRepo, discountRepo)
 	promotionService := services.NewPromotionService(logger, &cfg, s3Client, promotionRepo, productRepo, productImageRepo, discountRepo)
+	discountService := services.NewDiscountService(logger, discountRepo, productRepo)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService)
@@ -129,6 +130,7 @@ func main() {
 	inquiryHandler := handlers.NewInquiryHandler(logger, inquiryService)
 	productAnalyticHandler := handlers.NewProductAnalyticHandler(productAnalyticService)
 	promotionHandler := handlers.NewPromotionHandler(promotionService)
+	discountHandler := handlers.NewDiscountHandler(discountService)
 
 	// Setup router
 	r := setupRouter(
@@ -147,6 +149,7 @@ func main() {
 		inquiryHandler,
 		productAnalyticHandler,
 		promotionHandler,
+		discountHandler,
 	)
 
 	logger.Info("Router setup completed")
@@ -175,6 +178,7 @@ func setupRouter(
 	inquiryHandler *handlers.InquiryHandler,
 	productAnalyticHandler *handlers.ProductAnalyticHandler,
 	promotionHandler *handlers.PromotionHandler,
+	discountHandler *handlers.DiscountHandler,
 ) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
@@ -325,6 +329,10 @@ func setupRouter(
 	promotionRouter := r.PathPrefix("/api/promotions").Subrouter()
 	promotionRouter.HandleFunc("", promotionHandler.CreatePromotion).Methods(http.MethodPost)
 	promotionRouter.HandleFunc("", promotionHandler.GetPromotions).Methods(http.MethodGet)
+
+	// Discount routes
+	discountRouter := r.PathPrefix("/api/discounts").Subrouter()
+	discountRouter.HandleFunc("", discountHandler.CreateDiscountHandler).Methods(http.MethodPost)
 
 	return r
 }
