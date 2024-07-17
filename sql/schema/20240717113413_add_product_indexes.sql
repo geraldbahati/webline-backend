@@ -10,4 +10,4 @@ CREATE INDEX IF NOT EXISTS idx_products_is_active ON products (is_active);
 
 DROP INDEX IF EXISTS idx_products_search_keyword;
 DROP INDEX IF EXISTS idx_products_name_description;
-DROP INDEX IF EXISTS idx_products_is_active;
+DROP INDEX IF EXISTS idx_products_is_active; 

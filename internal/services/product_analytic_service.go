@@ -180,3 +180,27 @@ func (s *ProductAnalyticService) GetNewArrivalProducts(ctx context.Context, limi
 	}
 	return products, nil
 }
+
+// GetDailyDealsProducts returns the daily deals products
+func (s *ProductAnalyticService) GetDailyDealsProducts(ctx context.Context) ([]*model.Product, error) {
+	// get daily deals products from repository
+	products, err := s.analyticRep.GetDailyDealsProducts(ctx)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			s.logger.Info("No daily deals products found")
+			return nil, err
+		default:
+			s.logger.Error("Failed to get daily deals products", zap.Error(err))
+			return nil, err
+		}
+	}
+
+	for _, product := range products {
+		// generate image url for the product
+		if product.ImageURL != "" {
+			product.ImageURL = s.constructS3URL(product.ImageURL)
+		}
+	}
+	return products, nil
+}
