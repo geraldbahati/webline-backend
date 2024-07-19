@@ -114,12 +114,19 @@ func (s *CategoryService) UpdateCategoryService(
 	name string,
 	parentID string,
 	position int32,
-) (database.Category, error) {
+) (*database.Category, error) {
 	// parse id to uuid
 	categoryID, err := uuid.Parse(id)
 	if err != nil {
 		s.logger.Error("failed to parse category ID", zap.Error(err))
-		return database.Category{}, err
+		return nil, err
+	}
+
+	// get category by ID
+	existingCategory, err := s.categoryRepo.GetCategoryByID(ctx, categoryID)
+	if err != nil {
+		s.logger.Error("the category does not exist", zap.Error(err))
+		return nil, err
 	}
 
 	// parse parentID to null uuid
@@ -128,26 +135,39 @@ func (s *CategoryService) UpdateCategoryService(
 		id, err := uuid.Parse(parentID)
 		if err != nil {
 			s.logger.Error("failed to parse parent ID", zap.Error(err))
-			return database.Category{}, err
+			return nil, err
 		}
 		parentIDValue = uuid.NullUUID{
 			UUID:  id,
 			Valid: true,
 		}
 	} else {
-		parentIDValue = uuid.NullUUID{
-			UUID:  uuid.Nil,
-			Valid: false,
-		}
+		parentIDValue = existingCategory.ParentID
 	}
 
+	// if the name is the same as the current name, return the category
+	if name == existingCategory.Name && parentIDValue == existingCategory.ParentID && position == existingCategory.Position {
+		return nil, nil
+	}
+
+	// if name is not provided, use the current name
+	if name == "" {
+		name = existingCategory.Name
+	}
+
+	// if position is not provided, use the current position
+	if position == 0 {
+		position = existingCategory.Position
+	}
+
+	// update category
 	category, err := s.categoryRepo.UpdateCategory(ctx, categoryID, name, parentIDValue, position)
 	if err != nil {
 		s.logger.Error("failed to update category", zap.Error(err))
-		return database.Category{}, err
+		return nil, err
 	}
 
-	return category, nil
+	return &category, nil
 }
 
 // SoftDeleteCategoryService marks a category as inactive
