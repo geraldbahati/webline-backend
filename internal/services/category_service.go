@@ -561,21 +561,35 @@ func (s *CategoryService) GetCollectionCategoriesService(ctx context.Context) ([
 	collections := make([]model.Collection, 0)
 
 	for _, category := range parentCategories {
-		childCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get child categories", zap.Error(err))
-			return nil, err
-		}
+		if category.Name == "Computing" {
+			childCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+			if err != nil {
+				s.logger.Error("failed to get child categories", zap.Error(err))
+				return nil, err
+			}
 
-		for _, childCategory := range childCategories {
+			for _, childCategory := range childCategories {
+				imageUrl := ""
+				if childCategory.ImageUrl.Valid {
+					imageUrl = s.constructS3URL(childCategory.ImageUrl.String)
+				}
+				collection := model.Collection{
+					ID:         childCategory.ID,
+					Name:       childCategory.Name,
+					ParentName: category.Name,
+					ImageUrl:   imageUrl,
+				}
+				collections = append(collections, collection)
+			}
+		} else {
 			imageUrl := ""
-			if childCategory.ImageUrl.Valid {
-				imageUrl = s.constructS3URL(childCategory.ImageUrl.String)
+			if category.ImageUrl.Valid {
+				imageUrl = s.constructS3URL(category.ImageUrl.String)
 			}
 			collection := model.Collection{
-				ID:         childCategory.ID,
-				Name:       childCategory.Name,
-				ParentName: category.Name,
+				ID:         category.ID,
+				Name:       category.Name,
+				ParentName: "",
 				ImageUrl:   imageUrl,
 			}
 			collections = append(collections, collection)
