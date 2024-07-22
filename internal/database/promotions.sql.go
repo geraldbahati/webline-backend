@@ -28,25 +28,58 @@ func (q *Queries) AddProductToPromotion(ctx context.Context, arg AddProductToPro
 }
 
 const createPromotion = `-- name: CreatePromotion :one
-INSERT INTO promotions (title, description, image_url)
-VALUES ($1, $2, $3)
-RETURNING id, title, description, image_url, created_at, updated_at
+INSERT INTO promotions (tagline, main_title, subtitle, title, description, image_url, start_date, end_date)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, tagline, main_title, subtitle, title, description, image_url, start_date, end_date, created_at, updated_at
 `
 
 type CreatePromotionParams struct {
+	Tagline     sql.NullString
+	MainTitle   string
+	Subtitle    string
 	Title       string
 	Description sql.NullString
 	ImageUrl    sql.NullString
+	StartDate   sql.NullTime
+	EndDate     sql.NullTime
 }
 
-func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams) (Promotion, error) {
-	row := q.db.QueryRowContext(ctx, createPromotion, arg.Title, arg.Description, arg.ImageUrl)
-	var i Promotion
+type CreatePromotionRow struct {
+	ID          uuid.UUID
+	Tagline     sql.NullString
+	MainTitle   string
+	Subtitle    string
+	Title       string
+	Description sql.NullString
+	ImageUrl    sql.NullString
+	StartDate   sql.NullTime
+	EndDate     sql.NullTime
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
+func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams) (CreatePromotionRow, error) {
+	row := q.db.QueryRowContext(ctx, createPromotion,
+		arg.Tagline,
+		arg.MainTitle,
+		arg.Subtitle,
+		arg.Title,
+		arg.Description,
+		arg.ImageUrl,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	var i CreatePromotionRow
 	err := row.Scan(
 		&i.ID,
+		&i.Tagline,
+		&i.MainTitle,
+		&i.Subtitle,
 		&i.Title,
 		&i.Description,
 		&i.ImageUrl,
+		&i.StartDate,
+		&i.EndDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -75,9 +108,14 @@ WITH first_images AS (
      )
 SELECT
     p.id AS promotion_id,
+    p.tagline,
+    p.main_title,
+    p.subtitle,
     p.title,
     p.description,
     p.image_url AS promotion_image_url,
+    p.start_date,
+    p.end_date,
     p.created_at,
     p.updated_at,
     pr.id AS product_id,
@@ -98,9 +136,14 @@ ORDER BY
 
 type GetPromotionsWithProductsRow struct {
 	PromotionID        uuid.UUID
+	Tagline            sql.NullString
+	MainTitle          string
+	Subtitle           string
 	Title              string
 	Description        sql.NullString
 	PromotionImageUrl  sql.NullString
+	StartDate          sql.NullTime
+	EndDate            sql.NullTime
 	CreatedAt          sql.NullTime
 	UpdatedAt          sql.NullTime
 	ProductID          uuid.UUID
@@ -122,9 +165,14 @@ func (q *Queries) GetPromotionsWithProducts(ctx context.Context) ([]GetPromotion
 		var i GetPromotionsWithProductsRow
 		if err := rows.Scan(
 			&i.PromotionID,
+			&i.Tagline,
+			&i.MainTitle,
+			&i.Subtitle,
 			&i.Title,
 			&i.Description,
 			&i.PromotionImageUrl,
+			&i.StartDate,
+			&i.EndDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ProductID,

@@ -69,6 +69,9 @@ func (r *PromotionRepository) CreatePromotion(ctx context.Context, params *datab
 		promotion = &model.PromotionSchema{
 			ID:          data.ID,
 			Title:       data.Title,
+			Tagline:     data.Tagline.String,
+			MainTitle:   data.MainTitle,
+			SubTitle:    data.Subtitle,
 			Description: data.Description.String,
 			ImageUrl:    data.ImageUrl.String,
 		}
@@ -118,6 +121,9 @@ func (r *PromotionRepository) GetPromotionsWithProducts(ctx context.Context) ([]
 
 		promotionList = append(promotionList, &model.Promotion{
 			ProductID:         promotion.ProductID,
+			Tagline:           promotion.Tagline.String,
+			MainTitle:         promotion.MainTitle,
+			SubTitle:          promotion.Subtitle,
 			Title:             promotion.Title,
 			Description:       promotion.Description.String,
 			Discount:          discount,
