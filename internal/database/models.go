@@ -267,6 +267,11 @@ type Promotion struct {
 	ImageUrl    sql.NullString
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
+	Tagline     sql.NullString
+	MainTitle   string
+	Subtitle    string
+	StartDate   sql.NullTime
+	EndDate     sql.NullTime
 }
 
 type PromotionProduct struct {
