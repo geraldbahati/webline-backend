@@ -35,6 +35,7 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 		Price       float64 `json:"price"`
 		Stock       int32   `json:"stock"`
 		CategoryID  string  `json:"category_id"`
+		PartNumber  string  `json:"part_number"`
 	}
 
 	// decode request body
@@ -44,7 +45,7 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// create product
-	product, err := h.productService.CreateProduct(r.Context(), params.Name, params.Description, params.Price, params.CategoryID, params.Stock)
+	product, err := h.productService.CreateProduct(r.Context(), params.Name, params.Description, params.Price, params.CategoryID, params.PartNumber, params.Stock)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product")
 		return
@@ -362,17 +363,15 @@ func (h *ProductHandler) GetAllProductSitemapHandler(w http.ResponseWriter, r *h
 func (h *ProductHandler) GetProductSEOHandler(w http.ResponseWriter, r *http.Request) {
 	// get product ID
 	vars := mux.Vars(r)
-	productID := vars["id"]
+	slug := vars["slug"]
 
-	// parse product ID
-	productUUID, err := uuid.Parse(productID)
-	if err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Invalid product ID")
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
 		return
 	}
 
 	// get product SEO
-	productSEO, err := h.productSEOService.GetProductSEO(r.Context(), &productUUID)
+	productSEO, err := h.productSEOService.GetProductSEO(r.Context(), slug)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -386,4 +385,27 @@ func (h *ProductHandler) GetProductSEOHandler(w http.ResponseWriter, r *http.Req
 
 	// respond with product SEO
 	RespondWithJSON(w, http.StatusOK, productSEO)
+}
+
+// GetProductBySlugHandler gets a product by its slug
+func (h *ProductHandler) GetProductBySlugHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	// get product
+	product, err := h.productService.GetProductBySlug(r.Context(), slug)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			RespondWithError(w, http.StatusNotFound, "Product not found")
+			return
+		default:
+			RespondWithError(w, http.StatusInternalServerError, "Failed to get product by slug")
+			return
+		}
+	}
+
+	// respond with product
+	RespondWithJSON(w, http.StatusOK, product)
 }

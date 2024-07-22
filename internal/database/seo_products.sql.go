@@ -24,12 +24,12 @@ SELECT
     (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY created_at LIMIT 1) AS image_url
 FROM products p
          JOIN categories c ON p.category_id = c.id
-WHERE p.id = $1
+WHERE p.slug = $1
 `
 
 type GetProductSEORow struct {
 	ID              uuid.UUID
-	PartNumber      sql.NullString
+	PartNumber      string
 	MetaTitle       sql.NullString
 	MetaDescription sql.NullString
 	MetaKeywords    sql.NullString
@@ -38,8 +38,8 @@ type GetProductSEORow struct {
 	ImageUrl        string
 }
 
-func (q *Queries) GetProductSEO(ctx context.Context, id uuid.UUID) (GetProductSEORow, error) {
-	row := q.db.QueryRowContext(ctx, getProductSEO, id)
+func (q *Queries) GetProductSEO(ctx context.Context, slug sql.NullString) (GetProductSEORow, error) {
+	row := q.db.QueryRowContext(ctx, getProductSEO, slug)
 	var i GetProductSEORow
 	err := row.Scan(
 		&i.ID,
@@ -67,7 +67,7 @@ WHERE id = $1
 
 type UpdateProductSEOParams struct {
 	ID              uuid.UUID
-	PartNumber      sql.NullString
+	PartNumber      string
 	MetaTitle       sql.NullString
 	MetaDescription sql.NullString
 	MetaKeywords    sql.NullString

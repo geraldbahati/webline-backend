@@ -67,9 +67,10 @@ func (r *ProductRepository) CreateProduct(
 			Description: product.Description.String,
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID.UUID,
+			CategoryID:  product.CategoryID,
 			IsActive:    product.IsActive.Bool,
 			Featured:    product.Featured.Bool,
+			Slug:        product.Slug.String,
 		}
 
 		return nil
@@ -98,9 +99,34 @@ func (r *ProductRepository) GetProductByID(
 		Description: product.Description.String,
 		Price:       product.Price,
 		Stock:       product.Stock.Int32,
-		CategoryID:  product.CategoryID.UUID,
+		CategoryID:  product.CategoryID,
 		IsActive:    product.IsActive.Bool,
 		Featured:    product.Featured.Bool,
+		Slug:        product.Slug.String,
+	}, nil
+}
+
+// GetProductBySlug retrieves a product by its slug
+func (r *ProductRepository) GetProductBySlug(
+	ctx context.Context,
+	slug string,
+) (model.ProductSchema, error) {
+	product, err := r.Queries.GetProductBySlug(ctx, sql.NullString{String: slug, Valid: true})
+	if err != nil {
+		r.logger.Error("failed to get product by slug", zap.Error(err))
+		return model.ProductSchema{}, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	return model.ProductSchema{
+		ID:          product.ID,
+		Name:        product.Name,
+		Description: product.Description.String,
+		Price:       product.Price,
+		Stock:       product.Stock.Int32,
+		CategoryID:  product.CategoryID,
+		IsActive:    product.IsActive.Bool,
+		Featured:    product.Featured.Bool,
+		Slug:        product.Slug.String,
 	}, nil
 }
 
@@ -142,9 +168,10 @@ func (r *ProductRepository) UpdateProduct(
 			Description: product.Description.String,
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID.UUID,
+			CategoryID:  product.CategoryID,
 			IsActive:    product.IsActive.Bool,
 			Featured:    product.Featured.Bool,
+			Slug:        product.Slug.String,
 		}
 
 		return nil
@@ -199,9 +226,10 @@ func (r *ProductRepository) GetProductsByCategoryID(
 			Description: product.Description.String,
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID.UUID,
+			CategoryID:  product.CategoryID,
 			IsActive:    product.IsActive.Bool,
 			Featured:    product.Featured.Bool,
+			Slug:        product.Slug.String,
 		})
 	}
 
@@ -241,9 +269,10 @@ func (r *ProductRepository) SearchProducts(
 			Description: product.Description.String,
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID.UUID,
+			CategoryID:  product.CategoryID,
 			IsActive:    product.IsActive.Bool,
 			Featured:    product.Featured.Bool,
+			Slug:        product.Slug.String,
 		})
 	}
 
@@ -284,9 +313,10 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 			Description: product.Description.String,
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID.UUID,
+			CategoryID:  product.CategoryID,
 			IsActive:    product.IsActive.Bool,
 			Featured:    product.Featured.Bool,
+			Slug:        product.Slug.String,
 		})
 	}
 
@@ -339,9 +369,10 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceAsc(ctx context.Context,
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -363,9 +394,10 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceDesc(ctx context.Context
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -387,9 +419,10 @@ func (r *ProductRepository) GetAllProductsByFiltersNameAsc(ctx context.Context, 
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -411,9 +444,10 @@ func (r *ProductRepository) GetAllProductsByFiltersNameDesc(ctx context.Context,
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -435,9 +469,10 @@ func (r *ProductRepository) GetAllProductsByFiltersNewest(ctx context.Context, p
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -459,9 +494,10 @@ func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, p
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -493,18 +529,15 @@ func (r *ProductRepository) UpdateProductSEO(
 // GetProductSEO retrieves the SEO fields of a product
 func (r *ProductRepository) GetProductSEO(
 	ctx context.Context,
-	id uuid.UUID,
+	slug string,
 ) (*model.ProductSEO, error) {
-	seo, err := r.Queries.GetProductSEO(ctx, id)
+	seo, err := r.Queries.GetProductSEO(ctx, sql.NullString{String: slug, Valid: true})
 	if err != nil {
 		r.logger.Error("failed to get product SEO", zap.Error(err))
 		return nil, fmt.Errorf("failed to get product SEO: %w", err)
 	}
 
-	var partNumber, metaTitle, metaDescription, metaKeywords string
-	if seo.PartNumber.Valid {
-		partNumber = seo.PartNumber.String
-	}
+	var metaTitle, metaDescription, metaKeywords string
 	if seo.MetaTitle.Valid {
 		metaTitle = seo.MetaTitle.String
 	}
@@ -517,7 +550,7 @@ func (r *ProductRepository) GetProductSEO(
 
 	return &model.ProductSEO{
 		ID:          seo.ID,
-		PartNumber:  partNumber,
+		PartNumber:  seo.PartNumber,
 		Title:       metaTitle,
 		Description: metaDescription,
 		Keywords:    metaKeywords,

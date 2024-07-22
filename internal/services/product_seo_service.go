@@ -32,11 +32,8 @@ func NewProductSEOService(logger *zap.Logger, config *appconfig.Config, productR
 func (s *ProductSEOService) UpdateProductSEO(ctx context.Context, productID *uuid.UUID, partNumber, seoTitle, seoDescription, seoKeywords string) error {
 	// Create the params
 	params := &database.UpdateProductSEOParams{
-		ID: *productID,
-		PartNumber: sql.NullString{
-			String: partNumber,
-			Valid:  partNumber != "",
-		},
+		ID:         *productID,
+		PartNumber: partNumber,
 		MetaTitle: sql.NullString{
 			String: seoTitle,
 			Valid:  seoTitle != "",
@@ -62,9 +59,9 @@ func (s *ProductSEOService) UpdateProductSEO(ctx context.Context, productID *uui
 }
 
 // GetProductSEO returns the SEO information of a product
-func (s *ProductSEOService) GetProductSEO(ctx context.Context, productID *uuid.UUID) (*model.ProductSEO, error) {
+func (s *ProductSEOService) GetProductSEO(ctx context.Context, slug string) (*model.ProductSEO, error) {
 	// Get the product SEO
-	productSEO, err := s.productRepo.GetProductSEO(ctx, *productID)
+	productSEO, err := s.productRepo.GetProductSEO(ctx, slug)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):

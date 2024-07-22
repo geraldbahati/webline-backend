@@ -24,6 +24,7 @@ SELECT
     p.updated_at,
     p.is_active,
     p.featured,
+    p.slug,
     SUM(oi.quantity) AS total_sold
 FROM
     products p
@@ -42,11 +43,12 @@ type GetBestSellerProductsRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	Featured    sql.NullBool
+	Slug        sql.NullString
 	TotalSold   int64
 }
 
@@ -70,6 +72,7 @@ func (q *Queries) GetBestSellerProducts(ctx context.Context, limit int32) ([]Get
 			&i.UpdatedAt,
 			&i.IsActive,
 			&i.Featured,
+			&i.Slug,
 			&i.TotalSold,
 		); err != nil {
 			return nil, err
@@ -104,6 +107,7 @@ SELECT
     p.created_by,
     p.updated_by,
     p.featured,
+    p.slug,
     d.discount_percentage,
     d.start_date,
     d.end_date,
@@ -127,13 +131,14 @@ type GetDailyDealsRow struct {
 	Description        sql.NullString
 	Price              string
 	Stock              sql.NullInt32
-	CategoryID         uuid.NullUUID
+	CategoryID         uuid.UUID
 	CreatedAt          sql.NullTime
 	UpdatedAt          sql.NullTime
 	IsActive           sql.NullBool
 	CreatedBy          uuid.NullUUID
 	UpdatedBy          uuid.NullUUID
 	Featured           sql.NullBool
+	Slug               sql.NullString
 	DiscountPercentage string
 	StartDate          sql.NullTime
 	EndDate            sql.NullTime
@@ -162,6 +167,7 @@ func (q *Queries) GetDailyDeals(ctx context.Context) ([]GetDailyDealsRow, error)
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 			&i.DiscountPercentage,
 			&i.StartDate,
 			&i.EndDate,
@@ -191,7 +197,8 @@ SELECT
     created_at,
     updated_at,
     is_active,
-    featured
+    featured,
+    slug
 FROM
     products
 WHERE
@@ -207,11 +214,12 @@ type GetFeaturedProductsRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetFeaturedProducts(ctx context.Context, limit int32) ([]GetFeaturedProductsRow, error) {
@@ -234,6 +242,7 @@ func (q *Queries) GetFeaturedProducts(ctx context.Context, limit int32) ([]GetFe
 			&i.UpdatedAt,
 			&i.IsActive,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -259,7 +268,8 @@ SELECT
     created_at,
     updated_at,
     is_active,
-    featured
+    featured,
+    slug
 FROM
     products
 WHERE
@@ -276,11 +286,12 @@ type GetNewArrivalProductsRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetNewArrivalProducts(ctx context.Context, limit int32) ([]GetNewArrivalProductsRow, error) {
@@ -303,6 +314,7 @@ func (q *Queries) GetNewArrivalProducts(ctx context.Context, limit int32) ([]Get
 			&i.UpdatedAt,
 			&i.IsActive,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}

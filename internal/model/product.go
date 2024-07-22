@@ -25,6 +25,7 @@ type Product struct {
 	Featured        bool
 	ImageURL        string
 	DiscountPercent float64
+	Slug            string
 }
 
 type ProductDetail struct {
@@ -37,6 +38,7 @@ type ProductDetail struct {
 	IsActive        bool
 	Featured        bool
 	DiscountPercent float64
+	Slug            string
 	Images          []ProductImage
 	Colors          []ProductColor
 	Specifications  []ProductSpecification
@@ -52,6 +54,7 @@ type ProductSchema struct {
 	CategoryID  uuid.UUID
 	IsActive    bool
 	Featured    bool
+	Slug        string
 }
 
 type ProductColor struct {
@@ -102,8 +105,8 @@ type ProductSize struct {
 }
 
 type ProductCategoryFilterOption struct {
-	Title         string
-	Subcategories []ProductFilterOption
+	Title         string                `json:"title"`
+	Subcategories []ProductFilterOption `json:"subcategories"`
 }
 
 type ProductFilterOption struct {
@@ -127,6 +130,7 @@ type FilterProduct struct {
 	Featured        bool
 	ImageURL        string
 	DiscountPercent float64
+	Slug            string
 }
 
 type ProductSitemap struct {

@@ -10,6 +10,7 @@ SELECT
     p.updated_at,
     p.is_active,
     p.featured,
+    p.slug,
     SUM(oi.quantity) AS total_sold
 FROM
     products p
@@ -32,7 +33,8 @@ SELECT
     created_at,
     updated_at,
     is_active,
-    featured
+    featured,
+    slug
 FROM
     products
 WHERE
@@ -52,7 +54,8 @@ SELECT
     created_at,
     updated_at,
     is_active,
-    featured
+    featured,
+    slug
 FROM
     products
 WHERE
@@ -82,6 +85,7 @@ SELECT
     p.created_by,
     p.updated_by,
     p.featured,
+    p.slug,
     d.discount_percentage,
     d.start_date,
     d.end_date,
