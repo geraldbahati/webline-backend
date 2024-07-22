@@ -20,4 +20,4 @@ SELECT
     (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY created_at LIMIT 1) AS image_url
 FROM products p
          JOIN categories c ON p.category_id = c.id
-WHERE p.id = $1;
+WHERE p.slug = $1;

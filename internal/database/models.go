@@ -148,7 +148,7 @@ type Product struct {
 	Description     sql.NullString
 	Price           string
 	Stock           sql.NullInt32
-	CategoryID      uuid.NullUUID
+	CategoryID      uuid.UUID
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	IsActive        sql.NullBool
@@ -156,10 +156,11 @@ type Product struct {
 	UpdatedBy       uuid.NullUUID
 	Featured        sql.NullBool
 	SearchKeyword   interface{}
-	PartNumber      sql.NullString
+	PartNumber      string
 	MetaTitle       sql.NullString
 	MetaDescription sql.NullString
 	MetaKeywords    sql.NullString
+	Slug            sql.NullString
 }
 
 type ProductColor struct {

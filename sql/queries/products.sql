@@ -1,15 +1,20 @@
 -- name: CreateProduct :one
-INSERT INTO products (name, description, price, stock, category_id, created_by, updated_by, is_active, search_keyword)
-VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, to_tsvector('english', $1 || ' ' || $2))
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword;
+INSERT INTO products (name, description, price, stock, category_id, created_by,part_number, updated_by, is_active, search_keyword)
+VALUES ($1, $2, $3, $4, $5, $6, $7,$8, TRUE, to_tsvector('english', $1 || ' ' || $2))
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug;
 
 -- name: GetProductByID :one
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
 FROM products
 WHERE id = $1;
 
+-- name: GetProductBySlug :one
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
+FROM products
+WHERE slug = $1;
+
 -- name: ListProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
 FROM products
 ORDER BY name
 LIMIT $1 OFFSET $2;
@@ -18,7 +23,7 @@ LIMIT $1 OFFSET $2;
 UPDATE products
 SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, search_keyword = to_tsvector('english', $2 || ' ' || $3)
 WHERE id = $1
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword;
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug;
 
 -- name: SoftDeleteProduct :exec
 UPDATE products
@@ -63,7 +68,8 @@ SELECT DISTINCT ON (p.id)
     p.created_by,
     p.updated_by,
     p.featured,
-    p.search_keyword
+    p.search_keyword,
+    p.slug
 FROM
     products p
         LEFT JOIN categories c ON p.category_id = c.id
@@ -202,7 +208,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -243,7 +250,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -284,7 +292,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -325,7 +334,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -366,7 +376,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -407,7 +418,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -448,7 +460,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -502,6 +515,7 @@ FROM
         JOIN
     product_storage_options pso ON so.id = pso.storage_option_id;
 
+
 -- name: GetAllProductsByFiltersPriceAsc :many
 WITH RECURSIVE category_hierarchy AS (
     SELECT
@@ -538,6 +552,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -581,6 +596,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -628,6 +644,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -671,6 +688,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -718,6 +736,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -761,6 +780,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -809,6 +829,7 @@ LIMIT
                            p.created_by,
                            p.updated_by,
                            p.featured,
+                           p.slug,
                            s.size,
                            c.color_name,
                            pr.name AS processor_name,
@@ -852,6 +873,7 @@ LIMIT
         fp.created_by,
         fp.updated_by,
         fp.featured,
+        fp.slug,
         fp.size,
         fp.color_name,
         fp.processor_name,
@@ -900,6 +922,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -943,6 +966,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -991,6 +1015,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -1034,6 +1059,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,

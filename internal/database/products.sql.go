@@ -123,9 +123,9 @@ func (q *Queries) CountProductsByParentCategoryID(ctx context.Context, id uuid.U
 }
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (name, description, price, stock, category_id, created_by, updated_by, is_active, search_keyword)
-VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, to_tsvector('english', $1 || ' ' || $2))
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
+INSERT INTO products (name, description, price, stock, category_id, created_by,part_number, updated_by, is_active, search_keyword)
+VALUES ($1, $2, $3, $4, $5, $6, $7,$8, TRUE, to_tsvector('english', $1 || ' ' || $2))
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
 `
 
 type CreateProductParams struct {
@@ -133,8 +133,9 @@ type CreateProductParams struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedBy   uuid.NullUUID
+	PartNumber  string
 	UpdatedBy   uuid.NullUUID
 }
 
@@ -144,7 +145,7 @@ type CreateProductRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
@@ -152,6 +153,7 @@ type CreateProductRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
+	Slug          sql.NullString
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (CreateProductRow, error) {
@@ -162,6 +164,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (C
 		arg.Stock,
 		arg.CategoryID,
 		arg.CreatedBy,
+		arg.PartNumber,
 		arg.UpdatedBy,
 	)
 	var i CreateProductRow
@@ -179,6 +182,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (C
 		&i.UpdatedBy,
 		&i.Featured,
 		&i.SearchKeyword,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -219,6 +223,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -262,6 +267,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -292,13 +298,14 @@ type GetAllProductsByFiltersNameAscRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
+	Slug          sql.NullString
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -337,6 +344,7 @@ func (q *Queries) GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAll
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 			&i.Size,
 			&i.ColorName,
 			&i.ProcessorName,
@@ -391,6 +399,7 @@ const getAllProductsByFiltersNameDesc = `-- name: GetAllProductsByFiltersNameDes
                            p.created_by,
                            p.updated_by,
                            p.featured,
+                           p.slug,
                            s.size,
                            c.color_name,
                            pr.name AS processor_name,
@@ -434,6 +443,7 @@ const getAllProductsByFiltersNameDesc = `-- name: GetAllProductsByFiltersNameDes
         fp.created_by,
         fp.updated_by,
         fp.featured,
+        fp.slug,
         fp.size,
         fp.color_name,
         fp.processor_name,
@@ -464,13 +474,14 @@ type GetAllProductsByFiltersNameDescRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
+	Slug          sql.NullString
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -509,6 +520,7 @@ func (q *Queries) GetAllProductsByFiltersNameDesc(ctx context.Context, arg GetAl
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 			&i.Size,
 			&i.ColorName,
 			&i.ProcessorName,
@@ -563,6 +575,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -606,6 +619,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -636,13 +650,14 @@ type GetAllProductsByFiltersNewestRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
+	Slug          sql.NullString
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -681,6 +696,7 @@ func (q *Queries) GetAllProductsByFiltersNewest(ctx context.Context, arg GetAllP
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 			&i.Size,
 			&i.ColorName,
 			&i.ProcessorName,
@@ -735,6 +751,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -778,6 +795,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -808,13 +826,14 @@ type GetAllProductsByFiltersOldestRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
+	Slug          sql.NullString
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -853,6 +872,7 @@ func (q *Queries) GetAllProductsByFiltersOldest(ctx context.Context, arg GetAllP
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 			&i.Size,
 			&i.ColorName,
 			&i.ProcessorName,
@@ -907,6 +927,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -950,6 +971,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -980,13 +1002,14 @@ type GetAllProductsByFiltersPriceAscRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
+	Slug          sql.NullString
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -1025,6 +1048,7 @@ func (q *Queries) GetAllProductsByFiltersPriceAsc(ctx context.Context, arg GetAl
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 			&i.Size,
 			&i.ColorName,
 			&i.ProcessorName,
@@ -1079,6 +1103,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.created_by,
                        p.updated_by,
                        p.featured,
+                       p.slug,
                        s.size,
                        c.color_name,
                        pr.name AS processor_name,
@@ -1122,6 +1147,7 @@ SELECT
     fp.created_by,
     fp.updated_by,
     fp.featured,
+    fp.slug,
     fp.size,
     fp.color_name,
     fp.processor_name,
@@ -1152,13 +1178,14 @@ type GetAllProductsByFiltersPriceDescRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
+	Slug          sql.NullString
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -1197,6 +1224,7 @@ func (q *Queries) GetAllProductsByFiltersPriceDesc(ctx context.Context, arg GetA
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 			&i.Size,
 			&i.ColorName,
 			&i.ProcessorName,
@@ -1280,7 +1308,7 @@ func (q *Queries) GetFilterOptions(ctx context.Context) ([]GetFilterOptionsRow, 
 }
 
 const getProductByID = `-- name: GetProductByID :one
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
 FROM products
 WHERE id = $1
 `
@@ -1291,7 +1319,7 @@ type GetProductByIDRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
@@ -1299,6 +1327,7 @@ type GetProductByIDRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
+	Slug          sql.NullString
 }
 
 func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductByIDRow, error) {
@@ -1318,6 +1347,52 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 		&i.UpdatedBy,
 		&i.Featured,
 		&i.SearchKeyword,
+		&i.Slug,
+	)
+	return i, err
+}
+
+const getProductBySlug = `-- name: GetProductBySlug :one
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
+FROM products
+WHERE slug = $1
+`
+
+type GetProductBySlugRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	Price         string
+	Stock         sql.NullInt32
+	CategoryID    uuid.UUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	IsActive      sql.NullBool
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	SearchKeyword interface{}
+	Slug          sql.NullString
+}
+
+func (q *Queries) GetProductBySlug(ctx context.Context, slug sql.NullString) (GetProductBySlugRow, error) {
+	row := q.db.QueryRowContext(ctx, getProductBySlug, slug)
+	var i GetProductBySlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.Price,
+		&i.Stock,
+		&i.CategoryID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.Featured,
+		&i.SearchKeyword,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -1335,7 +1410,7 @@ type GetProductsByCategoryIDRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
@@ -1345,7 +1420,7 @@ type GetProductsByCategoryIDRow struct {
 	SearchKeyword interface{}
 }
 
-func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.NullUUID) ([]GetProductsByCategoryIDRow, error) {
+func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.UUID) ([]GetProductsByCategoryIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, getProductsByCategoryID, categoryID)
 	if err != nil {
 		return nil, err
@@ -1404,7 +1479,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -1441,13 +1517,14 @@ type GetProductsByFiltersDefaultRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetProductsByFiltersDefault(ctx context.Context, arg GetProductsByFiltersDefaultParams) ([]GetProductsByFiltersDefaultRow, error) {
@@ -1481,6 +1558,7 @@ func (q *Queries) GetProductsByFiltersDefault(ctx context.Context, arg GetProduc
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -1517,7 +1595,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -1554,13 +1633,14 @@ type GetProductsByFiltersNameAscRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetProductsByFiltersNameAsc(ctx context.Context, arg GetProductsByFiltersNameAscParams) ([]GetProductsByFiltersNameAscRow, error) {
@@ -1594,6 +1674,7 @@ func (q *Queries) GetProductsByFiltersNameAsc(ctx context.Context, arg GetProduc
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -1630,7 +1711,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -1667,13 +1749,14 @@ type GetProductsByFiltersNameDescRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetProductsByFiltersNameDesc(ctx context.Context, arg GetProductsByFiltersNameDescParams) ([]GetProductsByFiltersNameDescRow, error) {
@@ -1707,6 +1790,7 @@ func (q *Queries) GetProductsByFiltersNameDesc(ctx context.Context, arg GetProdu
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -1743,7 +1827,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -1780,13 +1865,14 @@ type GetProductsByFiltersNewestRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetProductsByFiltersNewest(ctx context.Context, arg GetProductsByFiltersNewestParams) ([]GetProductsByFiltersNewestRow, error) {
@@ -1820,6 +1906,7 @@ func (q *Queries) GetProductsByFiltersNewest(ctx context.Context, arg GetProduct
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -1856,7 +1943,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -1893,13 +1981,14 @@ type GetProductsByFiltersOldestRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetProductsByFiltersOldest(ctx context.Context, arg GetProductsByFiltersOldestParams) ([]GetProductsByFiltersOldestRow, error) {
@@ -1933,6 +2022,7 @@ func (q *Queries) GetProductsByFiltersOldest(ctx context.Context, arg GetProduct
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -1969,7 +2059,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -2006,13 +2097,14 @@ type GetProductsByFiltersPriceAscRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetProductsByFiltersPriceAsc(ctx context.Context, arg GetProductsByFiltersPriceAscParams) ([]GetProductsByFiltersPriceAscRow, error) {
@@ -2046,6 +2138,7 @@ func (q *Queries) GetProductsByFiltersPriceAsc(ctx context.Context, arg GetProdu
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -2082,7 +2175,8 @@ SELECT DISTINCT
     p.is_active,
     p.created_by,
     p.updated_by,
-    p.featured
+    p.featured,
+    p.slug
 FROM products p
 JOIN category_tree ct ON p.category_id = ct.id
 LEFT JOIN product_colors pc ON p.id = pc.product_id
@@ -2119,13 +2213,14 @@ type GetProductsByFiltersPriceDescRow struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 	IsActive    sql.NullBool
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Slug        sql.NullString
 }
 
 func (q *Queries) GetProductsByFiltersPriceDesc(ctx context.Context, arg GetProductsByFiltersPriceDescParams) ([]GetProductsByFiltersPriceDescRow, error) {
@@ -2159,6 +2254,7 @@ func (q *Queries) GetProductsByFiltersPriceDesc(ctx context.Context, arg GetProd
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.Featured,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -2192,7 +2288,7 @@ WITH RECURSIVE category_hierarchy AS (
              INNER JOIN category_hierarchy ch ON c2.parent_id = ch.id
 )
 SELECT
-    p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured, p.search_keyword, p.part_number, p.meta_title, p.meta_description, p.meta_keywords
+    p.id, p.name, p.description, p.price, p.stock, p.category_id, p.created_at, p.updated_at, p.is_active, p.created_by, p.updated_by, p.featured, p.search_keyword, p.part_number, p.meta_title, p.meta_description, p.meta_keywords, p.slug
 FROM products p
 WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
 LIMIT $2 OFFSET $3
@@ -2231,6 +2327,7 @@ func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, arg GetProd
 			&i.MetaTitle,
 			&i.MetaDescription,
 			&i.MetaKeywords,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -2328,7 +2425,7 @@ func (q *Queries) GetTotalProductsByFilters(ctx context.Context, arg GetTotalPro
 }
 
 const listProducts = `-- name: ListProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
 FROM products
 ORDER BY name
 LIMIT $1 OFFSET $2
@@ -2345,7 +2442,7 @@ type ListProductsRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
@@ -2353,6 +2450,7 @@ type ListProductsRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
+	Slug          sql.NullString
 }
 
 func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error) {
@@ -2378,6 +2476,7 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]L
 			&i.UpdatedBy,
 			&i.Featured,
 			&i.SearchKeyword,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -2424,7 +2523,8 @@ SELECT DISTINCT ON (p.id)
     p.created_by,
     p.updated_by,
     p.featured,
-    p.search_keyword
+    p.search_keyword,
+    p.slug
 FROM
     products p
         LEFT JOIN categories c ON p.category_id = c.id
@@ -2450,7 +2550,7 @@ type SearchProductsRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
@@ -2458,6 +2558,7 @@ type SearchProductsRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
+	Slug          sql.NullString
 }
 
 func (q *Queries) SearchProducts(ctx context.Context, dollar_1 sql.NullString) ([]SearchProductsRow, error) {
@@ -2483,6 +2584,7 @@ func (q *Queries) SearchProducts(ctx context.Context, dollar_1 sql.NullString) (
 			&i.UpdatedBy,
 			&i.Featured,
 			&i.SearchKeyword,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -2512,7 +2614,7 @@ const updateProduct = `-- name: UpdateProduct :one
 UPDATE products
 SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, search_keyword = to_tsvector('english', $2 || ' ' || $3)
 WHERE id = $1
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
 `
 
 type UpdateProductParams struct {
@@ -2521,7 +2623,7 @@ type UpdateProductParams struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
-	CategoryID  uuid.NullUUID
+	CategoryID  uuid.UUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
 }
@@ -2532,7 +2634,7 @@ type UpdateProductRow struct {
 	Description   sql.NullString
 	Price         string
 	Stock         sql.NullInt32
-	CategoryID    uuid.NullUUID
+	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
 	IsActive      sql.NullBool
@@ -2540,6 +2642,7 @@ type UpdateProductRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
+	Slug          sql.NullString
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (UpdateProductRow, error) {
@@ -2568,6 +2671,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (U
 		&i.UpdatedBy,
 		&i.Featured,
 		&i.SearchKeyword,
+		&i.Slug,
 	)
 	return i, err
 }

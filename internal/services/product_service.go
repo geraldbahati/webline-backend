@@ -71,6 +71,7 @@ func (s *ProductService) CreateProduct(
 	description string,
 	price float64,
 	categoryID string,
+	partNumber string,
 	stock int32,
 ) (model.ProductSchema, error) {
 	// get user from context
@@ -82,13 +83,18 @@ func (s *ProductService) CreateProduct(
 
 	// parsing
 	descriptionValue := sql.NullString{String: description, Valid: description != ""}
-	categoryIDValue := uuid.NullUUID{UUID: uuid.Nil, Valid: false}
-	if categoryID != "" {
-		if parsedUUID, err := uuid.Parse(categoryID); err == nil {
-			categoryIDValue.UUID = parsedUUID
-			categoryIDValue.Valid = true
-		}
+
+	if categoryID == "" {
+		s.logger.Error("category ID is required")
+		return model.ProductSchema{}, fmt.Errorf("category ID is required")
 	}
+
+	categoryIDValue, err := uuid.Parse(categoryID)
+	if err != nil {
+		s.logger.Error("invalid category ID", zap.Error(err))
+		return model.ProductSchema{}, fmt.Errorf("invalid category ID: %w", err)
+	}
+
 	stockValue := sql.NullInt32{Int32: stock, Valid: stock > 0}
 	creatorIDValue := uuid.NullUUID{UUID: userId, Valid: userId != uuid.Nil}
 
@@ -100,6 +106,7 @@ func (s *ProductService) CreateProduct(
 		Stock:       stockValue,
 		CreatedBy:   creatorIDValue,
 		UpdatedBy:   creatorIDValue,
+		PartNumber:  partNumber,
 	}
 
 	// create product
@@ -165,6 +172,62 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 		IsActive:        product.IsActive,
 		DiscountPercent: discountPercentage,
 		Featured:        product.Featured,
+		Slug:            product.Slug,
+		Colors:          colors,
+		Specifications:  specs,
+		Options:         options,
+		Images:          images,
+	}, nil
+}
+
+// GetProductBySlug retrieves a product by its slug
+func (s *ProductService) GetProductBySlug(ctx context.Context, slug string) (model.ProductDetail, error) {
+
+	// Get the product from the repository
+	product, err := s.productRepo.GetProductBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get product by slug", zap.String("slug", slug), zap.Error(err))
+		return model.ProductDetail{}, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	// Get the product discount
+	discountPercentage, err := s.getProductDiscountPercentage(ctx, product.ID)
+	if err != nil {
+		return model.ProductDetail{}, err
+	}
+
+	// Get the product specifications, images, colors, and options
+	specs, err := s.getProductSpecifications(ctx, product.ID)
+	if err != nil {
+		return model.ProductDetail{}, err
+	}
+
+	images, err := s.getProductImages(ctx, product.ID)
+	if err != nil {
+		return model.ProductDetail{}, err
+	}
+
+	colors, err := s.getProductColors(ctx, product.ID)
+	if err != nil {
+		return model.ProductDetail{}, err
+	}
+
+	options, err := s.getProductOptions(ctx, product.ID)
+	if err != nil {
+		return model.ProductDetail{}, err
+	}
+
+	return model.ProductDetail{
+		ID:              product.ID,
+		Name:            product.Name,
+		Description:     product.Description,
+		Price:           product.Price,
+		Stock:           product.Stock,
+		CategoryID:      product.CategoryID,
+		IsActive:        product.IsActive,
+		DiscountPercent: discountPercentage,
+		Featured:        product.Featured,
+		Slug:            product.Slug,
 		Colors:          colors,
 		Specifications:  specs,
 		Options:         options,
@@ -316,12 +379,16 @@ func (s *ProductService) UpdateProduct(
 		descriptionValue.Valid = false
 	}
 
-	var categoryIDValue uuid.NullUUID
-	if categoryID != "" {
-		categoryIDValue.UUID, _ = uuid.Parse(categoryID)
-		categoryIDValue.Valid = true
-	} else {
-		categoryIDValue.Valid = false
+	if categoryID == "" {
+		s.logger.Error("category ID is required")
+		return model.ProductSchema{}, fmt.Errorf("category ID is required")
+	}
+
+	categoryIDValue, err := uuid.Parse(categoryID)
+	if err != nil {
+		s.logger.Error("invalid category ID", zap.Error(err))
+		return model.ProductSchema{}, fmt.Errorf("invalid category ID: %w", err)
+
 	}
 
 	var stockValue sql.NullInt32
@@ -453,6 +520,7 @@ func (s *ProductService) mapProductsToModel(ctx context.Context, products []mode
 			CategoryID:      product.CategoryID,
 			IsActive:        product.IsActive,
 			Featured:        product.Featured,
+			Slug:            product.Slug,
 			ImageURL:        s.constructS3URL(productImages[0].ImageUrl),
 			DiscountPercent: discountPercentage,
 		})
@@ -1343,9 +1411,10 @@ func (s *ProductService) GetProductsByFiltersPriceAsc(
 			Description:     row.Description.String,
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			CategoryID:      row.CategoryID,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
+			Slug:            row.Slug.String,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
 		})
@@ -1394,9 +1463,10 @@ func (s *ProductService) GetProductsByFiltersPriceDesc(
 			Description:     row.Description.String,
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			CategoryID:      row.CategoryID,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
+			Slug:            row.Slug.String,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
 		})
@@ -1446,9 +1516,10 @@ func (s *ProductService) GetProductsByFiltersNameAsc(
 			Description:     row.Description.String,
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			CategoryID:      row.CategoryID,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
+			Slug:            row.Slug.String,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
 		})
@@ -1497,7 +1568,8 @@ func (s *ProductService) GetProductsByFiltersNameDesc(
 			Description:     row.Description.String,
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			CategoryID:      row.CategoryID,
+			Slug:            row.Slug.String,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -1543,12 +1615,12 @@ func (s *ProductService) GetProductsByFiltersDefault(
 		}
 
 		products = append(products, model.FilterProduct{
-			ID:              row.ID,
-			Name:            row.Name,
-			Description:     row.Description.String,
-			Price:           row.Price,
-			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID, Slug: row.Slug.String,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -1591,12 +1663,12 @@ func (s *ProductService) GetProductsByFiltersNewest(ctx context.Context, categor
 		}
 
 		products = append(products, model.FilterProduct{
-			ID:              row.ID,
-			Name:            row.Name,
-			Description:     row.Description.String,
-			Price:           row.Price,
-			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID, Slug: row.Slug.String,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -1639,12 +1711,12 @@ func (s *ProductService) GetProductsByFiltersOldest(ctx context.Context, categor
 		}
 
 		products = append(products, model.FilterProduct{
-			ID:              row.ID,
-			Name:            row.Name,
-			Description:     row.Description.String,
-			Price:           row.Price,
-			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID, Slug: row.Slug.String,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -1676,37 +1748,46 @@ func (s *ProductService) GetFilterOptionsByCategoryName(ctx context.Context, cat
 	return groupedOptions, nil
 }
 
-type FilterOptions map[string][]interface{}
+type FilterOptions struct {
+	Categories    []model.ProductCategoryFilterOption `json:"categories"`
+	TotalProducts int64                               `json:"totalProducts"`
+	Processor     []string                            `json:"processor"`
+	Storage       []string                            `json:"storage"`
+	Color         []string                            `json:"color"`
+	Size          []string                            `json:"size"`
+}
 
 // GetFilterOptions retrieves filter options for products
-func (s *ProductService) GetFilterOptions(ctx context.Context) (FilterOptions, error) {
+func (s *ProductService) GetFilterOptions(ctx context.Context) (*FilterOptions, error) {
+
 	filterOptions, err := s.productRepo.GetFilterOptions(ctx)
 	if err != nil {
 		s.logger.Error("failed to get filter options", zap.Error(err))
 		return nil, fmt.Errorf("failed to get filter options: %w", err)
 	}
 
-	// get available category and its subcategories
+	// Get available categories and their subcategories
 	categories, err := s.categoryRepo.GetParentCategories(ctx)
 	if err != nil {
 		s.logger.Error("failed to get parent categories", zap.Error(err))
 		return nil, fmt.Errorf("failed to get parent categories: %w", err)
 	}
 
-	// get total number of products
+	// Get total number of products
 	count, err := s.productRepo.CountProducts(ctx)
 	if err != nil {
 		s.logger.Error("failed to get total products", zap.Error(err))
 		return nil, fmt.Errorf("failed to get total products: %w", err)
 	}
-	groupedOptions := make(FilterOptions)
 
-	groupedOptions["TotalProducts"] = []interface{}{count}
+	filters := &FilterOptions{
+		TotalProducts: count,
+	}
 
-	// group the filter options by their type
+	// Group the filter options by their type
 	var categoryOptions []model.ProductCategoryFilterOption
 	for _, category := range categories {
-		// get the sub categories of each parent category
+		// Get the subcategories of each parent category
 		subCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
 		if err != nil {
 			s.logger.Error("failed to get subcategories", zap.Error(err))
@@ -1725,18 +1806,24 @@ func (s *ProductService) GetFilterOptions(ctx context.Context) (FilterOptions, e
 			Title:         category.Name,
 			Subcategories: subCategoryOptions,
 		})
-
-		groupedOptions["Categories"] = []interface{}{categoryOptions}
 	}
+
+	filters.Categories = categoryOptions
 
 	for _, option := range filterOptions {
-		if _, exists := groupedOptions[option.FilterType]; !exists {
-			groupedOptions[option.FilterType] = []interface{}{}
+		switch option.FilterType {
+		case "processor":
+			filters.Processor = append(filters.Processor, option.FilterOption)
+		case "storage":
+			filters.Storage = append(filters.Storage, option.FilterOption)
+		case "color":
+			filters.Color = append(filters.Color, option.FilterOption)
+		case "size":
+			filters.Size = append(filters.Size, option.FilterOption)
 		}
-		groupedOptions[option.FilterType] = append(groupedOptions[option.FilterType], option.FilterOption)
 	}
 
-	return groupedOptions, nil
+	return filters, nil
 }
 
 // GetAllProductsByFiltersPriceAsc retrieves all products by filters with price ascending

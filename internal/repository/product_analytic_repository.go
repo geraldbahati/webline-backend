@@ -63,9 +63,10 @@ func (r *ProductAnalyticRepository) GetBestSellerProducts(ctx context.Context, l
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -89,9 +90,10 @@ func (r *ProductAnalyticRepository) GetFeaturedProducts(ctx context.Context, lim
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
+			CategoryID:  row.CategoryID,
 			IsActive:    row.IsActive.Bool,
 			Featured:    row.Featured.Bool,
+			Slug:        row.Slug.String,
 		})
 	}
 
@@ -115,9 +117,9 @@ func (r *ProductAnalyticRepository) GetNewArrivalProducts(ctx context.Context, l
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID.UUID,
-			IsActive:    row.IsActive.Bool,
-			Featured:    row.Featured.Bool,
+			CategoryID:  row.CategoryID, Slug: row.Slug.String,
+			IsActive: row.IsActive.Bool,
+			Featured: row.Featured.Bool,
 		})
 	}
 
@@ -147,12 +149,12 @@ func (r *ProductAnalyticRepository) GetDailyDealsProducts(ctx context.Context) (
 		}
 
 		products = append(products, &model.Product{
-			ID:              row.ID,
-			Name:            row.Name,
-			Description:     row.Description.String,
-			Price:           row.Price,
-			Stock:           row.Stock.Int32,
-			CategoryID:      row.CategoryID.UUID,
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description.String,
+			Price:       row.Price,
+			Stock:       row.Stock.Int32,
+			CategoryID:  row.CategoryID, Slug: row.Slug.String,
 			IsActive:        row.IsActive.Bool,
 			Featured:        row.Featured.Bool,
 			ImageURL:        imageUrl,
