@@ -1,7 +1,8 @@
 -- name: CreatePromotion :one
-INSERT INTO promotions (title, description, image_url)
-VALUES ($1, $2, $3)
-RETURNING id, title, description, image_url, created_at, updated_at;
+INSERT INTO promotions (tagline, main_title, subtitle, title, description, image_url, start_date, end_date)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, tagline, main_title, subtitle, title, description, image_url, start_date, end_date, created_at, updated_at;
+
 
 -- name: AddProductToPromotion :exec
 INSERT INTO promotion_products (promotion_id, product_id)
@@ -29,9 +30,14 @@ WITH first_images AS (
      )
 SELECT
     p.id AS promotion_id,
+    p.tagline,
+    p.main_title,
+    p.subtitle,
     p.title,
     p.description,
     p.image_url AS promotion_image_url,
+    p.start_date,
+    p.end_date,
     p.created_at,
     p.updated_at,
     pr.id AS product_id,
@@ -48,5 +54,6 @@ FROM
         LEFT JOIN active_discounts ad ON pr.id = ad.product_id
 ORDER BY
     p.created_at DESC;
+
 
 

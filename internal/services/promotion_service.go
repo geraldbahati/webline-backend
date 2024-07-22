@@ -40,7 +40,7 @@ func NewPromotionService(logger *zap.Logger, config *appconfig.Config, s3Client 
 }
 
 // CreatePromotion creates a new promotion
-func (s *PromotionService) CreatePromotion(ctx context.Context, r *http.Request, title, description string, discount float64, productID uuid.UUID) (*model.Promotion, error) {
+func (s *PromotionService) CreatePromotion(ctx context.Context, r *http.Request, tagline, mainTitle, subTitle, title, description string, discount float64, productID uuid.UUID) (*model.Promotion, error) {
 	// check if the product exists
 	product, err := s.productRepo.GetProductByID(ctx, productID)
 	if err != nil {
@@ -66,6 +66,20 @@ func (s *PromotionService) CreatePromotion(ctx context.Context, r *http.Request,
 			String: filePath,
 			Valid:  true,
 		},
+		StartDate: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		},
+		EndDate: sql.NullTime{
+			Time:  time.Now().AddDate(0, 0, 7),
+			Valid: true,
+		},
+		Tagline: sql.NullString{
+			String: tagline,
+			Valid:  true,
+		},
+		MainTitle: mainTitle,
+		Subtitle:  subTitle,
 	})
 	if err != nil {
 		s.logger.Error("failed to create promotion", zap.Error(err))
@@ -109,6 +123,9 @@ func (s *PromotionService) CreatePromotion(ctx context.Context, r *http.Request,
 
 	return &model.Promotion{
 		ProductID:         product.ID,
+		Tagline:           promotion.Tagline,
+		MainTitle:         promotion.MainTitle,
+		SubTitle:          promotion.SubTitle,
 		Title:             promotion.Title,
 		Description:       promotion.Description,
 		Discount:          discountPercentage,

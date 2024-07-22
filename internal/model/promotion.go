@@ -6,6 +6,9 @@ import (
 
 type Promotion struct {
 	ProductID         uuid.UUID `json:"productID"`
+	Tagline           string    `json:"tagline"`
+	MainTitle         string    `json:"mainTitle"`
+	SubTitle          string    `json:"subTitle"`
 	Title             string    `json:"title"`
 	Description       string    `json:"description"`
 	Discount          float64   `json:"discount"`
@@ -15,6 +18,9 @@ type Promotion struct {
 
 type PromotionSchema struct {
 	ID          uuid.UUID
+	Tagline     string
+	MainTitle   string
+	SubTitle    string
 	Title       string
 	Description string
 	ImageUrl    string
