@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"go.uber.org/zap"
 	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+
+	"go.uber.org/zap"
 )
 
 type ProductAnalyticRepository struct {
