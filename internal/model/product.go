@@ -83,6 +83,7 @@ type ProductQueryResult struct {
 	Stock           int32
 	ImageURL        string
 	DiscountPercent float64
+	Slug            string
 }
 
 type ProductOption struct {

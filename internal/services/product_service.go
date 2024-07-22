@@ -564,6 +564,7 @@ func (s *ProductService) mapProductsToQueryResult(ctx context.Context, products 
 			Stock:           product.Stock,
 			ImageURL:        imageURL,
 			DiscountPercent: discountPercentage,
+			Slug:            product.Slug,
 		})
 	}
 
