@@ -2286,7 +2286,6 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 
 // GetProducts retrieves all products
 func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, error) {
-
 	products, err := s.productRepo.GetV2Products(ctx)
 	if err != nil {
 		switch {
