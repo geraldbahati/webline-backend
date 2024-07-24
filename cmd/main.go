@@ -245,6 +245,10 @@ func setupRouter(
 	productRouter.HandleFunc("/filter/all/options", productHandler.GetProductsByFilterOptionsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/filter/options/{name}", productHandler.GetFilterOptionsByCategoryNameHandler).Methods(http.MethodGet)
 
+	// admin product routes
+	adminProductRouter := r.PathPrefix("/api/v2/products").Subrouter()
+	adminProductRouter.HandleFunc("", productHandler.GetProductsHandler).Methods(http.MethodGet)
+
 	// Product Variant routes
 	productVariantRouter := r.PathPrefix("/api/product-variants").Subrouter()
 	productVariantRouter.HandleFunc("", productVariantHandler.CreateProductVariantHandler).Methods(http.MethodPost)

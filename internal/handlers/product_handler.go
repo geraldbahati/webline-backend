@@ -409,3 +409,16 @@ func (h *ProductHandler) GetProductBySlugHandler(w http.ResponseWriter, r *http.
 	// respond with product
 	RespondWithJSON(w, http.StatusOK, product)
 }
+
+// GetProductsHandler gets all products
+func (h *ProductHandler) GetProductsHandler(w http.ResponseWriter, r *http.Request) {
+	// get products
+	products, err := h.productService.GetProducts(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get products")
+		return
+	}
+
+	// respond with products
+	RespondWithJSON(w, http.StatusOK, products)
+}

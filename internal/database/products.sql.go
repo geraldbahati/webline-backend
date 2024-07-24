@@ -2424,6 +2424,86 @@ func (q *Queries) GetTotalProductsByFilters(ctx context.Context, arg GetTotalPro
 	return total_products, err
 }
 
+const getV2Products = `-- name: GetV2Products :many
+WITH first_image AS (
+    SELECT DISTINCT ON (product_id) product_id, image_url
+    FROM product_images
+    ORDER BY product_id, created_at
+)
+SELECT
+    p.name,
+    p.price,
+    p.is_active AS isActive,
+    COALESCE(fi.image_url, '') AS imageURL,
+    COALESCE(d.discount_percentage, 0) AS discount,
+    p.slug,
+    p.created_at AS createdAt,
+    EXISTS (
+        SELECT 1
+        FROM promotion_products pp
+        WHERE pp.product_id = p.id
+    ) AS inPromotion,
+    (
+        SELECT COALESCE(SUM(oi.quantity), 0)
+        FROM order_items oi
+                 JOIN orders o ON oi.order_id = o.id
+        WHERE oi.product_id = p.id
+          AND o.status = 'pending'
+    ):: int AS totalSales,
+    p.part_number AS partNumber
+FROM products p
+         LEFT JOIN first_image fi ON fi.product_id = p.id
+         LEFT JOIN discounts d ON d.product_id = p.id AND d.start_date <= NOW() AND d.end_date >= NOW()
+ORDER BY p.created_at DESC
+`
+
+type GetV2ProductsRow struct {
+	Name        string
+	Price       string
+	Isactive    sql.NullBool
+	Imageurl    string
+	Discount    string
+	Slug        sql.NullString
+	Createdat   sql.NullTime
+	Inpromotion bool
+	Totalsales  int32
+	Partnumber  string
+}
+
+func (q *Queries) GetV2Products(ctx context.Context) ([]GetV2ProductsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getV2Products)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetV2ProductsRow
+	for rows.Next() {
+		var i GetV2ProductsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Price,
+			&i.Isactive,
+			&i.Imageurl,
+			&i.Discount,
+			&i.Slug,
+			&i.Createdat,
+			&i.Inpromotion,
+			&i.Totalsales,
+			&i.Partnumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProducts = `-- name: ListProducts :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
 FROM products

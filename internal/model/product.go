@@ -28,6 +28,19 @@ type Product struct {
 	Slug            string
 }
 
+type V2Product struct {
+	Name        string    `json:"name"`
+	Price       float64   `json:"price"`
+	IsActive    bool      `json:"isActive"`
+	ImageURL    string    `json:"imageURL"`
+	Discount    float64   `json:"discount"`
+	Slug        string    `json:"slug"`
+	CreatedAt   time.Time `json:"createdAt"`
+	InPromotion bool      `json:"inPromotion"`
+	TotalSales  int32     `json:"totalSales"`
+	PartNumber  string    `json:"partNumber"`
+}
+
 type ProductDetail struct {
 	ID              uuid.UUID
 	Name            string

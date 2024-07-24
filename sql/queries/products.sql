@@ -1127,3 +1127,36 @@ SELECT
 FROM
     filtered_products;
 
+-- name: GetV2Products :many
+WITH first_image AS (
+    SELECT DISTINCT ON (product_id) product_id, image_url
+    FROM product_images
+    ORDER BY product_id, created_at
+)
+SELECT
+    p.name,
+    p.price,
+    p.is_active AS isActive,
+    COALESCE(fi.image_url, '') AS imageURL,
+    COALESCE(d.discount_percentage, 0) AS discount,
+    p.slug,
+    p.created_at AS createdAt,
+    EXISTS (
+        SELECT 1
+        FROM promotion_products pp
+        WHERE pp.product_id = p.id
+    ) AS inPromotion,
+    (
+        SELECT COALESCE(SUM(oi.quantity), 0)
+        FROM order_items oi
+                 JOIN orders o ON oi.order_id = o.id
+        WHERE oi.product_id = p.id
+          AND o.status = 'pending'
+    ):: int AS totalSales,
+    p.part_number AS partNumber
+FROM products p
+         LEFT JOIN first_image fi ON fi.product_id = p.id
+         LEFT JOIN discounts d ON d.product_id = p.id AND d.start_date <= NOW() AND d.end_date >= NOW()
+ORDER BY p.created_at DESC;
+
+

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 
@@ -558,4 +559,42 @@ func (r *ProductRepository) GetProductSEO(
 		Brand:       seo.BrandName,
 		ImageUrl:    seo.ImageUrl,
 	}, nil
+}
+
+// GetV2Products retrieves all products
+func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Product, error) {
+	rows, err := r.Queries.GetV2Products(ctx)
+	if err != nil {
+		r.logger.Error("failed to get products", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products: %w", err)
+	}
+
+	var products []*model.V2Product
+	for _, row := range rows {
+		price, err := strconv.ParseFloat(row.Price, 64)
+		if err != nil {
+			r.logger.Error("failed to parse price", zap.Error(err))
+			price = 0
+		}
+		discount, err := strconv.ParseFloat(row.Discount, 64)
+		if err != nil {
+			r.logger.Error("failed to parse discount", zap.Error(err))
+			discount = 0
+		}
+
+		products = append(products, &model.V2Product{
+			Name:        row.Name,
+			Price:       price,
+			IsActive:    row.Isactive.Bool,
+			ImageURL:    row.Imageurl,
+			Discount:    discount,
+			Slug:        row.Slug.String,
+			CreatedAt:   row.Createdat.Time,
+			InPromotion: row.Inpromotion,
+			TotalSales:  row.Totalsales,
+			PartNumber:  row.Partnumber,
+		})
+	}
+
+	return products, nil
 }

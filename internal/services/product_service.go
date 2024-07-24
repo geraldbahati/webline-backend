@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -2274,4 +2275,26 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 	}
 
 	return productSitemap, nil
+}
+
+// GetProducts retrieves all products
+func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, error) {
+	products, err := s.productRepo.GetV2Products(ctx)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			s.logger.Error("no products found")
+			return nil, err
+		default:
+			s.logger.Error("failed to get products", zap.Error(err))
+			return nil, fmt.Errorf("failed to get products: %w", err)
+		}
+	}
+
+	for _, product := range products {
+		// update the product image URL
+		product.ImageURL = s.constructS3URL(product.ImageURL)
+	}
+
+	return products, nil
 }
