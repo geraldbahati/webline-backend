@@ -2489,6 +2489,92 @@ func (q *Queries) GetTotalProductsByFilters(ctx context.Context, arg GetTotalPro
 	return total_products, err
 }
 
+const getV2ProductDetailBySlug = `-- name: GetV2ProductDetailBySlug :one
+WITH product_cte AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.part_number,
+        p.category_id,
+        p.status
+    FROM
+        products p
+    WHERE
+        p.slug = $1
+),
+     specs_cte AS (
+         SELECT
+             ps.product_id,
+             json_agg(json_build_object('name', ps.spec_name, 'value', ps.spec_value)) AS specifications
+         FROM
+             product_specifications ps
+                 JOIN product_cte p ON ps.product_id = p.id
+         GROUP BY
+             ps.product_id
+     ),
+     images_cte AS (
+         SELECT
+             pi.product_id,
+             json_agg(json_build_object('url', pi.image_url)) AS images
+         FROM
+             product_images pi
+                 JOIN product_cte p ON pi.product_id = p.id
+         GROUP BY
+             pi.product_id
+     )
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    CAST(p.price AS FLOAT) AS price,
+    CAST(p.stock AS INTEGER) AS stock,
+    p.part_number,
+    p.category_id,
+    p.status,
+    COALESCE(s.specifications, '[]'::json) AS specifications,
+    COALESCE(i.images, '[]'::json) AS images
+FROM
+    product_cte p
+        LEFT JOIN
+    specs_cte s ON p.id = s.product_id
+        LEFT JOIN
+    images_cte i ON p.id = i.product_id
+`
+
+type GetV2ProductDetailBySlugRow struct {
+	ID             uuid.UUID
+	Name           string
+	Description    sql.NullString
+	Price          float64
+	Stock          int32
+	PartNumber     string
+	CategoryID     uuid.UUID
+	Status         string
+	Specifications json.RawMessage
+	Images         json.RawMessage
+}
+
+func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug sql.NullString) (GetV2ProductDetailBySlugRow, error) {
+	row := q.db.QueryRowContext(ctx, getV2ProductDetailBySlug, slug)
+	var i GetV2ProductDetailBySlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.Price,
+		&i.Stock,
+		&i.PartNumber,
+		&i.CategoryID,
+		&i.Status,
+		&i.Specifications,
+		&i.Images,
+	)
+	return i, err
+}
+
 const getV2Products = `-- name: GetV2Products :many
 WITH first_image AS (
     SELECT DISTINCT ON (product_id) product_id, image_url
@@ -2498,7 +2584,7 @@ WITH first_image AS (
 SELECT
     p.name,
     p.price,
-    p.is_active AS isActive,
+    p.status,
     COALESCE(fi.image_url, '') AS imageURL,
     COALESCE(d.discount_percentage, 0) AS discount,
     p.slug,
@@ -2525,7 +2611,7 @@ ORDER BY p.created_at DESC
 type GetV2ProductsRow struct {
 	Name        string
 	Price       string
-	Isactive    sql.NullBool
+	Status      string
 	Imageurl    string
 	Discount    string
 	Slug        sql.NullString
@@ -2547,7 +2633,7 @@ func (q *Queries) GetV2Products(ctx context.Context) ([]GetV2ProductsRow, error)
 		if err := rows.Scan(
 			&i.Name,
 			&i.Price,
-			&i.Isactive,
+			&i.Status,
 			&i.Imageurl,
 			&i.Discount,
 			&i.Slug,
