@@ -245,3 +245,44 @@ JOIN
     products p ON pso.product_id = p.id
 JOIN
     category_tree ct ON p.category_id = ct.id;
+
+
+-- name: GetV2CategoryHierarchy :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        id,
+        name,
+        parent_id,
+        position,
+        ARRAY[]::uuid[] AS path,
+        1 AS level
+    FROM
+        categories
+    WHERE
+        parent_id IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id,
+        c.position,
+        ch.path || c.parent_id,
+        ch.level + 1
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON ch.id = c.parent_id
+)
+SELECT
+    id,
+    name,
+    parent_id,
+    position,
+    path,
+    level
+FROM
+    category_hierarchy
+ORDER BY
+    path, level, position;

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -1414,7 +1415,7 @@ func (s *ProductService) GetProductsByFiltersPriceAsc(
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
 			CategoryID:      row.CategoryID,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			Slug:            row.Slug.String,
 			ImageURL:        productImages[0].S3URL,
@@ -1466,7 +1467,7 @@ func (s *ProductService) GetProductsByFiltersPriceDesc(
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
 			CategoryID:      row.CategoryID,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			Slug:            row.Slug.String,
 			ImageURL:        productImages[0].S3URL,
@@ -1519,7 +1520,7 @@ func (s *ProductService) GetProductsByFiltersNameAsc(
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
 			CategoryID:      row.CategoryID,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			Slug:            row.Slug.String,
 			ImageURL:        productImages[0].S3URL,
@@ -1572,7 +1573,7 @@ func (s *ProductService) GetProductsByFiltersNameDesc(
 			Stock:           row.Stock.Int32,
 			CategoryID:      row.CategoryID,
 			Slug:            row.Slug.String,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
@@ -1623,7 +1624,7 @@ func (s *ProductService) GetProductsByFiltersDefault(
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID, Slug: row.Slug.String,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
@@ -1671,7 +1672,7 @@ func (s *ProductService) GetProductsByFiltersNewest(ctx context.Context, categor
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID, Slug: row.Slug.String,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
@@ -1719,7 +1720,7 @@ func (s *ProductService) GetProductsByFiltersOldest(ctx context.Context, categor
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID, Slug: row.Slug.String,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
@@ -2297,4 +2298,39 @@ func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, e
 	}
 
 	return products, nil
+}
+
+// GetProductDetail retrieves a product by slug
+func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*model.V2ProductDetail, error) {
+	product, err := s.productRepo.GetV2ProductDetailBySlug(ctx, slug)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			s.logger.Error("product not found", zap.String("slug", slug))
+			return nil, fmt.Errorf("product not found: %w", err)
+		default:
+			s.logger.Error("failed to get product", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product: %w", err)
+		}
+	}
+
+	var images []model.V2ProductImage
+	if err := json.Unmarshal(product.Images, &images); err != nil {
+		s.logger.Error("failed to unmarshal images", zap.Error(err))
+		return nil, fmt.Errorf("failed to unmarshal images: %w", err)
+	}
+
+	// update the product image URL
+	for i := range images {
+		images[i].Url = s.constructS3URL(images[i].Url)
+	}
+
+	updatedImages, err := json.Marshal(images)
+	if err != nil {
+		s.logger.Error("failed to marshal images", zap.Error(err))
+		return nil, fmt.Errorf("failed to marshal images: %w", err)
+	}
+
+	product.Images = updatedImages
+	return product, nil
 }

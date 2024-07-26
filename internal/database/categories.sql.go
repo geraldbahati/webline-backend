@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const checkCategoryExistence = `-- name: CheckCategoryExistence :one
@@ -566,6 +567,86 @@ func (q *Queries) GetParentCategories(ctx context.Context) ([]Category, error) {
 			&i.IsActive,
 			&i.Position,
 			&i.ImageUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getV2CategoryHierarchy = `-- name: GetV2CategoryHierarchy :many
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        id,
+        name,
+        parent_id,
+        position,
+        ARRAY[]::uuid[] AS path,
+        1 AS level
+    FROM
+        categories
+    WHERE
+        parent_id IS NULL
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id,
+        c.position,
+        ch.path || c.parent_id,
+        ch.level + 1
+    FROM
+        categories c
+            INNER JOIN
+        category_hierarchy ch ON ch.id = c.parent_id
+)
+SELECT
+    id,
+    name,
+    parent_id,
+    position,
+    path,
+    level
+FROM
+    category_hierarchy
+ORDER BY
+    path, level, position
+`
+
+type GetV2CategoryHierarchyRow struct {
+	ID       uuid.UUID
+	Name     string
+	ParentID uuid.NullUUID
+	Position int32
+	Path     []uuid.UUID
+	Level    int32
+}
+
+func (q *Queries) GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHierarchyRow, error) {
+	rows, err := q.db.QueryContext(ctx, getV2CategoryHierarchy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetV2CategoryHierarchyRow
+	for rows.Next() {
+		var i GetV2CategoryHierarchyRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ParentID,
+			&i.Position,
+			pq.Array(&i.Path),
+			&i.Level,
 		); err != nil {
 			return nil, err
 		}

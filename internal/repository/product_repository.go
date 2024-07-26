@@ -69,7 +69,7 @@ func (r *ProductRepository) CreateProduct(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.IsActive.Bool,
+			IsActive:    product.Status == "active",
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		}
@@ -101,7 +101,7 @@ func (r *ProductRepository) GetProductByID(
 		Price:       product.Price,
 		Stock:       product.Stock.Int32,
 		CategoryID:  product.CategoryID,
-		IsActive:    product.IsActive.Bool,
+		IsActive:    product.Status == "active",
 		Featured:    product.Featured.Bool,
 		Slug:        product.Slug.String,
 	}, nil
@@ -125,7 +125,7 @@ func (r *ProductRepository) GetProductBySlug(
 		Price:       product.Price,
 		Stock:       product.Stock.Int32,
 		CategoryID:  product.CategoryID,
-		IsActive:    product.IsActive.Bool,
+		IsActive:    product.Status == "active",
 		Featured:    product.Featured.Bool,
 		Slug:        product.Slug.String,
 	}, nil
@@ -170,7 +170,7 @@ func (r *ProductRepository) UpdateProduct(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.IsActive.Bool,
+			IsActive:    product.Status == "active",
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		}
@@ -228,7 +228,7 @@ func (r *ProductRepository) GetProductsByCategoryID(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.IsActive.Bool,
+			IsActive:    product.Status == "active",
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		})
@@ -271,7 +271,7 @@ func (r *ProductRepository) SearchProducts(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.IsActive.Bool,
+			IsActive:    product.Status == "active",
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		})
@@ -315,7 +315,7 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.IsActive.Bool,
+			IsActive:    product.Status == "active",
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		})
@@ -371,7 +371,7 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceAsc(ctx context.Context,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -396,7 +396,7 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceDesc(ctx context.Context
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -421,7 +421,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNameAsc(ctx context.Context, 
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -446,7 +446,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNameDesc(ctx context.Context,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -471,7 +471,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNewest(ctx context.Context, p
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -496,7 +496,7 @@ func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, p
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -585,7 +585,7 @@ func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Produ
 		products = append(products, &model.V2Product{
 			Name:        row.Name,
 			Price:       price,
-			IsActive:    row.Isactive.Bool,
+			Status:      row.Status,
 			ImageURL:    row.Imageurl,
 			Discount:    discount,
 			Slug:        row.Slug.String,
@@ -597,4 +597,28 @@ func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Produ
 	}
 
 	return products, nil
+}
+
+// GetV2ProductDetailBySlug retrieves a product by its slug
+func (r *ProductRepository) GetV2ProductDetailBySlug(
+	ctx context.Context,
+	slug string,
+) (*model.V2ProductDetail, error) {
+	product, err := r.Queries.GetV2ProductDetailBySlug(ctx, sql.NullString{String: slug, Valid: true})
+	if err != nil {
+		r.logger.Error("failed to get product by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	return &model.V2ProductDetail{
+		Name:           product.Name,
+		Description:    product.Description.String,
+		Price:          product.Price,
+		Stock:          product.Stock,
+		CategoryID:     product.CategoryID,
+		PartNumber:     product.PartNumber,
+		Specifications: product.Specifications,
+		Images:         product.Images,
+		Status:         product.Status,
+	}, nil
 }

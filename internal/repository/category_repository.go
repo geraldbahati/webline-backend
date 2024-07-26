@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"weblineBackend/internal/database"
+	"weblineBackend/internal/model"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -277,4 +279,47 @@ func (r *CategoryRepository) UpdateCategoryImage(
 
 	r.logger.Info("Category image successfully updated")
 	return updatedCategory, nil
+}
+
+// GetV2CategoryHierarchy retrieves the category hierarchy for the V2 API
+func (r *CategoryRepository) GetV2CategoryHierarchy(
+	ctx context.Context,
+) ([]*model.V2CategoryHierarchy, error) {
+	rows, err := r.Queries.GetV2CategoryHierarchy(ctx)
+	if err != nil {
+		r.logger.Error("failed to get V2 category hierarchy", zap.Error(err))
+		return nil, fmt.Errorf("failed to get V2 category hierarchy: %w", err)
+	}
+
+	categoryMap := make(map[string]*model.V2CategoryHierarchy)
+	var rootCategories []*model.V2CategoryHierarchy
+
+	for _, row := range rows {
+		category := &model.V2CategoryHierarchy{
+			ID:       row.ID.String(),
+			Name:     row.Name,
+			Position: int(row.Position),
+		}
+
+		categoryMap[category.ID] = category
+
+		if row.ParentID.Valid {
+			parentCategory, exists := categoryMap[row.ParentID.UUID.String()]
+			if exists {
+				parentCategory.Children = append(parentCategory.Children, category)
+				sort.SliceStable(parentCategory.Children, func(i, j int) bool {
+					return parentCategory.Children[i].Position < parentCategory.Children[j].Position
+				})
+			}
+		} else {
+			rootCategories = append(rootCategories, category)
+		}
+	}
+
+	sort.SliceStable(rootCategories, func(i, j int) bool {
+		return rootCategories[i].Position < rootCategories[j].Position
+	})
+
+	return rootCategories, nil
+
 }

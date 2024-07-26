@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ type Product struct {
 type V2Product struct {
 	Name        string    `json:"name"`
 	Price       float64   `json:"price"`
-	IsActive    bool      `json:"isActive"`
+	Status      string    `json:"status"`
 	ImageURL    string    `json:"imageURL"`
 	Discount    float64   `json:"discount"`
 	Slug        string    `json:"slug"`
@@ -39,6 +40,27 @@ type V2Product struct {
 	InPromotion bool      `json:"inPromotion"`
 	TotalSales  int32     `json:"totalSales"`
 	PartNumber  string    `json:"partNumber"`
+}
+
+type V2ProductDetail struct {
+	Name           string          `json:"name"`
+	Description    string          `json:"description"`
+	Price          float64         `json:"price"`
+	Stock          int32           `json:"stock"`
+	PartNumber     string          `json:"partNumber"`
+	CategoryID     uuid.UUID       `json:"categoryID"`
+	Status         string          `json:"status"`
+	Specifications json.RawMessage `json:"specifications"`
+	Images         json.RawMessage `json:"images"`
+}
+
+type V2ProductSpec struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type V2ProductImage struct {
+	Url string `json:"url"`
 }
 
 type ProductDetail struct {

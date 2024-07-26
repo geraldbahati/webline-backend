@@ -422,3 +422,31 @@ func (h *ProductHandler) GetProductsHandler(w http.ResponseWriter, r *http.Reque
 	// respond with products
 	RespondWithJSON(w, http.StatusOK, products)
 }
+
+// GetProductDetailHandler gets a product detail by its ID
+func (h *ProductHandler) GetProductDetailHandler(w http.ResponseWriter, r *http.Request) {
+	// get product ID
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// get product detail
+	productDetail, err := h.productService.GetProductDetail(r.Context(), slug)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			RespondWithError(w, http.StatusNotFound, "Product detail not found")
+			return
+		default:
+			RespondWithError(w, http.StatusInternalServerError, "Failed to get product detail")
+			return
+		}
+	}
+
+	// respond with product detail
+	RespondWithJSON(w, http.StatusOK, productDetail)
+}

@@ -64,7 +64,7 @@ func (r *ProductAnalyticRepository) GetBestSellerProducts(ctx context.Context, l
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -91,7 +91,7 @@ func (r *ProductAnalyticRepository) GetFeaturedProducts(ctx context.Context, lim
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID,
-			IsActive:    row.IsActive.Bool,
+			IsActive:    row.Status == "active",
 			Featured:    row.Featured.Bool,
 			Slug:        row.Slug.String,
 		})
@@ -118,7 +118,7 @@ func (r *ProductAnalyticRepository) GetNewArrivalProducts(ctx context.Context, l
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID, Slug: row.Slug.String,
-			IsActive: row.IsActive.Bool,
+			IsActive: row.Status == "active",
 			Featured: row.Featured.Bool,
 		})
 	}
@@ -155,7 +155,7 @@ func (r *ProductAnalyticRepository) GetDailyDealsProducts(ctx context.Context) (
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
 			CategoryID:  row.CategoryID, Slug: row.Slug.String,
-			IsActive:        row.IsActive.Bool,
+			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        imageUrl,
 			DiscountPercent: discount,

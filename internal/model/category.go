@@ -19,6 +19,13 @@ type CategoryHierarchy struct {
 	Children []CategoryHierarchy `json:"Children"`
 }
 
+type V2CategoryHierarchy struct {
+	ID       string                 `json:"id"`
+	Name     string                 `json:"name"`
+	Children []*V2CategoryHierarchy `json:"children,omitempty"`
+	Position int                    `json:"-"`
+}
+
 type Category struct {
 	ID       uuid.UUID `json:"id"`
 	Name     string    `json:"name"`

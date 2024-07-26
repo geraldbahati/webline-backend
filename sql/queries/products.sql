@@ -1,20 +1,20 @@
 -- name: CreateProduct :one
-INSERT INTO products (name, description, price, stock, category_id, created_by,part_number, updated_by, is_active, search_keyword)
-VALUES ($1, $2, $3, $4, $5, $6, $7,$8, TRUE, to_tsvector('english', $1 || ' ' || $2))
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug;
+INSERT INTO products (name, description, price, stock, category_id, created_by,part_number, updated_by,  search_keyword)
+VALUES ($1, $2, $3, $4, $5, $6, $7,$8,  to_tsvector('english', $1 || ' ' || $2))
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug;
 
 -- name: GetProductByID :one
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
 FROM products
 WHERE id = $1;
 
 -- name: GetProductBySlug :one
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
 FROM products
 WHERE slug = $1;
 
 -- name: ListProducts :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
 FROM products
 ORDER BY name
 LIMIT $1 OFFSET $2;
@@ -23,15 +23,15 @@ LIMIT $1 OFFSET $2;
 UPDATE products
 SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, search_keyword = to_tsvector('english', $2 || ' ' || $3)
 WHERE id = $1
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword, slug;
+    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug;
 
 -- name: SoftDeleteProduct :exec
 UPDATE products
-SET is_active = FALSE, updated_at = NOW()
+SET status = 'archived', updated_at = NOW()
 WHERE id = $1;
 
 -- name: GetProductsByCategoryID :many
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, is_active, created_by, updated_by, featured, search_keyword
+SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword
 FROM products
 WHERE category_id = $1
 ORDER BY name;
@@ -64,7 +64,7 @@ SELECT DISTINCT ON (p.id)
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -82,7 +82,7 @@ WHERE
         p.search_keyword @@ plainto_tsquery('english', $1) OR
         ch.id IS NOT NULL
         )
-  AND p.is_active = true
+  AND p.status = true
 ORDER BY
     p.id,
     ts_rank(p.search_keyword, plainto_tsquery('english', $1)) DESC,
@@ -205,7 +205,7 @@ SELECT DISTINCT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -247,7 +247,7 @@ SELECT DISTINCT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -289,7 +289,7 @@ SELECT DISTINCT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -331,7 +331,7 @@ SELECT DISTINCT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -373,7 +373,7 @@ SELECT DISTINCT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -415,7 +415,7 @@ SELECT DISTINCT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -457,7 +457,7 @@ SELECT DISTINCT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -548,7 +548,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id,
                        p.created_at,
                        p.updated_at,
-                       p.is_active,
+                       p.status,
                        p.created_by,
                        p.updated_by,
                        p.featured,
@@ -592,7 +592,7 @@ SELECT
     fp.category_id,
     fp.created_at,
     fp.updated_at,
-    fp.is_active,
+    fp.status,
     fp.created_by,
     fp.updated_by,
     fp.featured,
@@ -640,7 +640,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id,
                        p.created_at,
                        p.updated_at,
-                       p.is_active,
+                       p.status,
                        p.created_by,
                        p.updated_by,
                        p.featured,
@@ -684,7 +684,7 @@ SELECT
     fp.category_id,
     fp.created_at,
     fp.updated_at,
-    fp.is_active,
+    fp.status,
     fp.created_by,
     fp.updated_by,
     fp.featured,
@@ -732,7 +732,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id,
                        p.created_at,
                        p.updated_at,
-                       p.is_active,
+                       p.status,
                        p.created_by,
                        p.updated_by,
                        p.featured,
@@ -776,7 +776,7 @@ SELECT
     fp.category_id,
     fp.created_at,
     fp.updated_at,
-    fp.is_active,
+    fp.status,
     fp.created_by,
     fp.updated_by,
     fp.featured,
@@ -825,7 +825,7 @@ LIMIT
                            p.category_id,
                            p.created_at,
                            p.updated_at,
-                           p.is_active,
+                           p.status,
                            p.created_by,
                            p.updated_by,
                            p.featured,
@@ -869,7 +869,7 @@ LIMIT
         fp.category_id,
         fp.created_at,
         fp.updated_at,
-        fp.is_active,
+        fp.status,
         fp.created_by,
         fp.updated_by,
         fp.featured,
@@ -918,7 +918,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id,
                        p.created_at,
                        p.updated_at,
-                       p.is_active,
+                       p.status,
                        p.created_by,
                        p.updated_by,
                        p.featured,
@@ -962,7 +962,7 @@ SELECT
     fp.category_id,
     fp.created_at,
     fp.updated_at,
-    fp.is_active,
+    fp.status,
     fp.created_by,
     fp.updated_by,
     fp.featured,
@@ -1011,7 +1011,7 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id,
                        p.created_at,
                        p.updated_at,
-                       p.is_active,
+                       p.status,
                        p.created_by,
                        p.updated_by,
                        p.featured,
@@ -1055,7 +1055,7 @@ SELECT
     fp.category_id,
     fp.created_at,
     fp.updated_at,
-    fp.is_active,
+    fp.status,
     fp.created_by,
     fp.updated_by,
     fp.featured,
@@ -1136,7 +1136,7 @@ WITH first_image AS (
 SELECT
     p.name,
     p.price,
-    p.is_active AS isActive,
+    p.status,
     COALESCE(fi.image_url, '') AS imageURL,
     COALESCE(d.discount_percentage, 0) AS discount,
     p.slug,
@@ -1159,4 +1159,56 @@ FROM products p
          LEFT JOIN discounts d ON d.product_id = p.id AND d.start_date <= NOW() AND d.end_date >= NOW()
 ORDER BY p.created_at DESC;
 
-
+-- name: GetV2ProductDetailBySlug :one
+WITH product_cte AS (
+    SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.part_number,
+        p.category_id,
+        p.status
+    FROM
+        products p
+    WHERE
+        p.slug = $1
+),
+     specs_cte AS (
+         SELECT
+             ps.product_id,
+             json_agg(json_build_object('name', ps.spec_name, 'value', ps.spec_value)) AS specifications
+         FROM
+             product_specifications ps
+                 JOIN product_cte p ON ps.product_id = p.id
+         GROUP BY
+             ps.product_id
+     ),
+     images_cte AS (
+         SELECT
+             pi.product_id,
+             json_agg(json_build_object('url', pi.image_url)) AS images
+         FROM
+             product_images pi
+                 JOIN product_cte p ON pi.product_id = p.id
+         GROUP BY
+             pi.product_id
+     )
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    CAST(p.price AS FLOAT) AS price,
+    CAST(p.stock AS INTEGER) AS stock,
+    p.part_number,
+    p.category_id,
+    p.status,
+    COALESCE(s.specifications, '[]'::json) AS specifications,
+    COALESCE(i.images, '[]'::json) AS images
+FROM
+    product_cte p
+        LEFT JOIN
+    specs_cte s ON p.id = s.product_id
+        LEFT JOIN
+    images_cte i ON p.id = i.product_id;

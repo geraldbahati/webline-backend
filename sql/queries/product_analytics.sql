@@ -8,7 +8,7 @@ SELECT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.featured,
     p.slug,
     SUM(oi.quantity) AS total_sold
@@ -32,7 +32,7 @@ SELECT
     category_id,
     created_at,
     updated_at,
-    is_active,
+    status,
     featured,
     slug
 FROM
@@ -53,13 +53,13 @@ SELECT
     category_id,
     created_at,
     updated_at,
-    is_active,
+    status,
     featured,
     slug
 FROM
     products
 WHERE
-    is_active = true
+    status = true
   AND created_at >= NOW() - INTERVAL '100 days'
 ORDER BY
     created_at DESC
@@ -81,7 +81,7 @@ SELECT
     p.category_id,
     p.created_at,
     p.updated_at,
-    p.is_active,
+    p.status,
     p.created_by,
     p.updated_by,
     p.featured,
@@ -95,7 +95,7 @@ FROM
         JOIN discounts d ON p.id = d.product_id
         LEFT JOIN first_images fi ON p.id = fi.product_id
 WHERE
-    p.is_active = true
+    p.status = true
   AND d.start_date <= now()
   AND d.end_date >= now()
 ORDER BY

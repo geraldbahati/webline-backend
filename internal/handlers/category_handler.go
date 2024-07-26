@@ -259,3 +259,16 @@ func (h *CategoryHandler) GetCollectionCategoriesHandler(w http.ResponseWriter, 
 	// respond with collection categories
 	RespondWithJSON(w, http.StatusOK, collectionCategories)
 }
+
+// GetV2CategoryHierarchyHandler retrieves the V2 category hierarchy
+func (h *CategoryHandler) GetV2CategoryHierarchyHandler(w http.ResponseWriter, r *http.Request) {
+	// get V2 category hierarchy
+	v2CategoryHierarchy, err := h.categoryService.GetV2CategoryHierarchy(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get V2 category hierarchy")
+		return
+	}
+
+	// respond with V2 category hierarchy
+	RespondWithJSON(w, http.StatusOK, v2CategoryHierarchy)
+}

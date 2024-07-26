@@ -151,7 +151,6 @@ type Product struct {
 	CategoryID      uuid.UUID
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
-	IsActive        sql.NullBool
 	CreatedBy       uuid.NullUUID
 	UpdatedBy       uuid.NullUUID
 	Featured        sql.NullBool
@@ -161,6 +160,7 @@ type Product struct {
 	MetaDescription sql.NullString
 	MetaKeywords    sql.NullString
 	Slug            sql.NullString
+	Status          string
 }
 
 type ProductColor struct {

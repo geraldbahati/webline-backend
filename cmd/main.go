@@ -227,6 +227,10 @@ func setupRouter(
 	categoryRouter.HandleFunc("/subcategories/count", categoryHandler.GetCategoriesWithSubcategoryCountHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/upload-image", categoryHandler.UploadCategoryImageHandler).Methods(http.MethodPost)
 
+	// admin category
+	adminCategoryRouter := r.PathPrefix("/api/v2/categories").Subrouter()
+	adminCategoryRouter.HandleFunc("/hierarchy", categoryHandler.GetV2CategoryHierarchyHandler).Methods(http.MethodGet)
+
 	// Product routes
 	productRouter := r.PathPrefix("/api/products").Subrouter()
 	productRouter.HandleFunc("", productHandler.CreateProductHandler).Methods(http.MethodPost)
@@ -248,6 +252,7 @@ func setupRouter(
 	// admin product routes
 	adminProductRouter := r.PathPrefix("/api/v2/products").Subrouter()
 	adminProductRouter.HandleFunc("", productHandler.GetProductsHandler).Methods(http.MethodGet)
+	adminProductRouter.HandleFunc("/{slug}/detail", productHandler.GetProductDetailHandler).Methods(http.MethodGet)
 
 	// Product Variant routes
 	productVariantRouter := r.PathPrefix("/api/product-variants").Subrouter()

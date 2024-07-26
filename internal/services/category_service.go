@@ -599,3 +599,16 @@ func (s *CategoryService) GetCollectionCategoriesService(ctx context.Context) ([
 
 	return collections, nil
 }
+
+// GetV2CategoryHierarchy retrieves the category hierarchy for the V2 API
+func (s *CategoryService) GetV2CategoryHierarchy(
+	ctx context.Context,
+) ([]*model.V2CategoryHierarchy, error) {
+	hierarchy, err := s.categoryRepo.GetV2CategoryHierarchy(ctx)
+	if err != nil {
+		s.logger.Error("failed to get V2 category hierarchy", zap.Error(err))
+		return nil, fmt.Errorf("failed to get V2 category hierarchy: %w", err)
+	}
+
+	return hierarchy, nil
+}
