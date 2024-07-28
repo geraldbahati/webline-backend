@@ -2496,6 +2496,7 @@ WITH product_cte AS (
         p.name,
         p.description,
         p.price,
+        p.slug,
         p.stock,
         p.part_number,
         p.category_id,
@@ -2529,6 +2530,7 @@ SELECT
     p.id,
     p.name,
     p.description,
+    p.slug,
     CAST(p.price AS FLOAT) AS price,
     CAST(p.stock AS INTEGER) AS stock,
     p.part_number,
@@ -2548,6 +2550,7 @@ type GetV2ProductDetailBySlugRow struct {
 	ID             uuid.UUID
 	Name           string
 	Description    sql.NullString
+	Slug           sql.NullString
 	Price          float64
 	Stock          int32
 	PartNumber     string
@@ -2564,6 +2567,7 @@ func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug sql.NullStr
 		&i.ID,
 		&i.Name,
 		&i.Description,
+		&i.Slug,
 		&i.Price,
 		&i.Stock,
 		&i.PartNumber,
