@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -2333,4 +2335,193 @@ func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*mo
 
 	product.Images = updatedImages
 	return product, nil
+}
+
+// CreateV2Product creates or update a product
+func (s *ProductService) CreateV2Product(ctx context.Context, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
+	// Check if the product exist
+	existingProduct, err := s.productRepo.GetProductBySlug(ctx, params.Slug)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.logger.Error("failed to get product by slug", zap.Error(err))
+		return fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	// If product exists, update it
+	if err == nil {
+		_, err := s.productRepo.UpdateProduct(ctx, database.UpdateProductParams{
+			ID:          existingProduct.ID,
+			Name:        params.Name,
+			Description: sql.NullString{String: params.Description, Valid: true},
+			Price:       fmt.Sprintf("%.0f", params.Price),
+			Stock:       sql.NullInt32{Int32: int32(params.Stock), Valid: true},
+			CategoryID:  params.CategoryID,
+			UpdatedBy: uuid.NullUUID{
+				UUID:  uuid.Nil,
+				Valid: false,
+			},
+			Featured: sql.NullBool{
+				Bool:  false,
+				Valid: false,
+			},
+		})
+		if err != nil {
+			s.logger.Error("failed to update product", zap.Error(err))
+			return fmt.Errorf("failed to update product: %w", err)
+		}
+
+		// Update the product images
+		if len(images) > 0 {
+			uploadedFiles, err := utils.UploadMultipleFilesToS3(ctx, images, s.s3Client, s.config.AWSBucketName, "product-images")
+			if err != nil {
+				s.logger.Error("failed to upload product images", zap.Error(err))
+				return fmt.Errorf("failed to upload product images: %w", err)
+			}
+
+			for _, image := range uploadedFiles {
+				_, err := s.productImageRepo.CreateProductImage(ctx, database.CreateProductImageParams{
+					ProductID: uuid.NullUUID{
+						UUID:  existingProduct.ID,
+						Valid: true,
+					},
+					ImageUrl: image,
+				})
+				if err != nil {
+					s.logger.Error("failed to create product image", zap.Error(err))
+					return fmt.Errorf("failed to create product image: %w", err)
+				}
+			}
+		}
+
+		// Update the product Specifications
+		for _, spec := range params.Specifications {
+			_, err := s.productSpecificationRepo.UpsertProductSpecification(ctx, database.UpsertProductSpecificationParams{
+				ProductID: uuid.NullUUID{
+					UUID:  existingProduct.ID,
+					Valid: true,
+				},
+				SpecName:  spec.Name,
+				SpecValue: spec.Value,
+			})
+			if err != nil {
+				s.logger.Error("failed to upsert product specification", zap.Error(err))
+				return fmt.Errorf("failed to upsert product specification: %w", err)
+			}
+		}
+	} else { // Otherwise create a new product
+		// Create the product
+		log.Println(params.Name)
+
+		newProduct, err := s.productRepo.CreateProduct(ctx, database.CreateProductParams{
+			Name:        params.Name,
+			Description: sql.NullString{String: params.Description, Valid: true},
+			Price:       fmt.Sprintf("%.0f", params.Price),
+			Stock:       sql.NullInt32{Int32: int32(params.Stock), Valid: true},
+			CategoryID:  params.CategoryID,
+			PartNumber:  params.PartNumber,
+			CreatedBy: uuid.NullUUID{
+				UUID:  uuid.Nil,
+				Valid: false,
+			},
+			UpdatedBy: uuid.NullUUID{
+				UUID:  uuid.Nil,
+				Valid: false,
+			},
+		})
+		if err != nil {
+			s.logger.Error("failed to create product", zap.Error(err))
+			return fmt.Errorf("failed to create product: %w", err)
+		}
+
+		// Upload the product images
+		if len(images) > 0 {
+			uploadedFiles, err := utils.UploadMultipleFilesToS3(ctx, images, s.s3Client, s.config.AWSBucketName, "product-images")
+			if err != nil {
+				s.logger.Error("failed to upload product images", zap.Error(err))
+				return fmt.Errorf("failed to upload product images: %w", err)
+			}
+
+			for _, image := range uploadedFiles {
+				_, err := s.productImageRepo.CreateProductImage(ctx, database.CreateProductImageParams{
+					ProductID: uuid.NullUUID{
+						UUID:  newProduct.ID,
+						Valid: true,
+					},
+					ImageUrl: image,
+				})
+				if err != nil {
+					s.logger.Error("failed to create product image", zap.Error(err))
+					return fmt.Errorf("failed to create product image: %w", err)
+				}
+			}
+		}
+
+		// Create the product Specifications
+		for _, spec := range params.Specifications {
+			_, err := s.productSpecificationRepo.UpsertProductSpecification(ctx, database.UpsertProductSpecificationParams{
+				ProductID: uuid.NullUUID{
+					UUID:  newProduct.ID,
+					Valid: true,
+				},
+				SpecName:  spec.Name,
+				SpecValue: spec.Value,
+			})
+			if err != nil {
+				s.logger.Error("failed to upsert product specification", zap.Error(err))
+				return fmt.Errorf("failed to upsert product specification: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// DeleteProduct deletes a product
+func (s *ProductService) DeleteProduct(ctx context.Context, slug string) error {
+	// Get the product by slug
+	product, err := s.productRepo.GetProductBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get product by slug", zap.Error(err))
+		return fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	// Get the product images
+	imageKeys, err := s.productImageRepo.GetImageKeysByProductID(ctx, product.ID)
+	if err != nil {
+		s.logger.Error("failed to get product images", zap.Error(err))
+		return fmt.Errorf("failed to get product images: %w", err)
+	}
+
+	// Delete the product
+	err = s.productRepo.DeleteProductByID(ctx, product.ID)
+	if err != nil {
+		s.logger.Error("failed to delete product", zap.Error(err))
+		return fmt.Errorf("failed to delete product: %w", err)
+	}
+
+	// Delete the product images from S3
+	if err := utils.DeleteMultipleFilesFromS3(ctx, s.s3Client, s.config.AWSBucketName, imageKeys); err != nil {
+		s.logger.Error("failed to delete product images", zap.Error(err))
+		return fmt.Errorf("failed to delete product images: %w", err)
+	}
+
+	return nil
+}
+
+// ArchiveProduct archives a product
+func (s *ProductService) ArchiveProduct(ctx context.Context, slug string) error {
+	// Get the product by slug
+	product, err := s.productRepo.GetProductBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get product by slug", zap.Error(err))
+		return fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	// Archive the product
+	err = s.productRepo.ArchiveProductByID(ctx, product.ID)
+	if err != nil {
+		s.logger.Error("failed to archive product", zap.Error(err))
+		return fmt.Errorf("failed to archive product: %w", err)
+	}
+
+	return nil
 }

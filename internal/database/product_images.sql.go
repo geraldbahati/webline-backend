@@ -45,6 +45,33 @@ func (q *Queries) DeleteProductImage(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getImageKeysByProductID = `-- name: GetImageKeysByProductID :many
+SELECT image_url FROM product_images WHERE product_id = $1
+`
+
+func (q *Queries) GetImageKeysByProductID(ctx context.Context, productID uuid.NullUUID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getImageKeysByProductID, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var image_url string
+		if err := rows.Scan(&image_url); err != nil {
+			return nil, err
+		}
+		items = append(items, image_url)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getProductImageByID = `-- name: GetProductImageByID :one
 SELECT id, product_id, image_url, created_at, updated_at
 FROM product_images

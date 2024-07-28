@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"mime/multipart"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +49,7 @@ type V2ProductDetail struct {
 	Price          float64         `json:"price"`
 	Stock          int32           `json:"stock"`
 	PartNumber     string          `json:"partNumber"`
+	Slug           string          `json:"slug"`
 	CategoryID     uuid.UUID       `json:"categoryID"`
 	Status         string          `json:"status"`
 	Specifications json.RawMessage `json:"specifications"`
@@ -78,6 +80,24 @@ type ProductDetail struct {
 	Colors          []ProductColor
 	Specifications  []ProductSpecification
 	Options         []ProductOption
+}
+
+type CreateProductRequest struct {
+	Slug           string                  `json:"slug"`
+	Name           string                  `json:"name"`
+	Description    string                  `json:"description"`
+	Price          float64                 `json:"price"`
+	Stock          int                     `json:"stock"`
+	CategoryID     uuid.UUID               `json:"categoryID"`
+	Status         string                  `json:"status"`
+	PartNumber     string                  `json:"partNumber"`
+	Images         []*multipart.FileHeader `json:"images"`
+	Specifications []Specification         `json:"specifications"`
+}
+
+type Specification struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type ProductSchema struct {

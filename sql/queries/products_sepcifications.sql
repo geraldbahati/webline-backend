@@ -3,6 +3,13 @@ INSERT INTO product_specifications (product_id, spec_name, spec_value)
 VALUES ($1, $2, $3)
     RETURNING id, product_id, spec_name, spec_value, created_at, updated_at;
 
+-- name: UpsertProductSpecification :one
+INSERT INTO product_specifications (product_id, spec_name, spec_value)
+VALUES ($1, $2, $3)
+    ON CONFLICT (product_id, spec_name)
+    DO UPDATE SET spec_value = $3, updated_at = NOW()
+    RETURNING id, product_id, spec_name, spec_value, created_at, updated_at;
+
 -- name: GetProductSpecificationByID :one
 SELECT id, product_id, spec_name, spec_value, created_at, updated_at
 FROM product_specifications

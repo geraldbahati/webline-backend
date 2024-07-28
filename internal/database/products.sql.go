@@ -14,6 +14,17 @@ import (
 	"github.com/lib/pq"
 )
 
+const archiveProductByID = `-- name: ArchiveProductByID :exec
+UPDATE products
+SET status = 'archived', updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) ArchiveProductByID(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, archiveProductByID, id)
+	return err
+}
+
 const countFilteredProducts = `-- name: CountFilteredProducts :one
 WITH RECURSIVE category_hierarchy AS (
     SELECT
@@ -124,9 +135,32 @@ func (q *Queries) CountProductsByParentCategoryID(ctx context.Context, id uuid.U
 }
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (name, description, price, stock, category_id, created_by,part_number, updated_by,  search_keyword)
-VALUES ($1, $2, $3, $4, $5, $6, $7,$8,  to_tsvector('english', $1 || ' ' || $2))
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
+INSERT INTO products (
+    name,
+    description,
+    price,
+    stock,
+    category_id,
+    created_by,
+    part_number,
+    updated_by
+) VALUES (
+             $1, $2, $3, $4, $5, $6, $7, $8
+         ) RETURNING
+    id,
+    name,
+    description,
+    price,
+    stock,
+    category_id,
+    created_at,
+    updated_at,
+    status,
+    created_by,
+    updated_by,
+    featured,
+    search_keyword,
+    slug
 `
 
 type CreateProductParams struct {
@@ -186,6 +220,33 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (C
 		&i.Slug,
 	)
 	return i, err
+}
+
+const deleteProductByID = `-- name: DeleteProductByID :exec
+DELETE FROM products WHERE id = $1
+`
+
+func (q *Queries) DeleteProductByID(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteProductByID, id)
+	return err
+}
+
+const deleteProductImagesByProductID = `-- name: DeleteProductImagesByProductID :exec
+DELETE FROM product_images WHERE product_id = $1
+`
+
+func (q *Queries) DeleteProductImagesByProductID(ctx context.Context, productID uuid.NullUUID) error {
+	_, err := q.db.ExecContext(ctx, deleteProductImagesByProductID, productID)
+	return err
+}
+
+const deleteProductSpecificationsByProductID = `-- name: DeleteProductSpecificationsByProductID :exec
+DELETE FROM product_specifications WHERE product_id = $1
+`
+
+func (q *Queries) DeleteProductSpecificationsByProductID(ctx context.Context, productID uuid.NullUUID) error {
+	_, err := q.db.ExecContext(ctx, deleteProductSpecificationsByProductID, productID)
+	return err
 }
 
 const getAllProductsByFiltersNameAsc = `-- name: GetAllProductsByFiltersNameAsc :many
@@ -2432,6 +2493,7 @@ WITH product_cte AS (
         p.name,
         p.description,
         p.price,
+        p.slug,
         p.stock,
         p.part_number,
         p.category_id,
@@ -2465,6 +2527,7 @@ SELECT
     p.id,
     p.name,
     p.description,
+    p.slug,
     CAST(p.price AS FLOAT) AS price,
     CAST(p.stock AS INTEGER) AS stock,
     p.part_number,
@@ -2484,6 +2547,7 @@ type GetV2ProductDetailBySlugRow struct {
 	ID             uuid.UUID
 	Name           string
 	Description    sql.NullString
+	Slug           sql.NullString
 	Price          float64
 	Stock          int32
 	PartNumber     string
@@ -2500,6 +2564,7 @@ func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug sql.NullStr
 		&i.ID,
 		&i.Name,
 		&i.Description,
+		&i.Slug,
 		&i.Price,
 		&i.Stock,
 		&i.PartNumber,
@@ -2779,7 +2844,7 @@ func (q *Queries) SoftDeleteProduct(ctx context.Context, id uuid.UUID) error {
 
 const updateProduct = `-- name: UpdateProduct :one
 UPDATE products
-SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, search_keyword = to_tsvector('english', $2 || ' ' || $3)
+SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8
 WHERE id = $1
     RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
 `

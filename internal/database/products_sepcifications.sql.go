@@ -130,3 +130,31 @@ func (q *Queries) UpdateProductSpecification(ctx context.Context, arg UpdateProd
 	)
 	return i, err
 }
+
+const upsertProductSpecification = `-- name: UpsertProductSpecification :one
+INSERT INTO product_specifications (product_id, spec_name, spec_value)
+VALUES ($1, $2, $3)
+    ON CONFLICT (product_id, spec_name)
+    DO UPDATE SET spec_value = $3, updated_at = NOW()
+    RETURNING id, product_id, spec_name, spec_value, created_at, updated_at
+`
+
+type UpsertProductSpecificationParams struct {
+	ProductID uuid.NullUUID
+	SpecName  string
+	SpecValue string
+}
+
+func (q *Queries) UpsertProductSpecification(ctx context.Context, arg UpsertProductSpecificationParams) (ProductSpecification, error) {
+	row := q.db.QueryRowContext(ctx, upsertProductSpecification, arg.ProductID, arg.SpecName, arg.SpecValue)
+	var i ProductSpecification
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.SpecName,
+		&i.SpecValue,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

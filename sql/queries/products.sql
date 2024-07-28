@@ -1,7 +1,30 @@
 -- name: CreateProduct :one
-INSERT INTO products (name, description, price, stock, category_id, created_by,part_number, updated_by,  search_keyword)
-VALUES ($1, $2, $3, $4, $5, $6, $7,$8,  to_tsvector('english', $1 || ' ' || $2))
-    RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug;
+INSERT INTO products (
+    name,
+    description,
+    price,
+    stock,
+    category_id,
+    created_by,
+    part_number,
+    updated_by
+) VALUES (
+             $1, $2, $3, $4, $5, $6, $7, $8
+         ) RETURNING
+    id,
+    name,
+    description,
+    price,
+    stock,
+    category_id,
+    created_at,
+    updated_at,
+    status,
+    created_by,
+    updated_by,
+    featured,
+    search_keyword,
+    slug;
 
 -- name: GetProductByID :one
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
@@ -21,7 +44,7 @@ LIMIT $1 OFFSET $2;
 
 -- name: UpdateProduct :one
 UPDATE products
-SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, search_keyword = to_tsvector('english', $2 || ' ' || $3)
+SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8
 WHERE id = $1
     RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug;
 
@@ -29,6 +52,21 @@ WHERE id = $1
 UPDATE products
 SET status = 'archived', updated_at = NOW()
 WHERE id = $1;
+
+-- name: DeleteProductImagesByProductID :exec
+DELETE FROM product_images WHERE product_id = $1;
+
+-- name: DeleteProductSpecificationsByProductID :exec
+DELETE FROM product_specifications WHERE product_id = $1;
+
+-- name: DeleteProductByID :exec
+DELETE FROM products WHERE id = $1;
+
+-- name: ArchiveProductByID :exec
+UPDATE products
+SET status = 'archived', updated_at = NOW()
+WHERE id = $1;
+
 
 -- name: GetProductsByCategoryID :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword
@@ -1166,6 +1204,7 @@ WITH product_cte AS (
         p.name,
         p.description,
         p.price,
+        p.slug,
         p.stock,
         p.part_number,
         p.category_id,
@@ -1199,6 +1238,7 @@ SELECT
     p.id,
     p.name,
     p.description,
+    p.slug,
     CAST(p.price AS FLOAT) AS price,
     CAST(p.stock AS INTEGER) AS stock,
     p.part_number,

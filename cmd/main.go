@@ -251,8 +251,11 @@ func setupRouter(
 
 	// admin product routes
 	adminProductRouter := r.PathPrefix("/api/v2/products").Subrouter()
+	adminProductRouter.HandleFunc("", productHandler.CreateV2ProductHandler).Methods(http.MethodPost)
 	adminProductRouter.HandleFunc("", productHandler.GetProductsHandler).Methods(http.MethodGet)
+	adminProductRouter.HandleFunc("/{slug}", productHandler.DeleteProductHandler).Methods(http.MethodDelete)
 	adminProductRouter.HandleFunc("/{slug}/detail", productHandler.GetProductDetailHandler).Methods(http.MethodGet)
+	adminProductRouter.HandleFunc("/{slug}/archive", productHandler.ArchiveProductHandler).Methods(http.MethodPut)
 
 	// Product Variant routes
 	productVariantRouter := r.PathPrefix("/api/product-variants").Subrouter()

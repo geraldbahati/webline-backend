@@ -23,3 +23,6 @@ WHERE id = $1
 -- name: DeleteProductImage :exec
 DELETE FROM product_images
 WHERE id = $1;
+
+-- name: GetImageKeysByProductID :many
+SELECT image_url FROM product_images WHERE product_id = $1;

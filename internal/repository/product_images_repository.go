@@ -26,25 +26,31 @@ func NewProductImageRepository(db *sql.DB, logger *zap.Logger) *ProductImageRepo
 
 // execTx is a helper function to execute a transaction
 func (r *ProductImageRepository) execTx(ctx context.Context, fn func(*database.Queries) error) error {
-	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
-	})
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
+
 	q := database.New(tx)
-	if err := fn(q); err != nil {
-		r.logger.Error("transaction failed, rolling back", zap.Error(err))
-		if rbErr := tx.Rollback(); rbErr != nil {
-			r.logger.Error("rollback failed", zap.Error(rbErr))
-			return fmt.Errorf("rollback transaction: %w", rbErr)
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p) // re-throw panic after Rollback
+		} else if err != nil {
+			r.logger.Error("transaction failed, rolling back", zap.Error(err))
+			if rbErr := tx.Rollback(); rbErr != nil {
+				r.logger.Error("rollback failed", zap.Error(rbErr))
+				err = fmt.Errorf("rollback transaction: %w", rbErr)
+			}
+		} else {
+			if commitErr := tx.Commit(); commitErr != nil {
+				err = fmt.Errorf("commit transaction: %w", commitErr)
+			}
 		}
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
-	return nil
+	}()
+
+	err = fn(q)
+	return err
 }
 
 // CreateProductImage stores a product image in the database and returns the created product image
@@ -131,4 +137,17 @@ func (r *ProductImageRepository) DeleteProductImage(
 		return err
 	}
 	return nil
+}
+
+// GetImageKeysByProductID retrieves a list of image keys by product ID
+func (r *ProductImageRepository) GetImageKeysByProductID(
+	ctx context.Context,
+	productID uuid.UUID,
+) ([]string, error) {
+	imageKeys, err := r.Queries.GetImageKeysByProductID(ctx, uuid.NullUUID{UUID: productID, Valid: true})
+	if err != nil {
+		r.logger.Error("failed to get image keys by product ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get image keys by product ID: %w", err)
+	}
+	return imageKeys, nil
 }

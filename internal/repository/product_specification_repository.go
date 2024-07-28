@@ -68,6 +68,27 @@ func (r *ProductSpecificationRepository) CreateProductSpecification(
 	return createdSpecification, nil
 }
 
+// UpsertProductSpecification upserts a product specification in the database and returns the upserted specification
+func (r *ProductSpecificationRepository) UpsertProductSpecification(
+	ctx context.Context,
+	params database.UpsertProductSpecificationParams,
+) (database.ProductSpecification, error) {
+	var upsertedSpec database.ProductSpecification
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		upsertedSpec, err = q.UpsertProductSpecification(ctx, params)
+		if err != nil {
+			return fmt.Errorf("failed to upsert product specification: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to upsert product specification", zap.Error(err))
+		return database.ProductSpecification{}, err
+	}
+	return upsertedSpec, nil
+}
+
 // GetProductSpecificationByID retrieves a product specification by its ID
 func (r *ProductSpecificationRepository) GetProductSpecificationByID(
 	ctx context.Context,

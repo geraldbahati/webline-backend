@@ -450,3 +450,112 @@ func (h *ProductHandler) GetProductDetailHandler(w http.ResponseWriter, r *http.
 	// respond with product detail
 	RespondWithJSON(w, http.StatusOK, productDetail)
 }
+
+const maxUploadSize = 10 << 20 // 10 MB
+
+// CreateV2ProductHandler creates a new product
+func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.Request) {
+	// parse the form
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse multipart form: %v", err))
+		return
+	}
+
+	// get the form data
+	var params model.CreateProductRequest
+	params.Slug = r.FormValue("slug")
+	params.Name = r.FormValue("name")
+	params.Description = r.FormValue("description")
+	priceStr := r.FormValue("price")
+	price, err := strconv.ParseFloat(priceStr, 64)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid price")
+		return
+	}
+	params.Price = price
+	stockStr := r.FormValue("stock")
+	stock, err := strconv.Atoi(stockStr)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid stock")
+		return
+	}
+	params.Stock = stock
+	categoryIDStr := r.FormValue("categoryID")
+	categoryID, err := uuid.Parse(categoryIDStr)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
+		return
+	}
+	params.CategoryID = categoryID
+	params.Status = r.FormValue("status")
+	params.PartNumber = r.FormValue("partNumber")
+
+	// get the images
+	images := r.MultipartForm.File["images"]
+
+	// Process specifications
+	specifications := make([]model.Specification, 0)
+	for _, spec := range r.MultipartForm.Value["specifications"] {
+		var specification model.Specification
+		if err := json.Unmarshal([]byte(spec), &specification); err != nil {
+			http.Error(w, "Failed to parse specifications", http.StatusBadRequest)
+			return
+		}
+		specifications = append(specifications, specification)
+	}
+	params.Specifications = specifications
+
+	// create product
+	err = h.productService.CreateV2Product(r.Context(), &params, images)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to create product")
+		return
+	}
+
+	// respond with product
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product created/updated successfully"})
+}
+
+// DeleteProductHandler deletes a product
+func (h *ProductHandler) DeleteProductHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// delete product
+	err := h.productService.DeleteProduct(r.Context(), slug)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to delete product")
+		return
+	}
+
+	// respond with success
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product deleted"})
+}
+
+// ArchiveProductHandler archives a product
+func (h *ProductHandler) ArchiveProductHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// archive product
+	err := h.productService.ArchiveProduct(r.Context(), slug)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to archive product")
+		return
+	}
+
+	// respond with success
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product archived"})
+}
