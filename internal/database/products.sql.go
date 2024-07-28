@@ -140,12 +140,13 @@ INSERT INTO products (
     description,
     price,
     stock,
+    status,
     category_id,
     created_by,
     part_number,
     updated_by
 ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8
+             $1, $2, $3, $4, $5, $6, $7, $8, $9
          ) RETURNING
     id,
     name,
@@ -168,6 +169,7 @@ type CreateProductParams struct {
 	Description sql.NullString
 	Price       string
 	Stock       sql.NullInt32
+	Status      string
 	CategoryID  uuid.UUID
 	CreatedBy   uuid.NullUUID
 	PartNumber  string
@@ -197,6 +199,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (C
 		arg.Description,
 		arg.Price,
 		arg.Stock,
+		arg.Status,
 		arg.CategoryID,
 		arg.CreatedBy,
 		arg.PartNumber,
@@ -2844,7 +2847,7 @@ func (q *Queries) SoftDeleteProduct(ctx context.Context, id uuid.UUID) error {
 
 const updateProduct = `-- name: UpdateProduct :one
 UPDATE products
-SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8
+SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, status = $9
 WHERE id = $1
     RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
 `
@@ -2858,6 +2861,7 @@ type UpdateProductParams struct {
 	CategoryID  uuid.UUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
+	Status      string
 }
 
 type UpdateProductRow struct {
@@ -2887,6 +2891,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (U
 		arg.CategoryID,
 		arg.UpdatedBy,
 		arg.Featured,
+		arg.Status,
 	)
 	var i UpdateProductRow
 	err := row.Scan(

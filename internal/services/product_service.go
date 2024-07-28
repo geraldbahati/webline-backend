@@ -2354,6 +2354,7 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 			Description: sql.NullString{String: params.Description, Valid: true},
 			Price:       fmt.Sprintf("%.0f", params.Price),
 			Stock:       sql.NullInt32{Int32: int32(params.Stock), Valid: true},
+			Status:      params.Status,
 			CategoryID:  params.CategoryID,
 			UpdatedBy: uuid.NullUUID{
 				UUID:  uuid.Nil,
@@ -2378,16 +2379,18 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 			}
 
 			for _, image := range uploadedFiles {
-				_, err := s.productImageRepo.CreateProductImage(ctx, database.CreateProductImageParams{
-					ProductID: uuid.NullUUID{
-						UUID:  existingProduct.ID,
-						Valid: true,
-					},
-					ImageUrl: image,
-				})
-				if err != nil {
-					s.logger.Error("failed to create product image", zap.Error(err))
-					return fmt.Errorf("failed to create product image: %w", err)
+				if image != "" {
+					_, err := s.productImageRepo.CreateProductImage(ctx, database.CreateProductImageParams{
+						ProductID: uuid.NullUUID{
+							UUID:  existingProduct.ID,
+							Valid: true,
+						},
+						ImageUrl: image,
+					})
+					if err != nil {
+						s.logger.Error("failed to create product image", zap.Error(err))
+						return fmt.Errorf("failed to create product image: %w", err)
+					}
 				}
 			}
 		}
@@ -2416,6 +2419,7 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 			Description: sql.NullString{String: params.Description, Valid: true},
 			Price:       fmt.Sprintf("%.0f", params.Price),
 			Stock:       sql.NullInt32{Int32: int32(params.Stock), Valid: true},
+			Status:      params.Status,
 			CategoryID:  params.CategoryID,
 			PartNumber:  params.PartNumber,
 			CreatedBy: uuid.NullUUID{
@@ -2441,16 +2445,18 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 			}
 
 			for _, image := range uploadedFiles {
-				_, err := s.productImageRepo.CreateProductImage(ctx, database.CreateProductImageParams{
-					ProductID: uuid.NullUUID{
-						UUID:  newProduct.ID,
-						Valid: true,
-					},
-					ImageUrl: image,
-				})
-				if err != nil {
-					s.logger.Error("failed to create product image", zap.Error(err))
-					return fmt.Errorf("failed to create product image: %w", err)
+				if image != "" {
+					_, err := s.productImageRepo.CreateProductImage(ctx, database.CreateProductImageParams{
+						ProductID: uuid.NullUUID{
+							UUID:  newProduct.ID,
+							Valid: true,
+						},
+						ImageUrl: image,
+					})
+					if err != nil {
+						s.logger.Error("failed to create product image", zap.Error(err))
+						return fmt.Errorf("failed to create product image: %w", err)
+					}
 				}
 			}
 		}

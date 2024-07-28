@@ -4,12 +4,13 @@ INSERT INTO products (
     description,
     price,
     stock,
+    status,
     category_id,
     created_by,
     part_number,
     updated_by
 ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8
+             $1, $2, $3, $4, $5, $6, $7, $8, $9
          ) RETURNING
     id,
     name,
@@ -44,7 +45,7 @@ LIMIT $1 OFFSET $2;
 
 -- name: UpdateProduct :one
 UPDATE products
-SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8
+SET name = $2, description = $3, price = $4, stock = $5, category_id = $6, updated_at = NOW(), updated_by = $7, featured = $8, status = $9
 WHERE id = $1
     RETURNING id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug;
 

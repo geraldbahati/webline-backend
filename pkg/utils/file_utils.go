@@ -42,9 +42,9 @@ func UploadFileToS3(ctx context.Context, r *http.Request, s3Client *s3.Client, b
 // UploadMultipleFilesToS3 uploads multiple files to S3
 func UploadMultipleFilesToS3(ctx context.Context, files []*multipart.FileHeader, s3Client *s3.Client, bucketName, uploadDir string) ([]string, error) {
 	var wg sync.WaitGroup
-	uploadedFiles := make([]string, len(files))
+	var mu sync.Mutex
+	uploadedFiles := make([]string, 0, len(files))
 	errChan := make(chan error, len(files))
-	filePaths := make(chan string, len(files))
 
 	for _, fileHeader := range files {
 		wg.Add(1)
@@ -69,24 +69,21 @@ func UploadMultipleFilesToS3(ctx context.Context, files []*multipart.FileHeader,
 				return
 			}
 
-			filePaths <- filePath
+			mu.Lock()
+			uploadedFiles = append(uploadedFiles, filePath)
+			mu.Unlock()
 		}(fileHeader)
 	}
 
 	go func() {
 		wg.Wait()
 		close(errChan)
-		close(filePaths)
 	}()
 
 	for err := range errChan {
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	for filePath := range filePaths {
-		uploadedFiles = append(uploadedFiles, filePath)
 	}
 
 	return uploadedFiles, nil
