@@ -36,12 +36,13 @@ func GenerateTokens(userId uuid.UUID, email string) (string, string, time.Time, 
 }
 
 func generateToken(userId uuid.UUID, email string, secret []byte, duration time.Duration) (string, error) {
+	now := time.Now()
 	claims := UserClaims{
 		UserId: userId,
 		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
+			IssuedAt:  jwt.NewNumericDate(now),
 			Subject:   userId.String(),
 		},
 	}
@@ -51,13 +52,12 @@ func generateToken(userId uuid.UUID, email string, secret []byte, duration time.
 }
 
 func generateTokenWithExpiry(userId uuid.UUID, email string, secret []byte, duration time.Duration) (string, time.Time, error) {
-	expireTime := time.Now().Add(duration)
 	token, err := generateToken(userId, email, secret, duration)
 	if err != nil {
 		return "", time.Time{}, err
 	}
 
-	return token, expireTime, nil
+	return token, time.Now().Add(duration), nil
 }
 
 // ParseToken parses the token and returns the claims
@@ -117,25 +117,11 @@ func ValidateToken(tokenString string, isAccessToken bool) error {
 
 // IsTokenExpired checks if the token is expired
 func IsTokenExpired(tokenString string, isAccessToken bool) bool {
-	secret := getSecret(isAccessToken)
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return secret, nil
-	})
+	claims, err := ParseToken(tokenString, isAccessToken)
 	if err != nil {
 		return true
 	}
-
-	if !token.Valid {
-		return true
-	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		exp := int64(claims["exp"].(float64))
-		return time.Now().Unix() > exp
-	}
-
-	return false
+	return time.Now().After(claims.ExpiresAt.Time)
 }
 
 // getSecret returns the appropriate secret based on the token type

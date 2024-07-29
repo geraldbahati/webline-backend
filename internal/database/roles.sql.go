@@ -100,6 +100,19 @@ func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error) {
 	return i, err
 }
 
+const getRoleByName = `-- name: GetRoleByName :one
+SELECT id
+FROM roles
+WHERE role_name = $1
+`
+
+func (q *Queries) GetRoleByName(ctx context.Context, roleName string) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getRoleByName, roleName)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const updateRole = `-- name: UpdateRole :one
 UPDATE roles
 SET role_name = $2, description = $3, updated_at = now()

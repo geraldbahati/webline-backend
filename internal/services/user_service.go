@@ -3,9 +3,8 @@ package services
 import (
 	"context"
 	"database/sql"
+	"go.uber.org/zap"
 	"log"
-	"regexp"
-	"strings"
 	"time"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
@@ -21,55 +20,74 @@ type UserService struct {
 	userRepository  *repository.UserRepository
 	tokenRepository *repository.TokenRepository
 	config          *appconfig.Config
+	logger          *zap.Logger
 }
 
 func NewUserService(
 	userRepository *repository.UserRepository,
 	tokenRepository *repository.TokenRepository,
 	config *appconfig.Config,
+	logger *zap.Logger,
 ) *UserService {
 	return &UserService{
 		userRepository:  userRepository,
 		tokenRepository: tokenRepository,
 		config:          config,
+		logger:          logger,
 	}
 }
 
 // CreateUser creates a new user
-func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.RegisterUserParams) (database.User, error) {
+func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.RegisterUserParams) (*model.LoginResponse, error) {
 	// hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(registerUserParams.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return database.User{}, err
+		s.logger.Error("Failed to hash password", zap.Error(err))
+		return nil, err
 	}
 
 	// create user
 	newUser := database.CreateUserParams{
 		Email:          registerUserParams.Email,
 		HashedPassword: string(hashedPassword),
-		FirstName: sql.NullString{
-			String: strings.ToLower(registerUserParams.FirstName),
-			Valid:  true,
-		},
-		LastName: sql.NullString{
-			String: strings.ToLower(registerUserParams.LastName),
-			Valid:  true,
-		},
 	}
 
 	createdUser, err := s.userRepository.CreateUser(ctx, newUser)
 	if err != nil {
-		return database.User{}, err
+		s.logger.Error("Failed to create user", zap.Error(err))
+		return nil, err
 	}
 
-	// return created user
-	return createdUser, nil
-}
+	// assign user role
+	role, err := s.userRepository.GetRoleByName(ctx, "user")
 
-// sanitizeUsername sanitizes the given username
-func sanitizeUsername(username string) string {
-	reg := regexp.MustCompile("[^a-zA-Z0-9_.-]+")
-	return reg.ReplaceAllString(username, "")
+	err = s.userRepository.AssignUserRole(ctx, createdUser.ID)
+	if err != nil {
+		s.logger.Error("Failed to assign user role", zap.Error(err))
+		return nil, err
+	}
+
+	// login the user
+	accessToken, refreshToken, expireTime, err := utils.GenerateTokens(createdUser.ID, createdUser.Email)
+	if err != nil {
+		s.logger.Error("Failed to generate tokens", zap.Error(err))
+		return nil, err
+	}
+
+	err = s.tokenRepository.StoreRefreshToken(ctx, database.StoreRefreshTokenParams{
+		UserID:    createdUser.ID,
+		Token:     refreshToken,
+		ExpiresAt: expireTime,
+	})
+	if err != nil {
+		s.logger.Error("Failed to store refresh token", zap.Error(err))
+		return nil, err
+	}
+
+	return &model.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 // GetUserByEmail returns the user with the given email

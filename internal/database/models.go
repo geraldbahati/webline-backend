@@ -301,6 +301,14 @@ type RelatedProduct struct {
 	RelatedProductID uuid.UUID
 }
 
+type Role struct {
+	ID          uuid.UUID
+	RoleName    string
+	Description sql.NullString
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
 type Shipment struct {
 	ID             uuid.UUID
 	OrderID        uuid.NullUUID
@@ -369,9 +377,9 @@ type UserPreference struct {
 type UserRole struct {
 	ID        uuid.UUID
 	UserID    uuid.NullUUID
-	Role      string
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+	RoleID    uuid.NullUUID
 }
 
 type Wishlist struct {

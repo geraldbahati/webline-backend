@@ -1,8 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users (id, email, hashed_password, first_name, last_name, phone_number, profile_image_url,
-                   date_of_birth, is_active, created_at, updated_at, last_login)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(),
-        NULL) RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login;
+INSERT INTO users ( email, hashed_password)
+VALUES ( $1, $2) RETURNING id, email;
 
 -- name: GetUserByID :one
 SELECT id,

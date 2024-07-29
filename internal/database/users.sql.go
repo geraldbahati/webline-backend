@@ -24,62 +24,24 @@ func (q *Queries) CountAllUsers(ctx context.Context) (int64, error) {
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, email, hashed_password, first_name, last_name, phone_number, profile_image_url,
-                   date_of_birth, is_active, created_at, updated_at, last_login)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(),
-        NULL) RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
+INSERT INTO users ( email, hashed_password)
+VALUES ( $1, $2) RETURNING id, email
 `
 
 type CreateUserParams struct {
-	Email           string
-	HashedPassword  string
-	FirstName       sql.NullString
-	LastName        sql.NullString
-	PhoneNumber     sql.NullString
-	ProfileImageUrl sql.NullString
-	DateOfBirth     sql.NullTime
-	IsActive        bool
+	Email          string
+	HashedPassword string
 }
 
 type CreateUserRow struct {
-	ID              uuid.UUID
-	Email           string
-	FirstName       sql.NullString
-	LastName        sql.NullString
-	PhoneNumber     sql.NullString
-	ProfileImageUrl sql.NullString
-	DateOfBirth     sql.NullTime
-	IsActive        bool
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-	LastLogin       sql.NullTime
+	ID    uuid.UUID
+	Email string
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
-		arg.Email,
-		arg.HashedPassword,
-		arg.FirstName,
-		arg.LastName,
-		arg.PhoneNumber,
-		arg.ProfileImageUrl,
-		arg.DateOfBirth,
-		arg.IsActive,
-	)
+	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.HashedPassword)
 	var i CreateUserRow
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.FirstName,
-		&i.LastName,
-		&i.PhoneNumber,
-		&i.ProfileImageUrl,
-		&i.DateOfBirth,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.LastLogin,
-	)
+	err := row.Scan(&i.ID, &i.Email)
 	return i, err
 }
 
