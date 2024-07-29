@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"go.uber.org/zap"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+
+	"go.uber.org/zap"
 )
 
 type RoleRepository struct {
