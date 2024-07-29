@@ -25,7 +25,7 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	// Decode request body
 	if err := json.NewDecoder(r.Body).Decode(&registerUserParams); err != nil {
-		RespondWithJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Failed to decode request body")})
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
 		return
 	}
 

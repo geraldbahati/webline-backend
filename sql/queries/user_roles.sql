@@ -22,3 +22,9 @@ WHERE user_id = $1 AND role_id = $2;
 -- name: RemoveAllRolesFromUser :exec
 DELETE FROM user_roles
 WHERE user_id = $1;
+
+-- name: GetUserRolesByUserID :many
+SELECT r.role_name
+FROM roles r
+         JOIN user_roles ur ON r.id = ur.role_id
+WHERE ur.user_id = $1;

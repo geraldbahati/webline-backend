@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"weblineBackend/internal/database"
+	"weblineBackend/internal/model"
 )
 
 type RoleRepository struct {
@@ -50,4 +51,44 @@ func (r *RoleRepository) execTx(ctx context.Context, fn func(*database.Queries) 
 
 	err = fn(q)
 	return err
+}
+
+// CreateRole creates a new role
+func (r *RoleRepository) CreateRole(ctx context.Context, name, description string) (*model.Role, error) {
+	var role *model.Role
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		var err error
+		rows, err := q.CreateRole(ctx, database.CreateRoleParams{
+			RoleName: name,
+			Description: sql.NullString{
+				String: description,
+				Valid:  description != "",
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		role = &model.Role{
+			ID:          rows.ID,
+			Name:        rows.RoleName,
+			Description: rows.Description.String,
+		}
+		return err
+	})
+	if err != nil {
+		r.logger.Error("Failed to create role", zap.Error(err))
+		return nil, err
+	}
+	return role, nil
+}
+
+// GetRoleByName retrieves a role by name
+func (r *RoleRepository) GetRoleByName(ctx context.Context, name string) (*database.GetRoleByNameRow, error) {
+	role, err := r.Queries.GetRoleByName(ctx, name)
+	if err != nil {
+		r.logger.Error("Failed to get role by name", zap.Error(err))
+		return nil, err
+	}
+	return &role, nil
 }

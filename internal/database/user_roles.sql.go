@@ -90,6 +90,36 @@ func (q *Queries) GetUserRoles(ctx context.Context, userID uuid.NullUUID) ([]Get
 	return items, nil
 }
 
+const getUserRolesByUserID = `-- name: GetUserRolesByUserID :many
+SELECT r.role_name
+FROM roles r
+         JOIN user_roles ur ON r.id = ur.role_id
+WHERE ur.user_id = $1
+`
+
+func (q *Queries) GetUserRolesByUserID(ctx context.Context, userID uuid.NullUUID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getUserRolesByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var role_name string
+		if err := rows.Scan(&role_name); err != nil {
+			return nil, err
+		}
+		items = append(items, role_name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUsersByRole = `-- name: GetUsersByRole :many
 SELECT u.id, u.email, u.first_name, u.last_name, u.phone_number, u.profile_image_url, u.date_of_birth, u.is_active, u.created_at, u.updated_at, u.last_login
 FROM users u

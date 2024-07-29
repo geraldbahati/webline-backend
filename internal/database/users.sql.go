@@ -101,6 +101,7 @@ SELECT id,
        email,
        first_name,
        last_name,
+       hashed_password,
        phone_number,
        profile_image_url,
        date_of_birth,
@@ -117,6 +118,7 @@ type GetUserByEmailRow struct {
 	Email           string
 	FirstName       sql.NullString
 	LastName        sql.NullString
+	HashedPassword  string
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
@@ -134,6 +136,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.HashedPassword,
 		&i.PhoneNumber,
 		&i.ProfileImageUrl,
 		&i.DateOfBirth,

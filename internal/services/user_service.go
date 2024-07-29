@@ -17,23 +17,29 @@ import (
 )
 
 type UserService struct {
-	userRepository  *repository.UserRepository
-	tokenRepository *repository.TokenRepository
-	config          *appconfig.Config
-	logger          *zap.Logger
+	userRepository     *repository.UserRepository
+	roleRepository     *repository.RoleRepository
+	userRoleRepository *repository.UserRoleRepository
+	tokenRepository    *repository.TokenRepository
+	config             *appconfig.Config
+	logger             *zap.Logger
 }
 
 func NewUserService(
 	userRepository *repository.UserRepository,
+	roleRepository *repository.RoleRepository,
+	userRoleRepository *repository.UserRoleRepository,
 	tokenRepository *repository.TokenRepository,
 	config *appconfig.Config,
 	logger *zap.Logger,
 ) *UserService {
 	return &UserService{
-		userRepository:  userRepository,
-		tokenRepository: tokenRepository,
-		config:          config,
-		logger:          logger,
+		userRepository:     userRepository,
+		roleRepository:     roleRepository,
+		userRoleRepository: userRoleRepository,
+		tokenRepository:    tokenRepository,
+		config:             config,
+		logger:             logger,
 	}
 }
 
@@ -59,11 +65,16 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 	}
 
 	// assign user role
-	role, err := s.userRepository.GetRoleByName(ctx, "user")
-
-	err = s.userRepository.AssignUserRole(ctx, createdUser.ID)
+	role, err := s.roleRepository.GetRoleByName(ctx, "customer")
 	if err != nil {
-		s.logger.Error("Failed to assign user role", zap.Error(err))
+		s.logger.Error("Failed to get role", zap.Error(err))
+		return nil, err
+	}
+
+	// Assign role to user
+	err = s.userRoleRepository.AssignRoleToUser(ctx, createdUser.ID, role.ID)
+	if err != nil {
+		s.logger.Error("Failed to assign role to user", zap.Error(err))
 		return nil, err
 	}
 
@@ -84,9 +95,21 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 		return nil, err
 	}
 
+	roles, err := s.userRoleRepository.GetRolesForUser(ctx, createdUser.ID)
+	if err != nil {
+		s.logger.Error("Failed to get roles for user", zap.Error(err))
+		return nil, err
+
+	}
+
 	return &model.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+		User: model.User{
+			ID:    createdUser.ID,
+			Email: createdUser.Email,
+			Roles: roles,
+		},
 	}, nil
 }
 
@@ -131,9 +154,21 @@ func (s *UserService) LoginUser(ctx context.Context, params model.LoginParams) (
 		log.Printf("Failed to update last login for user with id %s: %v", user.ID.String(), err)
 	}
 
+	roles, err := s.userRoleRepository.GetRolesForUser(ctx, user.ID)
+	if err != nil {
+		s.logger.Error("Failed to get roles for user", zap.Error(err))
+		return model.LoginResponse{}, err
+
+	}
+
 	return model.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+		User: model.User{
+			ID:    user.ID,
+			Email: user.Email,
+			Roles: roles,
+		},
 	}, nil
 }
 

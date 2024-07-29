@@ -9,7 +9,7 @@ FROM roles
 WHERE id = $1;
 
 -- name: GetRoleByName :one
-SELECT id
+SELECT id, role_name
 FROM roles
 WHERE role_name = $1;
 

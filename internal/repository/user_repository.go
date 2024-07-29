@@ -131,6 +131,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (data
 		FirstName:       user.FirstName,
 		LastName:        user.LastName,
 		PhoneNumber:     user.PhoneNumber,
+		HashedPassword:  user.HashedPassword,
 		ProfileImageUrl: user.ProfileImageUrl,
 		DateOfBirth:     user.DateOfBirth,
 		IsActive:        user.IsActive,

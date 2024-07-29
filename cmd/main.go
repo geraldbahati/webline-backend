@@ -87,9 +87,11 @@ func main() {
 	discountRepo := repository.NewDiscountRepository(conn, logger)
 	productAnalyticRepo := repository.NewProductAnalyticRepository(conn, logger)
 	promotionRepo := repository.NewPromotionRepository(conn, logger)
+	roleRepo := repository.NewRoleRepository(conn, logger)
+	userRoleRepo := repository.NewUserRoleRepository(conn, logger)
 
 	// Initialize services
-	userService := services.NewUserService(userRepo, tokenRepo, &cfg)
+	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, tokenRepo, &cfg, logger)
 	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger, &cfg, s3Client)
 	productService := services.NewProductService(
 		productRepo,
