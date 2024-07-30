@@ -160,7 +160,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.HashedPassword,
 		&i.FirstName,
 		&i.LastName,
-		&i.HashedPassword,
 		&i.PhoneNumber,
 		&i.ProfileImageUrl,
 		&i.DateOfBirth,
