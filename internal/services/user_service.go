@@ -384,6 +384,14 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 
 	user.Roles = roles
 
+	roles, err := s.userRoleRepository.GetRolesForUser(ctx, user.ID)
+	if err != nil {
+		s.logger.Error("Failed to get roles for user", zap.Error(err))
+		return nil, err
+	}
+
+	user.Roles = roles
+
 	return user, nil
 }
 
