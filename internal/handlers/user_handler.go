@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"html/template"
 	"net/http"
 	"weblineBackend/internal/model"
@@ -164,27 +165,27 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateUserProfile updates a user's profile
-func (h *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
-	var params model.UpdateUserProfileParams
-
-	// Decode request body
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
-		return
-	}
-
-	user, err := h.userService.UpdateUserProfile(r.Context(), params)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update user profile: %v", err))
-		return
-	}
-
-	RespondWithJSON(w, http.StatusOK, user)
-}
+//func (h *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
+//	var params model.UpdateUserProfileParams
+//
+//	// Decode request body
+//	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+//		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
+//		return
+//	}
+//
+//	user, err := h.userService.UpdateUserProfile(r.Context(), params)
+//	if err != nil {
+//		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update user profile: %v", err))
+//		return
+//	}
+//
+//	RespondWithJSON(w, http.StatusOK, user)
+//}
 
 // GetUserProfile gets a user's profile
 func (h *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := mux.Vars(r)["id"]
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Invalid user ID")
 		return
@@ -217,4 +218,23 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondWithJSON(w, http.StatusOK, users)
+}
+
+// LoginWithGoogle logs in a user with Google
+func (h *UserHandler) LoginWithGoogle(w http.ResponseWriter, r *http.Request) {
+	var params model.GoogleUser
+
+	// Decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
+		return
+	}
+
+	tokens, err := h.userService.LoginWithGoogle(r.Context(), params)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to login with Google: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, tokens)
 }

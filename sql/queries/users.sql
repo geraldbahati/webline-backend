@@ -1,6 +1,13 @@
 -- name: CreateUser :one
-INSERT INTO users ( email, hashed_password)
-VALUES ( $1, $2) RETURNING id, email;
+INSERT INTO users (
+    id, email, hashed_password, first_name, last_name, phone_number,
+    profile_image_url, date_of_birth, is_active, provider, provider_id
+) VALUES (
+             gen_random_uuid(), $1, $2, $3, $4, $5,
+             $6, $7, true, $8, $9
+         )
+RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id;
+
 
 -- name: GetUserByID :one
 SELECT id,
@@ -13,25 +20,23 @@ SELECT id,
        is_active,
        created_at,
        updated_at,
-       last_login
+       last_login,
+         provider,
+            provider_id
 FROM users
 WHERE id = $1;
 
 -- name: GetUserByEmail :one
-SELECT id,
-       email,
-       first_name,
-       last_name,
-       hashed_password,
-       phone_number,
-       profile_image_url,
-       date_of_birth,
-       is_active,
-       created_at,
-       updated_at,
-       last_login
+SELECT id, email, hashed_password, first_name, last_name, phone_number,
+       profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id
 FROM users
 WHERE email = $1;
+
+-- name: GetUserByProvider :one
+SELECT id, email, hashed_password, first_name, last_name, phone_number,
+       profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id
+FROM users
+WHERE provider = $1 AND provider_id = $2;
 
 -- name: UpdateUserProfile :one
 UPDATE users
@@ -40,8 +45,10 @@ SET first_name        = $2,
     phone_number      = $4,
     profile_image_url = $5,
     date_of_birth     = $6,
+    provider          = $7,
+    provider_id       = $8,
     updated_at        = NOW()
-WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login;
+WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id;
 
 -- name: UpdateUserPassword :one
 UPDATE users

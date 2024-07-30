@@ -200,13 +200,15 @@ func setupRouter(
 
 	userRouter := r.PathPrefix("/api/users").Subrouter()
 	userRouter.HandleFunc("", userHandler.ListUsers).Methods(http.MethodGet)
+	userRouter.HandleFunc("/{id}", userHandler.GetUserProfile).Methods(http.MethodGet)
 	userRouter.HandleFunc("/register", userHandler.RegisterUser).Methods(http.MethodPost)
-	userRouter.HandleFunc("/login", userHandler.LoginUser).Methods(http.MethodPost)
 	userRouter.HandleFunc("/refresh", userHandler.RefreshToken).Methods(http.MethodPost)
+	userRouter.HandleFunc("/login", userHandler.LoginUser).Methods(http.MethodPost)
+	userRouter.HandleFunc("/login/google", userHandler.LoginWithGoogle).Methods(http.MethodPost)
 
 	protectedUserRouter := userRouter.PathPrefix("").Subrouter()
 	protectedUserRouter.Use(middleware.Auth)
-	protectedUserRouter.HandleFunc("/update-profile", userHandler.UpdateUserProfile).Methods(http.MethodPut)
+	//protectedUserRouter.HandleFunc("/update-profile", userHandler.UpdateUserProfile).Methods(http.MethodPut)
 	protectedUserRouter.HandleFunc("/reset-password", userHandler.RequestPasswordReset).Methods(http.MethodPut)
 
 	// Category routes

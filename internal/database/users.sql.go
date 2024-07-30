@@ -24,24 +24,72 @@ func (q *Queries) CountAllUsers(ctx context.Context) (int64, error) {
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users ( email, hashed_password)
-VALUES ( $1, $2) RETURNING id, email
+INSERT INTO users (
+    id, email, hashed_password, first_name, last_name, phone_number,
+    profile_image_url, date_of_birth, is_active, provider, provider_id
+) VALUES (
+             gen_random_uuid(), $1, $2, $3, $4, $5,
+             $6, $7, true, $8, $9
+         )
+RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id
 `
 
 type CreateUserParams struct {
-	Email          string
-	HashedPassword string
+	Email           string
+	HashedPassword  sql.NullString
+	FirstName       sql.NullString
+	LastName        sql.NullString
+	PhoneNumber     sql.NullString
+	ProfileImageUrl sql.NullString
+	DateOfBirth     sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
 }
 
 type CreateUserRow struct {
-	ID    uuid.UUID
-	Email string
+	ID              uuid.UUID
+	Email           string
+	FirstName       sql.NullString
+	LastName        sql.NullString
+	PhoneNumber     sql.NullString
+	ProfileImageUrl sql.NullString
+	DateOfBirth     sql.NullTime
+	IsActive        bool
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	LastLogin       sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.HashedPassword)
+	row := q.db.QueryRowContext(ctx, createUser,
+		arg.Email,
+		arg.HashedPassword,
+		arg.FirstName,
+		arg.LastName,
+		arg.PhoneNumber,
+		arg.ProfileImageUrl,
+		arg.DateOfBirth,
+		arg.Provider,
+		arg.ProviderID,
+	)
 	var i CreateUserRow
-	err := row.Scan(&i.ID, &i.Email)
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.PhoneNumber,
+		&i.ProfileImageUrl,
+		&i.DateOfBirth,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLogin,
+		&i.Provider,
+		&i.ProviderID,
+	)
 	return i, err
 }
 
@@ -97,46 +145,21 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id,
-       email,
-       first_name,
-       last_name,
-       hashed_password,
-       phone_number,
-       profile_image_url,
-       date_of_birth,
-       is_active,
-       created_at,
-       updated_at,
-       last_login
+SELECT id, email, hashed_password, first_name, last_name, phone_number,
+       profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id
 FROM users
 WHERE email = $1
 `
 
-type GetUserByEmailRow struct {
-	ID              uuid.UUID
-	Email           string
-	FirstName       sql.NullString
-	LastName        sql.NullString
-	HashedPassword  string
-	PhoneNumber     sql.NullString
-	ProfileImageUrl sql.NullString
-	DateOfBirth     sql.NullTime
-	IsActive        bool
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-	LastLogin       sql.NullTime
-}
-
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
-	var i GetUserByEmailRow
+	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
+		&i.HashedPassword,
 		&i.FirstName,
 		&i.LastName,
-		&i.HashedPassword,
 		&i.PhoneNumber,
 		&i.ProfileImageUrl,
 		&i.DateOfBirth,
@@ -144,6 +167,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
+		&i.Provider,
+		&i.ProviderID,
 	)
 	return i, err
 }
@@ -159,7 +184,9 @@ SELECT id,
        is_active,
        created_at,
        updated_at,
-       last_login
+       last_login,
+         provider,
+            provider_id
 FROM users
 WHERE id = $1
 `
@@ -176,6 +203,8 @@ type GetUserByIDRow struct {
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
@@ -193,6 +222,42 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
+		&i.Provider,
+		&i.ProviderID,
+	)
+	return i, err
+}
+
+const getUserByProvider = `-- name: GetUserByProvider :one
+SELECT id, email, hashed_password, first_name, last_name, phone_number,
+       profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id
+FROM users
+WHERE provider = $1 AND provider_id = $2
+`
+
+type GetUserByProviderParams struct {
+	Provider   sql.NullString
+	ProviderID sql.NullString
+}
+
+func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByProvider, arg.Provider, arg.ProviderID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.HashedPassword,
+		&i.FirstName,
+		&i.LastName,
+		&i.PhoneNumber,
+		&i.ProfileImageUrl,
+		&i.DateOfBirth,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLogin,
+		&i.Provider,
+		&i.ProviderID,
 	)
 	return i, err
 }
@@ -316,7 +381,7 @@ WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_
 
 type UpdateUserPasswordParams struct {
 	ID             uuid.UUID
-	HashedPassword string
+	HashedPassword sql.NullString
 }
 
 type UpdateUserPasswordRow struct {
@@ -359,8 +424,10 @@ SET first_name        = $2,
     phone_number      = $4,
     profile_image_url = $5,
     date_of_birth     = $6,
+    provider          = $7,
+    provider_id       = $8,
     updated_at        = NOW()
-WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login
+WHERE id = $1 RETURNING id, email, first_name, last_name, phone_number, profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id
 `
 
 type UpdateUserProfileParams struct {
@@ -370,6 +437,8 @@ type UpdateUserProfileParams struct {
 	PhoneNumber     sql.NullString
 	ProfileImageUrl sql.NullString
 	DateOfBirth     sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
 }
 
 type UpdateUserProfileRow struct {
@@ -384,6 +453,8 @@ type UpdateUserProfileRow struct {
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
 }
 
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error) {
@@ -394,6 +465,8 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.PhoneNumber,
 		arg.ProfileImageUrl,
 		arg.DateOfBirth,
+		arg.Provider,
+		arg.ProviderID,
 	)
 	var i UpdateUserProfileRow
 	err := row.Scan(
@@ -408,6 +481,8 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
+		&i.Provider,
+		&i.ProviderID,
 	)
 	return i, err
 }

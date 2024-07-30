@@ -347,7 +347,7 @@ type StorageOption struct {
 type User struct {
 	ID              uuid.UUID
 	Email           string
-	HashedPassword  string
+	HashedPassword  sql.NullString
 	FirstName       sql.NullString
 	LastName        sql.NullString
 	PhoneNumber     sql.NullString
@@ -357,6 +357,8 @@ type User struct {
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	LastLogin       sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
 }
 
 type UserAddress struct {
