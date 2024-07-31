@@ -267,11 +267,13 @@ func setupRouter(
 
 	// admin product routes
 	adminProductRouter := r.PathPrefix("/api/v2/products").Subrouter()
-	adminProductRouter.Use(middleware.Auth)
-	adminProductRouter.HandleFunc("", productHandler.CreateV2ProductHandler).Methods(http.MethodPost)
 	adminProductRouter.HandleFunc("", productHandler.GetProductsHandler).Methods(http.MethodGet)
-	adminProductRouter.HandleFunc("/{slug}", productHandler.DeleteProductHandler).Methods(http.MethodDelete)
 	adminProductRouter.HandleFunc("/{slug}/detail", productHandler.GetProductDetailHandler).Methods(http.MethodGet)
+
+	protectedAdminProductRouter := adminProductRouter.PathPrefix("").Subrouter()
+	protectedAdminProductRouter.Use(middleware.Auth)
+	protectedAdminProductRouter.HandleFunc("", productHandler.CreateV2ProductHandler).Methods(http.MethodPost)
+	adminProductRouter.HandleFunc("/{slug}", productHandler.DeleteProductHandler).Methods(http.MethodDelete)
 	adminProductRouter.HandleFunc("/{slug}/archive", productHandler.ArchiveProductHandler).Methods(http.MethodPut)
 
 	protectedAdminProductRouter := adminProductRouter.PathPrefix("").Subrouter()

@@ -2286,27 +2286,6 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 
 // GetProducts retrieves all products
 func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, error) {
-	// get user id from the context
-	userId, ok := ctx.Value("userId").(uuid.UUID)
-	if !ok {
-		err := app_errors.NewUnauthorizedUserError()
-		s.logger.Error("failed to get user id from context", zap.Error(err))
-		return nil, err
-	}
-
-	// check if user is admin
-	isAdmin, err := s.userRepo.IsAdmin(ctx, userId)
-	if err != nil {
-		err := app_errors.NewUnauthorizedUserError()
-		s.logger.Error("failed to check if user is admin", zap.Error(err))
-		return nil, err
-	}
-
-	if !isAdmin {
-		err := app_errors.NewUnauthorizedUserError()
-		s.logger.Error("user is not authorized to get products", zap.Error(err))
-		return nil, err
-	}
 
 	products, err := s.productRepo.GetV2Products(ctx)
 	if err != nil {
