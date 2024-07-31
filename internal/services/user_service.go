@@ -370,8 +370,9 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 		}
 
 		s.logger.Info("User found by provider")
-	} else {
-		s.logger.Info("User found")
+	}
+	if err != nil {
+		s.logger.Error("Failed to get user by id", zap.Error(err))
 		return nil, err
 	}
 
