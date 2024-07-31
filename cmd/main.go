@@ -122,6 +122,7 @@ func main() {
 	promotionService := services.NewPromotionService(logger, &cfg, s3Client, promotionRepo, productRepo, productImageRepo, discountRepo)
 	discountService := services.NewDiscountService(logger, discountRepo, productRepo)
 	adminRequestService := services.NewAdminRequestService(adminRequestRepoImpl, userRepo, logger, &cfg)
+	roleService := services.NewRoleService(roleRepo, logger)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService, adminRequestService, &cfg)
@@ -139,6 +140,7 @@ func main() {
 	productAnalyticHandler := handlers.NewProductAnalyticHandler(productAnalyticService)
 	promotionHandler := handlers.NewPromotionHandler(promotionService)
 	discountHandler := handlers.NewDiscountHandler(discountService)
+	roleHandler := handlers.NewRoleHandler(roleService)
 
 	// Setup router
 	r := setupRouter(
@@ -158,6 +160,7 @@ func main() {
 		productAnalyticHandler,
 		promotionHandler,
 		discountHandler,
+		roleHandler,
 	)
 
 	logger.Info("Router setup completed")
@@ -187,6 +190,7 @@ func setupRouter(
 	productAnalyticHandler *handlers.ProductAnalyticHandler,
 	promotionHandler *handlers.PromotionHandler,
 	discountHandler *handlers.DiscountHandler,
+	roleHandler *handlers.RoleHandler,
 ) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
@@ -359,6 +363,10 @@ func setupRouter(
 	// Discount routes
 	discountRouter := r.PathPrefix("/api/discounts").Subrouter()
 	discountRouter.HandleFunc("", discountHandler.CreateDiscountHandler).Methods(http.MethodPost)
+
+	// Role routes
+	roleRouter := r.PathPrefix("/api/roles").Subrouter()
+	roleRouter.HandleFunc("", roleHandler.CreateRole).Methods(http.MethodPost)
 
 	return r
 }
