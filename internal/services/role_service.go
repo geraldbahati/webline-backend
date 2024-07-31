@@ -2,9 +2,10 @@ package services
 
 import (
 	"context"
-	"go.uber.org/zap"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
+
+	"go.uber.org/zap"
 )
 
 type RoleService struct {
