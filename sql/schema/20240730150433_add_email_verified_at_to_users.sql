@@ -1,9 +1,7 @@
 -- +goose Up
--- +goose StatementBegin
-SELECT 'up SQL query';
--- +goose StatementEnd
+ALTER TABLE users
+    ADD COLUMN email_verified_at TIMESTAMPTZ;
 
 -- +goose Down
--- +goose StatementBegin
-SELECT 'down SQL query';
--- +goose StatementEnd
+ALTER TABLE users
+    DROP COLUMN email_verified_at;

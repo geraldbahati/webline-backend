@@ -1,9 +1,7 @@
 -- +goose Up
--- +goose StatementBegin
-SELECT 'up SQL query';
--- +goose StatementEnd
+ALTER TABLE verification_tokens
+    ALTER COLUMN token TYPE VARCHAR(512);
 
 -- +goose Down
--- +goose StatementBegin
-SELECT 'down SQL query';
--- +goose StatementEnd
+ALTER TABLE verification_tokens
+    ALTER COLUMN token TYPE VARCHAR(255);

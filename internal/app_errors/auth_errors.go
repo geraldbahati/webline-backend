@@ -1,20 +1,41 @@
-package errors
+package app_errors
 
-const EmailNotVerifiedCode = 403 // HTTP Status Code for Forbidden
+// Error codes
+const (
+	UseGoogleToLoginCode = 400
+	EmailNotVerifiedCode = 403 // HTTP Status Code for Forbidden
+	UserNotFoundCode     = 404
+	TokenExpiredCode     = 401
+	UnauthorizedCode     = 401
+	AlreadyAdminCode     = 409
+	InvalidTokenCode     = 401
+)
 
-// EmailNotVerifiedError represents an error when a user's email is not verified.
-type EmailNotVerifiedError struct {
-	*AppError
+// Factory functions for specific error cases
+func NewEmailNotVerifiedError() *AppError {
+	return NewAppError(EmailNotVerifiedCode, "Email is not verified", nil)
 }
 
-// NewEmailNotVerifiedError creates a new EmailNotVerifiedError.
-func NewEmailNotVerifiedError() *EmailNotVerifiedError {
-	return &EmailNotVerifiedError{
-		AppError: &AppError{
-			Code:    EmailNotVerifiedCode,
-			Message: "Email is not verified",
-		},
-	}
+func NewUseGoogleToLoginError() *AppError {
+	return NewAppError(UseGoogleToLoginCode, "Use Google to login", nil)
 }
 
-// NewUseGoogleToLogin
+func NewUserNotFoundError() *AppError {
+	return NewAppError(UserNotFoundCode, "User not found", nil)
+}
+
+func NewTokenExpiredError() *AppError {
+	return NewAppError(TokenExpiredCode, "Token is expired", nil)
+}
+
+func NewUnauthorizedUserError() *AppError {
+	return NewAppError(UnauthorizedCode, "User is not authorized", nil)
+}
+
+func NewAlreadyAdminError() *AppError {
+	return NewAppError(AlreadyAdminCode, "User is already an admin", nil)
+}
+
+func NewInvalidTokenError() *AppError {
+	return NewAppError(InvalidTokenCode, "Invalid token", nil)
+}

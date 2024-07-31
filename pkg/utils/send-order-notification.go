@@ -406,3 +406,329 @@ func SendOrderPaymentMethodChangeNotification(emailConfig *appconfig.Config, ord
 	}
 	return nil
 }
+
+// SendVerificationEmail sends an email containing a verification link.
+func SendVerificationEmail(emailConfig *appconfig.Config, userEmail, verificationToken string) error {
+	// Construct the verification link
+	verificationLink := fmt.Sprintf("%s/auth/verify-email?token=%s", emailConfig.BackendURL, verificationToken)
+
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", userEmail)
+	m.SetHeader("Subject", "Email Verification")
+
+	// Set email body
+	plainTextBody := fmt.Sprintf("Please verify your email address by clicking the following link: %s", verificationLink)
+	htmlBody := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<style>
+				body {
+					font-family: Arial, sans-serif;
+					color: #333333;
+				}
+				.container {
+					width: 80%%;
+					margin: auto;
+					padding: 20px;
+					border: 1px solid #dcdcdc;
+					border-radius: 10px;
+					background-color: #f9f9f9;
+				}
+				.header {
+					text-align: center;
+					padding: 10px 0;
+					background-color: #007BFF;
+					color: #ffffff;
+					border-radius: 10px 10px 0 0;
+				}
+				.content {
+					padding: 20px;
+				}
+				.footer {
+					text-align: center;
+					padding: 10px 0;
+					color: #999999;
+					font-size: 12px;
+				}
+				strong {
+					color: #007BFF;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h1>Email Verification</h1>
+				</div>
+				<div class="content">
+					<p>Please verify your email address by clicking the link below:</p>
+					<p><a href="%s"><strong>Verify Email</strong></a></p>
+				</div>
+				<div class="footer">
+					<p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
+				</div>
+			</div>
+		</body>
+		</html>`, verificationLink)
+
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", htmlBody)
+
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	return nil
+}
+
+// SendPasswordResetEmail sends an email with a password reset link.
+func SendPasswordResetEmail(emailConfig *appconfig.Config, userEmail, resetToken string) error {
+	// Construct the password reset link
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", emailConfig.FrontendURL, resetToken)
+
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", userEmail)
+	m.SetHeader("Subject", "Password Reset Request")
+
+	// Set email body
+	plainTextBody := fmt.Sprintf("You requested a password reset. Please click the link to reset your password: %s", resetLink)
+	htmlBody := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<style>
+				body {
+					font-family: Arial, sans-serif;
+					color: #333333;
+				}
+				.container {
+					width: 80%%;
+					margin: auto;
+					padding: 20px;
+					border: 1px solid #dcdcdc;
+					border-radius: 10px;
+					background-color: #f9f9f9;
+				}
+				.header {
+					text-align: center;
+					padding: 10px 0;
+					background-color: #007BFF;
+					color: #ffffff;
+					border-radius: 10px 10px 0 0;
+				}
+				.content {
+					padding: 20px;
+				}
+				.footer {
+					text-align: center;
+					padding: 10px 0;
+					color: #999999;
+					font-size: 12px;
+				}
+				strong {
+					color: #007BFF;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h1>Password Reset Request</h1>
+				</div>
+				<div class="content">
+					<p>You requested a password reset. Click the link below to reset your password:</p>
+					<p><a href="%s"><strong>Reset Password</strong></a></p>
+				</div>
+				<div class="footer">
+					<p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
+				</div>
+			</div>
+		</body>
+		</html>`, resetLink)
+
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", htmlBody)
+
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send password reset email: %w", err)
+	}
+	return nil
+}
+
+// SendAdminRequestEmail sends an email with a link to approve an admin role request.
+func SendAdminRequestEmail(emailConfig *appconfig.Config, requesterEmail string, approvalToken string) error {
+	// Construct the approval link
+	approvalLink := fmt.Sprintf("%s/dashboard/approve?token=%s", emailConfig.FrontendURL, approvalToken)
+
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", emailConfig.ToEmail)
+	m.SetHeader("Subject", "Admin Role Request Approval")
+
+	// Set email body
+	plainTextBody := fmt.Sprintf("A new request for an admin role has been submitted by %s. Please review and approve the request using the following link: %s", requesterEmail, approvalLink)
+	htmlBody := fmt.Sprintf(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    color: #333333;
+                    line-height: 1.6;
+                }
+                .container {
+                    width: 80%%;
+                    margin: 0 auto;
+                    padding: 20px;
+                    border: 1px solid #dcdcdc;
+                    border-radius: 10px;
+                    background-color: #f9f9f9;
+                }
+                .header {
+                    text-align: center;
+                    padding: 10px;
+                    background-color: #007BFF;
+                    color: #ffffff;
+                    border-radius: 10px 10px 0 0;
+                }
+                .content {
+                    padding: 20px;
+                }
+                .content p {
+                    margin: 0 0 20px;
+                }
+                .footer {
+                    text-align: center;
+                    padding: 10px;
+                    color: #999999;
+                    font-size: 12px;
+                }
+                a {
+                    color: #007BFF;
+                    text-decoration: none;
+                }
+                a:hover {
+                    text-decoration: underline;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Admin Role Request Approval</h1>
+                </div>
+                <div class="content">
+                    <p>A new request for an admin role has been submitted by <strong>%s</strong>. Please review the details and approve the request if appropriate.</p>
+                    <p><a href="%s"><strong>Click here to approve the request</strong></a></p>
+                </div>
+                <div class="footer">
+                    <p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>`, requesterEmail, approvalLink)
+
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", htmlBody)
+
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send admin request email: %w", err)
+	}
+	return nil
+}
+
+// SendAdminRequestApprovedEmail sends an email notifying that the admin request has been approved.
+func SendAdminRequestApprovedEmail(emailConfig *appconfig.Config, userEmail string) error {
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", userEmail)
+	m.SetHeader("Subject", "Admin Role Request Approved")
+
+	// Set email body
+	plainTextBody := "Your request for admin role has been approved. You now have access to admin functionalities on the platform."
+	htmlBody := `
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<style>
+				body {
+					font-family: Arial, sans-serif;
+					color: #333333;
+				}
+				.container {
+					width: 80%;
+					margin: auto;
+					padding: 20px;
+					border: 1px solid #dcdcdc;
+					border-radius: 10px;
+					background-color: #f9f9f9;
+				}
+				.header {
+					text-align: center;
+					padding: 10px 0;
+					background-color: #007BFF;
+					color: #ffffff;
+					border-radius: 10px 10px 0 0;
+				}
+				.content {
+					padding: 20px;
+				}
+				.footer {
+					text-align: center;
+					padding: 10px 0;
+					color: #999999;
+					font-size: 12px;
+				}
+				strong {
+					color: #007BFF;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h1>Admin Role Request Approved</h1>
+				</div>
+				<div class="content">
+					<p><strong>Congratulations!</strong></p>
+					<p>Your request for admin role has been <strong>approved</strong>. You now have access to admin functionalities on the platform.</p>
+					<p>Please log in to your account to start managing the platform's features and settings.</p>
+				</div>
+				<div class="footer">
+					<p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
+				</div>
+			</div>
+		</body>
+		</html>`
+
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", htmlBody)
+
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send admin request approval email: %w", err)
+	}
+	return nil
+}

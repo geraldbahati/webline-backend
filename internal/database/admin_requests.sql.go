@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -22,9 +23,10 @@ func (q *Queries) ApproveAdminRequest(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const createAdminRequest = `-- name: CreateAdminRequest :exec
+const createAdminRequest = `-- name: CreateAdminRequest :one
 INSERT INTO admin_requests ( user_id, reason)
 VALUES ($1, $2)
+RETURNING id
 `
 
 type CreateAdminRequestParams struct {
@@ -32,20 +34,53 @@ type CreateAdminRequestParams struct {
 	Reason string
 }
 
-func (q *Queries) CreateAdminRequest(ctx context.Context, arg CreateAdminRequestParams) error {
-	_, err := q.db.ExecContext(ctx, createAdminRequest, arg.UserID, arg.Reason)
+func (q *Queries) CreateAdminRequest(ctx context.Context, arg CreateAdminRequestParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createAdminRequest, arg.UserID, arg.Reason)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const deleteApprovalToken = `-- name: DeleteApprovalToken :exec
+DELETE FROM admin_approval_tokens
+WHERE token = $1
+`
+
+func (q *Queries) DeleteApprovalToken(ctx context.Context, token string) error {
+	_, err := q.db.ExecContext(ctx, deleteApprovalToken, token)
 	return err
 }
 
 const getAdminRequestByID = `-- name: GetAdminRequestByID :one
-SELECT id, user_id, reason, status, created_at, updated_at
-FROM admin_requests
-WHERE id = $1
+SELECT
+    ar.id,
+    ar.user_id,
+    ar.reason,
+    ar.status,
+    ar.created_at,
+    ar.updated_at,
+    u.email
+FROM
+    admin_requests ar
+        JOIN
+    users u ON ar.user_id = u.id
+WHERE
+    ar.id = $1
 `
 
-func (q *Queries) GetAdminRequestByID(ctx context.Context, id uuid.UUID) (AdminRequest, error) {
+type GetAdminRequestByIDRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Reason    string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Email     string
+}
+
+func (q *Queries) GetAdminRequestByID(ctx context.Context, id uuid.UUID) (GetAdminRequestByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getAdminRequestByID, id)
-	var i AdminRequest
+	var i GetAdminRequestByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -53,26 +88,49 @@ func (q *Queries) GetAdminRequestByID(ctx context.Context, id uuid.UUID) (AdminR
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Email,
 	)
 	return i, err
 }
 
 const getAdminRequestsByUserID = `-- name: GetAdminRequestsByUserID :many
-SELECT id, user_id, reason, status, created_at, updated_at
-FROM admin_requests
-WHERE user_id = $1
-ORDER BY created_at DESC
+SELECT
+    ar.id,
+    ar.user_id,
+    ar.reason,
+    ar.status,
+    ar.created_at,
+    ar.updated_at,
+    u.email
+FROM
+    admin_requests ar
+        JOIN
+    users u ON ar.user_id = u.id
+WHERE
+    ar.user_id = $1
+ORDER BY
+    ar.created_at DESC
 `
 
-func (q *Queries) GetAdminRequestsByUserID(ctx context.Context, userID uuid.UUID) ([]AdminRequest, error) {
+type GetAdminRequestsByUserIDRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Reason    string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Email     string
+}
+
+func (q *Queries) GetAdminRequestsByUserID(ctx context.Context, userID uuid.UUID) ([]GetAdminRequestsByUserIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAdminRequestsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AdminRequest
+	var items []GetAdminRequestsByUserIDRow
 	for rows.Next() {
-		var i AdminRequest
+		var i GetAdminRequestsByUserIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -80,6 +138,7 @@ func (q *Queries) GetAdminRequestsByUserID(ctx context.Context, userID uuid.UUID
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Email,
 		); err != nil {
 			return nil, err
 		}
@@ -94,22 +153,63 @@ func (q *Queries) GetAdminRequestsByUserID(ctx context.Context, userID uuid.UUID
 	return items, nil
 }
 
-const getPendingAdminRequests = `-- name: GetPendingAdminRequests :many
-SELECT id, user_id, reason, status, created_at, updated_at
-FROM admin_requests
-WHERE status = 'PENDING'
-ORDER BY created_at
+const getApprovalToken = `-- name: GetApprovalToken :one
+SELECT id, request_id, token, expires_at, created_at
+FROM admin_approval_tokens
+WHERE token = $1
 `
 
-func (q *Queries) GetPendingAdminRequests(ctx context.Context) ([]AdminRequest, error) {
+func (q *Queries) GetApprovalToken(ctx context.Context, token string) (AdminApprovalToken, error) {
+	row := q.db.QueryRowContext(ctx, getApprovalToken, token)
+	var i AdminApprovalToken
+	err := row.Scan(
+		&i.ID,
+		&i.RequestID,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPendingAdminRequests = `-- name: GetPendingAdminRequests :many
+SELECT
+    ar.id,
+    ar.user_id,
+    ar.reason,
+    ar.status,
+    ar.created_at,
+    ar.updated_at,
+    u.email
+FROM
+    admin_requests ar
+        JOIN
+    users u ON ar.user_id = u.id
+WHERE
+    ar.status = 'PENDING'
+ORDER BY
+    ar.created_at
+`
+
+type GetPendingAdminRequestsRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Reason    string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Email     string
+}
+
+func (q *Queries) GetPendingAdminRequests(ctx context.Context) ([]GetPendingAdminRequestsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getPendingAdminRequests)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AdminRequest
+	var items []GetPendingAdminRequestsRow
 	for rows.Next() {
-		var i AdminRequest
+		var i GetPendingAdminRequestsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -117,6 +217,7 @@ func (q *Queries) GetPendingAdminRequests(ctx context.Context) ([]AdminRequest, 
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Email,
 		); err != nil {
 			return nil, err
 		}
@@ -139,5 +240,21 @@ WHERE id = $1 AND status = 'PENDING'
 
 func (q *Queries) RejectAdminRequest(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, rejectAdminRequest, id)
+	return err
+}
+
+const storeApprovalToken = `-- name: StoreApprovalToken :exec
+INSERT INTO admin_approval_tokens ( request_id, token, expires_at)
+VALUES ($1, $2, $3)
+`
+
+type StoreApprovalTokenParams struct {
+	RequestID uuid.UUID
+	Token     string
+	ExpiresAt time.Time
+}
+
+func (q *Queries) StoreApprovalToken(ctx context.Context, arg StoreApprovalTokenParams) error {
+	_, err := q.db.ExecContext(ctx, storeApprovalToken, arg.RequestID, arg.Token, arg.ExpiresAt)
 	return err
 }

@@ -31,6 +31,8 @@ type Config struct {
 	FromEmail          string
 	FromName           string
 	ToEmail            string
+	FrontendURL        string
+	BackendURL         string
 }
 
 func LoadConfig() Config {
@@ -69,6 +71,8 @@ func LoadConfig() Config {
 		FromEmail:          getEnv("FROM_EMAIL", ""),
 		FromName:           getEnv("FROM_NAME", ""),
 		ToEmail:            getEnv("TO_EMAIL", ""),
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
+		BackendURL:         getEnv("BACKEND_URL", "http://localhost:8080"),
 	}
 }
 

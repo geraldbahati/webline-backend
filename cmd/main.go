@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"weblineBackend/internal/repository/sqlc"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -89,9 +90,12 @@ func main() {
 	promotionRepo := repository.NewPromotionRepository(conn, logger)
 	roleRepo := repository.NewRoleRepository(conn, logger)
 	userRoleRepo := repository.NewUserRoleRepository(conn, logger)
+	verificationTokenRepoImpl := sqlc.NewVerificationTokenRepositoryImpl(conn, logger)
+	passwordResetRepoImpl := sqlc.NewPasswordResetRepositoryImpl(conn, logger)
+	adminRequestRepoImpl := sqlc.NewAdminRequestRepositoryImpl(conn, logger)
 
 	// Initialize services
-	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, tokenRepo, &cfg, logger)
+	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, verificationTokenRepoImpl, passwordResetRepoImpl, tokenRepo, &cfg, logger)
 	categoryService := services.NewCategoryService(categoryRepo, productColorRepo, logger, &cfg, s3Client)
 	productService := services.NewProductService(
 		productRepo,
@@ -103,6 +107,7 @@ func main() {
 		productOptionRepo,
 		productSizeRepo,
 		discountRepo,
+		userRepo,
 		logger,
 		&cfg,
 		s3Client,
@@ -116,9 +121,10 @@ func main() {
 	productAnalyticService := services.NewProductAnalyticService(logger, &cfg, productAnalyticRepo, productImageRepo, discountRepo)
 	promotionService := services.NewPromotionService(logger, &cfg, s3Client, promotionRepo, productRepo, productImageRepo, discountRepo)
 	discountService := services.NewDiscountService(logger, discountRepo, productRepo)
+	adminRequestService := services.NewAdminRequestService(adminRequestRepoImpl, userRepo, logger, &cfg)
 
 	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userService)
+	userHandler := handlers.NewUserHandler(userService, adminRequestService, &cfg)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	productHandler := handlers.NewProductHandler(productService, productSEOService)
 	productVariantHandler := handlers.NewProductVariantHandler(productService)
@@ -189,27 +195,29 @@ func setupRouter(
 	r.PathPrefix("/uploads/profile/").Handler(http.StripPrefix("/uploads/profile/", http.FileServer(http.Dir("uploads/profile"))))
 	r.PathPrefix("/uploads/product-image/").Handler(http.StripPrefix("/uploads/product-image/", http.FileServer(http.Dir("uploads/product-image"))))
 
+	// verify email routes
+	r.HandleFunc("/auth/verify-email", userHandler.VerifyEmail).Methods(http.MethodGet)
+
 	// Inquiry routes
 	inquiryRouter := r.PathPrefix("/api/inquiries").Subrouter()
 	inquiryRouter.HandleFunc("", inquiryHandler.SubmitInquiry).Methods(http.MethodPost)
 
 	// User routes
-	resetPasswordRouter := r.PathPrefix("/reset-password").Subrouter()
-	resetPasswordRouter.HandleFunc("", userHandler.ResetPassword).Methods(http.MethodGet)
-	resetPasswordRouter.HandleFunc("", userHandler.ResetPassword).Methods(http.MethodPost)
-
 	userRouter := r.PathPrefix("/api/users").Subrouter()
 	userRouter.HandleFunc("", userHandler.ListUsers).Methods(http.MethodGet)
 	userRouter.HandleFunc("/{id}", userHandler.GetUserProfile).Methods(http.MethodGet)
 	userRouter.HandleFunc("/register", userHandler.RegisterUser).Methods(http.MethodPost)
 	userRouter.HandleFunc("/refresh", userHandler.RefreshToken).Methods(http.MethodPost)
 	userRouter.HandleFunc("/login", userHandler.LoginUser).Methods(http.MethodPost)
+	userRouter.HandleFunc("/reset-password", userHandler.ResetPassword).Methods(http.MethodPost)
+	userRouter.HandleFunc("/reset-password/request", userHandler.RequestPasswordReset).Methods(http.MethodPost)
 	userRouter.HandleFunc("/login/google", userHandler.LoginWithGoogle).Methods(http.MethodPost)
+	userRouter.HandleFunc("/login/email-verified", userHandler.EmailVerified).Methods(http.MethodPost)
 
 	protectedUserRouter := userRouter.PathPrefix("").Subrouter()
 	protectedUserRouter.Use(middleware.Auth)
-	//protectedUserRouter.HandleFunc("/update-profile", userHandler.UpdateUserProfile).Methods(http.MethodPut)
-	protectedUserRouter.HandleFunc("/reset-password", userHandler.RequestPasswordReset).Methods(http.MethodPut)
+	protectedUserRouter.HandleFunc("/admin-requests", userHandler.RequestAdminRole).Methods(http.MethodPost)
+	protectedUserRouter.HandleFunc("/approve", userHandler.ApproveAdminRole).Methods(http.MethodPost)
 
 	// Category routes
 	categoryRouter := r.PathPrefix("/api/categories").Subrouter()
@@ -255,6 +263,7 @@ func setupRouter(
 
 	// admin product routes
 	adminProductRouter := r.PathPrefix("/api/v2/products").Subrouter()
+	adminProductRouter.Use(middleware.Auth)
 	adminProductRouter.HandleFunc("", productHandler.CreateV2ProductHandler).Methods(http.MethodPost)
 	adminProductRouter.HandleFunc("", productHandler.GetProductsHandler).Methods(http.MethodGet)
 	adminProductRouter.HandleFunc("/{slug}", productHandler.DeleteProductHandler).Methods(http.MethodDelete)

@@ -146,7 +146,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, hashed_password, first_name, last_name, phone_number,
-       profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id
+       profile_image_url, date_of_birth, is_active, created_at, updated_at, last_login, provider, provider_id, email_verified_at
 FROM users
 WHERE email = $1
 `
@@ -169,6 +169,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.LastLogin,
 		&i.Provider,
 		&i.ProviderID,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
@@ -186,7 +187,9 @@ SELECT id,
        updated_at,
        last_login,
          provider,
-            provider_id
+            provider_id,
+            email_verified_at
+
 FROM users
 WHERE id = $1
 `
@@ -205,6 +208,7 @@ type GetUserByIDRow struct {
 	LastLogin       sql.NullTime
 	Provider        sql.NullString
 	ProviderID      sql.NullString
+	EmailVerifiedAt sql.NullTime
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
@@ -224,6 +228,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.LastLogin,
 		&i.Provider,
 		&i.ProviderID,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
@@ -240,9 +245,26 @@ type GetUserByProviderParams struct {
 	ProviderID sql.NullString
 }
 
-func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderParams) (User, error) {
+type GetUserByProviderRow struct {
+	ID              uuid.UUID
+	Email           string
+	HashedPassword  sql.NullString
+	FirstName       sql.NullString
+	LastName        sql.NullString
+	PhoneNumber     sql.NullString
+	ProfileImageUrl sql.NullString
+	DateOfBirth     sql.NullTime
+	IsActive        bool
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	LastLogin       sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
+}
+
+func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderParams) (GetUserByProviderRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByProvider, arg.Provider, arg.ProviderID)
-	var i User
+	var i GetUserByProviderRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -260,6 +282,22 @@ func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderPa
 		&i.ProviderID,
 	)
 	return i, err
+}
+
+const isAdmin = `-- name: IsAdmin :one
+SELECT EXISTS (
+    SELECT 1
+    FROM user_roles ur
+             JOIN roles r ON ur.role_id = r.id
+    WHERE ur.user_id = $1 AND r.role_name = 'admin'
+) AS is_admin
+`
+
+func (q *Queries) IsAdmin(ctx context.Context, userID uuid.NullUUID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isAdmin, userID)
+	var is_admin bool
+	err := row.Scan(&is_admin)
+	return is_admin, err
 }
 
 const listUsers = `-- name: ListUsers :many
@@ -331,6 +369,28 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 		return nil, err
 	}
 	return items, nil
+}
+
+const makeAdmin = `-- name: MakeAdmin :exec
+INSERT INTO user_roles (user_id, role_id)
+VALUES ($1, (SELECT id FROM roles WHERE role_name = 'admin'))
+ON CONFLICT (user_id, role_id) DO NOTHING
+`
+
+func (q *Queries) MakeAdmin(ctx context.Context, userID uuid.NullUUID) error {
+	_, err := q.db.ExecContext(ctx, makeAdmin, userID)
+	return err
+}
+
+const updateUserEmailVerified = `-- name: UpdateUserEmailVerified :exec
+UPDATE users
+SET email_verified_at = NOW()
+WHERE email = $1
+`
+
+func (q *Queries) UpdateUserEmailVerified(ctx context.Context, email string) error {
+	_, err := q.db.ExecContext(ctx, updateUserEmailVerified, email)
+	return err
 }
 
 const updateUserLastLogin = `-- name: UpdateUserLastLogin :one

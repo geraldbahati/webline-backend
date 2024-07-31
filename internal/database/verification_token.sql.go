@@ -58,6 +58,16 @@ func (q *Queries) DeleteVerificationTokenByToken(ctx context.Context, token stri
 	return err
 }
 
+const deleteVerificationTokensByEmail = `-- name: DeleteVerificationTokensByEmail :exec
+DELETE FROM verification_tokens
+WHERE email = $1
+`
+
+func (q *Queries) DeleteVerificationTokensByEmail(ctx context.Context, email string) error {
+	_, err := q.db.ExecContext(ctx, deleteVerificationTokensByEmail, email)
+	return err
+}
+
 const getVerificationTokenByEmail = `-- name: GetVerificationTokenByEmail :one
 SELECT id, email, token, expires_at, created_at
 FROM verification_tokens

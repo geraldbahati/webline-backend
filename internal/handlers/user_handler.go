@@ -2,21 +2,29 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"html/template"
+	"log"
 	"net/http"
+	"weblineBackend/internal/app_errors"
+	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 )
 
 type UserHandler struct {
-	userService *services.UserService
+	userService         *services.UserService
+	adminRequestService *services.AdminRequestService
+	config              *appconfig.Config
 }
 
-func NewUserHandler(userService *services.UserService) *UserHandler {
+func NewUserHandler(userService *services.UserService, adminRequestService *services.AdminRequestService, config *appconfig.Config) *UserHandler {
 	return &UserHandler{
-		userService: userService,
+		userService:         userService,
+		adminRequestService: adminRequestService,
+		config:              config,
 	}
 }
 
@@ -31,14 +39,16 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create user
-	user, err := h.userService.CreateUser(r.Context(), registerUserParams)
+	err := h.userService.CreateUser(r.Context(), registerUserParams)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create user: %v", err))
 		return
 	}
 
 	// Respond with user
-	RespondWithJSON(w, http.StatusOK, user)
+	RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "User created successfully",
+	})
 }
 
 // LoginUser logs in a user
@@ -54,6 +64,12 @@ func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	// Login user
 	tokens, err := h.userService.LoginUser(r.Context(), loginUserParams)
 	if err != nil {
+		var appErr *app_errors.AppError
+		ok := errors.As(err, &appErr)
+		if ok {
+			RespondWithError(w, http.StatusBadRequest, appErr.Message)
+			return
+		}
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to login user: %v", err))
 		return
 	}
@@ -74,6 +90,11 @@ func (h *UserHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if params.Email == "" {
+		RespondWithError(w, http.StatusBadRequest, "Email is required")
+		return
+	}
+
 	// Send reset password email
 	if err := h.userService.SendPasswordResetEmail(r.Context(), params.Email); err != nil {
 		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to send reset password email: %v", err))
@@ -86,58 +107,48 @@ func (h *UserHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 
 // ResetPassword resets a user's password
 func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		token := r.URL.Query().Get("token")
-		if token == "" {
-			RespondWithError(w, http.StatusBadRequest, "Token is required")
-			return
-		}
-
-		w.Header().Set("Content-Type", "text/html")
-		tmpl := template.Must(template.ParseFiles("pkg/templates/reset-password.html"))
-		data := map[string]interface{}{
-			"Token": token,
-		}
-		if err := tmpl.Execute(w, data); err != nil {
-			RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to open reset password page: %v", err))
-			return
-		}
-	case http.MethodPost:
-		if err := r.ParseForm(); err != nil {
-			RespondWithError(w, http.StatusBadRequest, "Invalid form data")
-			return
-		}
-
-		token := r.FormValue("token")
-		password := r.FormValue("password")
-		confirmPassword := r.FormValue("confirm_password")
-
-		if token == "" {
-			RespondWithError(w, http.StatusBadRequest, "Token is required")
-			return
-		}
-		if password != confirmPassword {
-			RespondWithError(w, http.StatusBadRequest, "Passwords do not match")
-			return
-		}
-
-		if err := h.userService.UpdateUserPassword(r.Context(), token, password); err != nil {
-			RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reset password: %v", err))
-			return
-		}
-
-		RespondWithSuccess(w, http.StatusOK, "Password reset successfully")
+	var params struct {
+		Password string `json:"password"`
+		Token    string `json:"token"`
 	}
+	// Decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
+		return
+	}
+
+	// check if passwords are empty
+	if params.Password == "" {
+		RespondWithError(w, http.StatusBadRequest, "Password is required")
+		return
+	}
+
+	// Reset password
+	if err := h.userService.UpdateUserPassword(r.Context(), params.Token, params.Password); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reset password: %v", err))
+		return
+	}
+
+	// Respond with success message
+	RespondWithSuccess(w, http.StatusOK, "Password reset successfully")
 }
 
 // RefreshToken refreshes a user's access token
 func (h *UserHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	const bearerSchema = "Bearer "
+
 	refreshToken := r.Header.Get("Authorization")
 	if refreshToken == "" {
 		RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
+
+	if len(refreshToken) < len(bearerSchema) || refreshToken[:len(bearerSchema)] != bearerSchema {
+		RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	refreshToken = refreshToken[len(bearerSchema):]
 
 	tokens, err := h.userService.RefreshToken(r.Context(), refreshToken)
 	if err != nil {
@@ -237,4 +248,107 @@ func (h *UserHandler) LoginWithGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondWithJSON(w, http.StatusOK, tokens)
+}
+
+// EmailVerified checks if a user's email is verified
+func (h *UserHandler) EmailVerified(w http.ResponseWriter, r *http.Request) {
+	var params struct {
+		Email string `json:"email"`
+	}
+
+	// Decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
+		return
+	}
+
+	err := h.userService.EmailVerified(r.Context(), params.Email)
+	if err != nil {
+		var appErr *app_errors.AppError
+		ok := errors.As(err, &appErr)
+		if ok {
+			if appErr.Code == app_errors.EmailNotVerifiedCode {
+				RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+					"message": "Email is not verified",
+				})
+				return
+			}
+			RespondWithError(w, http.StatusBadRequest, appErr.Message)
+			return
+		}
+		RespondWithError(w, http.StatusInternalServerError, "Failed to verify email")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Email is verified",
+	})
+}
+
+// VerifyEmail verifies a user's email
+func (h *UserHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		RespondWithError(w, http.StatusBadRequest, "Token is required")
+		return
+	}
+
+	err := h.userService.VerifyEmail(r.Context(), token)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to verify email: %v", err))
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("%s/email-verified", h.config.FrontendURL), http.StatusSeeOther)
+}
+
+// RequestAdminRole requests an admin role
+func (h *UserHandler) RequestAdminRole(w http.ResponseWriter, r *http.Request) {
+	var params struct {
+		Reason string `json:"reason"`
+	}
+
+	// Decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
+		return
+	}
+
+	userID, ok := r.Context().Value("userId").(uuid.UUID)
+	if !ok {
+		RespondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	log.Println(userID)
+
+	err := h.adminRequestService.RequestAdminRole(r.Context(), userID, params.Reason)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to request admin role: %v", err))
+		return
+	}
+
+	RespondWithSuccess(w, http.StatusOK, "Admin role requested successfully")
+}
+
+// ApproveAdminRole approves an admin role
+func (h *UserHandler) ApproveAdminRole(w http.ResponseWriter, r *http.Request) {
+
+	var params struct {
+		Token string `json:"token"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to decode request body: %v", err))
+		return
+	}
+
+	err := h.adminRequestService.ApproveAdminRequest(r.Context(), params.Token)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to approve admin role: %v", err))
+		return
+	}
+
+	RespondWithSuccess(w, http.StatusOK, "Admin role approved successfully")
 }

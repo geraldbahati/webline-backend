@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/google/uuid"
+	"time"
 )
 
 type RegisterUserParams struct {
@@ -21,17 +22,18 @@ type LoginResponse struct {
 }
 
 type User struct {
-	ID          uuid.UUID `json:"id"`
-	Email       string    `json:"email"`
-	Password    string    `json:"-"`
-	Name        string    `json:"name"`
-	Image       string    `json:"image"`
-	Phone       string    `json:"phone"`
-	DateOfBirth string    `json:"dateOfBirth"`
-	IsActive    bool      `json:"isActive"`
-	Provider    *string   `json:"provider"`
-	ProviderID  *string   `json:"providerID"`
-	Roles       []string  `json:"roles"`
+	ID            uuid.UUID  `json:"id"`
+	Email         string     `json:"email"`
+	Password      string     `json:"-"`
+	Name          string     `json:"name"`
+	Image         string     `json:"image"`
+	Phone         string     `json:"phone"`
+	DateOfBirth   string     `json:"dateOfBirth"`
+	IsActive      bool       `json:"isActive"`
+	Provider      *string    `json:"provider"`
+	ProviderID    *string    `json:"providerID"`
+	EmailVerified *time.Time `json:"emailVerified"`
+	Roles         []string   `json:"roles"`
 }
 
 type LoginParams struct {

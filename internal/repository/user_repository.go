@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lib/pq"
+	"time"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 
@@ -146,16 +147,22 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*model.
 		providerIDValue = &user.ProviderID.String
 	}
 
+	var emailVerified *time.Time
+	if user.EmailVerifiedAt.Valid {
+		emailVerified = &user.EmailVerifiedAt.Time
+	}
+
 	return &model.User{
-		ID:          user.ID,
-		Email:       user.Email,
-		Name:        name,
-		Phone:       user.PhoneNumber.String,
-		Image:       user.ProfileImageUrl.String,
-		DateOfBirth: date,
-		IsActive:    user.IsActive,
-		Provider:    providerValue,
-		ProviderID:  providerIDValue,
+		ID:            user.ID,
+		Email:         user.Email,
+		Name:          name,
+		Phone:         user.PhoneNumber.String,
+		Image:         user.ProfileImageUrl.String,
+		DateOfBirth:   date,
+		IsActive:      user.IsActive,
+		Provider:      providerValue,
+		ProviderID:    providerIDValue,
+		EmailVerified: emailVerified,
 	}, nil
 }
 
@@ -185,17 +192,23 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 		providerIDValue = &user.ProviderID.String
 	}
 
+	var emailVerified *time.Time
+	if user.EmailVerifiedAt.Valid {
+		emailVerified = &user.EmailVerifiedAt.Time
+	}
+
 	return &model.User{
-		ID:          user.ID,
-		Email:       user.Email,
-		Name:        name,
-		Password:    user.HashedPassword.String,
-		Phone:       user.PhoneNumber.String,
-		Image:       user.ProfileImageUrl.String,
-		DateOfBirth: date,
-		IsActive:    user.IsActive,
-		Provider:    providerValue,
-		ProviderID:  providerIDValue,
+		ID:            user.ID,
+		Email:         user.Email,
+		Name:          name,
+		Password:      user.HashedPassword.String,
+		Phone:         user.PhoneNumber.String,
+		Image:         user.ProfileImageUrl.String,
+		DateOfBirth:   date,
+		IsActive:      user.IsActive,
+		Provider:      providerValue,
+		EmailVerified: emailVerified,
+		ProviderID:    providerIDValue,
 	}, nil
 }
 
@@ -411,4 +424,57 @@ func (r *UserRepository) GetUserByProvider(ctx context.Context, provider string,
 		Provider:    providerValue,
 		ProviderID:  providerIDValue,
 	}, nil
+}
+
+// UpdateUserEmailVerified updates a user's email verification status
+func (r *UserRepository) UpdateUserEmailVerified(ctx context.Context, email string) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.UpdateUserEmailVerified(ctx, email); err != nil {
+			r.logger.Error("failed to update user email verification status", zap.Error(err))
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update user email verification status", zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("User email verification status updated successfully", zap.String("email", email))
+	return nil
+}
+
+// IsAdmin checks if a user is an admin
+func (r *UserRepository) IsAdmin(ctx context.Context, id uuid.UUID) (bool, error) {
+	isAdmin, err := r.Queries.IsAdmin(ctx, uuid.NullUUID{
+		UUID:  id,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("failed to check if user is an admin", zap.Error(err))
+		return false, err
+	}
+
+	return isAdmin, nil
+}
+
+// MakeAdmin makes a user an admin
+func (r *UserRepository) MakeAdmin(ctx context.Context, id uuid.UUID) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.MakeAdmin(ctx, uuid.NullUUID{
+			UUID:  id,
+			Valid: true,
+		}); err != nil {
+			r.logger.Error("failed to make user an admin", zap.Error(err))
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to make user an admin", zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("User is now an admin", zap.String("userID", id.String()))
+	return nil
 }

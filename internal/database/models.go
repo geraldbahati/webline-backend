@@ -12,6 +12,23 @@ import (
 	"github.com/google/uuid"
 )
 
+type AdminApprovalToken struct {
+	ID        uuid.UUID
+	RequestID uuid.UUID
+	Token     string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+type AdminRequest struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Reason    string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type CartItem struct {
 	ID             uuid.UUID
 	ShoppingCartID uuid.NullUUID
@@ -122,6 +139,14 @@ type OrderStatusHistory struct {
 	ID        uuid.UUID
 	OrderID   uuid.NullUUID
 	Status    string
+	CreatedAt sql.NullTime
+}
+
+type PasswordResetToken struct {
+	ID        uuid.UUID
+	Email     string
+	Token     string
+	ExpiresAt time.Time
 	CreatedAt sql.NullTime
 }
 
@@ -359,6 +384,7 @@ type User struct {
 	LastLogin       sql.NullTime
 	Provider        sql.NullString
 	ProviderID      sql.NullString
+	EmailVerifiedAt sql.NullTime
 }
 
 type UserAddress struct {
@@ -382,6 +408,14 @@ type UserRole struct {
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
 	RoleID    uuid.NullUUID
+}
+
+type VerificationToken struct {
+	ID        uuid.UUID
+	Email     string
+	Token     string
+	ExpiresAt time.Time
+	CreatedAt sql.NullTime
 }
 
 type Wishlist struct {

@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"time"
+	"weblineBackend/internal/app_errors"
+
 	"go.uber.org/zap"
 	"log"
 	"strings"
@@ -18,39 +22,45 @@ import (
 )
 
 type UserService struct {
-	userRepository     *repository.UserRepository
-	roleRepository     *repository.RoleRepository
-	userRoleRepository *repository.UserRoleRepository
-	tokenRepository    *repository.TokenRepository
-	config             *appconfig.Config
-	logger             *zap.Logger
+	userRepository              *repository.UserRepository
+	roleRepository              *repository.RoleRepository
+	userRoleRepository          *repository.UserRoleRepository
+	tokenRepository             *repository.TokenRepository
+	verificationTokenRepository repository.VerificationTokenRepository
+	passwordResetRepository     repository.PasswordResetRepository
+	config                      *appconfig.Config
+	logger                      *zap.Logger
 }
 
 func NewUserService(
 	userRepository *repository.UserRepository,
 	roleRepository *repository.RoleRepository,
 	userRoleRepository *repository.UserRoleRepository,
+	verificationTokenRepository repository.VerificationTokenRepository,
+	passwordResetRepository repository.PasswordResetRepository,
 	tokenRepository *repository.TokenRepository,
 	config *appconfig.Config,
 	logger *zap.Logger,
 ) *UserService {
 	return &UserService{
-		userRepository:     userRepository,
-		roleRepository:     roleRepository,
-		userRoleRepository: userRoleRepository,
-		tokenRepository:    tokenRepository,
-		config:             config,
-		logger:             logger,
+		userRepository:              userRepository,
+		roleRepository:              roleRepository,
+		userRoleRepository:          userRoleRepository,
+		verificationTokenRepository: verificationTokenRepository,
+		passwordResetRepository:     passwordResetRepository,
+		tokenRepository:             tokenRepository,
+		config:                      config,
+		logger:                      logger,
 	}
 }
 
 // CreateUser creates a new user
-func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.RegisterUserParams) (*model.LoginResponse, error) {
+func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.RegisterUserParams) error {
 	// hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(registerUserParams.Password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("Failed to hash password", zap.Error(err))
-		return nil, err
+		return err
 	}
 
 	// create user
@@ -62,56 +72,24 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 	createdUser, err := s.userRepository.CreateUser(ctx, newUser)
 	if err != nil {
 		s.logger.Error("Failed to create user", zap.Error(err))
-		return nil, err
+		return err
 	}
 
 	// assign user role
 	role, err := s.roleRepository.GetRoleByName(ctx, "customer")
 	if err != nil {
 		s.logger.Error("Failed to get role", zap.Error(err))
-		return nil, err
+		return err
 	}
 
 	// Assign role to user
 	err = s.userRoleRepository.AssignRoleToUser(ctx, createdUser.ID, role.ID)
 	if err != nil {
 		s.logger.Error("Failed to assign role to user", zap.Error(err))
-		return nil, err
+		return err
 	}
 
-	// login the user
-	accessToken, refreshToken, expireTime, err := utils.GenerateTokens(createdUser.ID, createdUser.Email)
-	if err != nil {
-		s.logger.Error("Failed to generate tokens", zap.Error(err))
-		return nil, err
-	}
-
-	err = s.tokenRepository.StoreRefreshToken(ctx, database.StoreRefreshTokenParams{
-		UserID:    createdUser.ID,
-		Token:     refreshToken,
-		ExpiresAt: expireTime,
-	})
-	if err != nil {
-		s.logger.Error("Failed to store refresh token", zap.Error(err))
-		return nil, err
-	}
-
-	roles, err := s.userRoleRepository.GetRolesForUser(ctx, createdUser.ID)
-	if err != nil {
-		s.logger.Error("Failed to get roles for user", zap.Error(err))
-		return nil, err
-
-	}
-
-	return &model.LoginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User: model.User{
-			ID:    createdUser.ID,
-			Email: createdUser.Email,
-			Roles: roles,
-		},
-	}, nil
+	return nil
 }
 
 // GetUserByEmail returns the user with the given email
@@ -132,7 +110,13 @@ func (s *UserService) LoginUser(ctx context.Context, params model.LoginParams) (
 	}
 
 	if user.Password == "" {
-		return model.LoginResponse{}, errors.New("user does not have a password")
+		return model.LoginResponse{}, errors.New("use google to login")
+	}
+
+	if user.EmailVerified == nil {
+		emailNotVerified := app_errors.NewEmailNotVerifiedError()
+
+		return model.LoginResponse{}, emailNotVerified
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(params.Password))
@@ -179,6 +163,7 @@ func (s *UserService) LoginUser(ctx context.Context, params model.LoginParams) (
 
 // RefreshToken refreshes a user's access token
 func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (model.LoginResponse, error) {
+
 	newAccessToken, err := utils.RefreshToken(refreshToken)
 	if err != nil {
 		return model.LoginResponse{}, err
@@ -241,16 +226,61 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (mo
 func (s *UserService) SendPasswordResetEmail(ctx context.Context, email string) error {
 	user, err := s.userRepository.GetUserByEmail(ctx, email)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return app_errors.NewUserNotFoundError()
+		}
 		return err
 	}
 
-	return utils.SendResetPasswordEmail(user.ID, user.Email)
+	// Delete existing reset password tokens
+	err = s.passwordResetRepository.DeletePasswordResetToken(ctx, user.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.logger.Error("Failed to delete password reset tokens", zap.Error(err))
+		return err
+	}
+
+	// Generate password reset token
+	passwordResetToken, expiresAt, err := utils.GeneratePasswordResetToken(user.Email, 1*time.Hour)
+	if err != nil {
+		s.logger.Error("Failed to generate password reset token", zap.Error(err))
+		return err
+	}
+
+	// Store password reset token
+	err = s.passwordResetRepository.StorePasswordResetToken(ctx, user.Email, passwordResetToken, expiresAt)
+	if err != nil {
+		s.logger.Error("Failed to store password reset token", zap.Error(err))
+		return err
+	}
+
+	// Send password reset email
+	err = utils.SendPasswordResetEmail(s.config, user.Email, passwordResetToken)
+	if err != nil {
+		s.logger.Error("Failed to send password reset email", zap.Error(err))
+		return err
+	}
+
+	return nil
 }
 
 // UpdateUserPassword updates a user's password
 func (s *UserService) UpdateUserPassword(ctx context.Context, token string, newPassword string) error {
-	userId, err := utils.VerifyResetPasswordToken(token)
+	claims, err := utils.ParsePasswordResetToken(token)
 	if err != nil {
+		return err
+	}
+
+	// check if the token has expired
+	if expired, _ := utils.IsPasswordResetTokenExpired(token); expired {
+		return app_errors.NewUserNotFoundError()
+	}
+
+	// get user by email
+	user, err := s.userRepository.GetUserByEmail(ctx, claims.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return app_errors.NewUserNotFoundError()
+		}
 		return err
 	}
 
@@ -260,7 +290,7 @@ func (s *UserService) UpdateUserPassword(ctx context.Context, token string, newP
 	}
 
 	_, err = s.userRepository.UpdateUserPassword(ctx, database.UpdateUserPasswordParams{
-		ID: userId,
+		ID: user.ID,
 		HashedPassword: sql.NullString{
 			String: string(hashedPassword),
 			Valid:  true,
@@ -270,12 +300,13 @@ func (s *UserService) UpdateUserPassword(ctx context.Context, token string, newP
 		return err
 	}
 
-	return nil
-}
+	// Delete password reset token
+	err = s.passwordResetRepository.DeletePasswordResetToken(ctx, user.Email)
+	if err != nil {
+		return err
+	}
 
-// VerifyResetPasswordToken verifies a reset password token
-func (s *UserService) VerifyResetPasswordToken(token string) (uuid.UUID, error) {
-	return utils.VerifyResetPasswordToken(token)
+	return nil
 }
 
 // DeactivateUser deactivates a user's account
@@ -326,22 +357,22 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 
 	var user *model.User
 	user, err = s.userRepository.GetUserByID(ctx, userIdUUID)
-	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			user, err = s.userRepository.GetUserByProvider(ctx, "google", userId)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return nil, err
-				}
-
-				s.logger.Error("Failed to get user by provider", zap.Error(err))
+	if errors.Is(err, sql.ErrNoRows) {
+		s.logger.Error("User not found", zap.Error(err))
+		user, err = s.userRepository.GetUserByProvider(ctx, "google", userId)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
 				return nil, err
 			}
-		default:
-			s.logger.Error("Failed to get user by id", zap.Error(err))
+
+			s.logger.Error("Failed to get user by provider", zap.Error(err))
 			return nil, err
 		}
+
+		s.logger.Info("User found by provider")
+	} else {
+		s.logger.Info("User found")
+		return nil, err
 	}
 
 	roles, err := s.userRoleRepository.GetRolesForUser(ctx, user.ID)
@@ -511,4 +542,74 @@ func (s *UserService) LoginWithGoogle(ctx context.Context, googleUser model.Goog
 		User:         *updatedUser,
 	}, nil
 
+}
+
+// EmailVerified checks if a user's email is verified
+func (s *UserService) EmailVerified(ctx context.Context, email string) error {
+	user, err := s.userRepository.GetUserByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	if user.EmailVerified == nil {
+		// Delete existing verification tokens
+		err = s.verificationTokenRepository.DeleteVerificationTokens(ctx, user.Email)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			s.logger.Error("Failed to delete verification tokens", zap.Error(err))
+			return err
+		}
+
+		// Generate email verification token
+		verificationToken, expiresAt, err := utils.GenerateVerificationToken(user.Email)
+		if err != nil {
+			s.logger.Error("Failed to generate email verification token", zap.Error(err))
+			return err
+		}
+
+		_, err = s.verificationTokenRepository.CreateVerificationToken(ctx, user.Email, verificationToken, expiresAt)
+		if err != nil {
+			s.logger.Error("Failed to create verification token", zap.Error(err))
+			return err
+		}
+
+		// send verification email
+		err = utils.SendVerificationEmail(s.config, user.Email, verificationToken)
+		if err != nil {
+			s.logger.Error("Failed to send verification email", zap.Error(err))
+			return err
+		}
+
+		emailNotVerified := app_errors.NewEmailNotVerifiedError()
+
+		return emailNotVerified
+	}
+
+	return nil
+}
+
+// VerifyEmail verifies a user's email
+func (s *UserService) VerifyEmail(ctx context.Context, token string) error {
+	claims, err := utils.ParseEmailVerificationToken(token)
+	if err != nil {
+		return err
+	}
+
+	// Check if the token has expired
+	if time.Now().After(claims.ExpiresAt.Time) {
+		return fmt.Errorf("token has expired")
+	}
+
+	// Update user email verification status
+	err = s.userRepository.UpdateUserEmailVerified(ctx, claims.Email)
+	if err != nil {
+		return err
+	}
+
+	// Delete verification token
+	err = s.verificationTokenRepository.DeleteVerificationToken(ctx, claims.Email)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

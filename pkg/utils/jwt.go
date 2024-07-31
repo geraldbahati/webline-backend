@@ -22,7 +22,7 @@ type UserClaims struct {
 
 // GenerateTokens generates access and refresh tokens
 func GenerateTokens(userId uuid.UUID, email string) (string, string, time.Time, error) {
-	accessToken, err := generateToken(userId, email, jwtAccessSecret, 24*time.Hour)
+	accessToken, err := generateToken(userId, email, jwtAccessSecret, 30*time.Second)
 	if err != nil {
 		return "", "", time.Time{}, err
 	}
@@ -130,4 +130,12 @@ func getSecret(isAccessToken bool) []byte {
 		return jwtAccessSecret
 	}
 	return jwtRefreshSecret
+}
+
+func GenerateVerificationToken(email string) (string, time.Time, error) {
+	return generateTokenWithExpiry(uuid.Nil, email, jwtAccessSecret, 1*time.Hour)
+}
+
+func ParseEmailVerificationToken(tokenString string) (*UserClaims, error) {
+	return ParseToken(tokenString, true)
 }

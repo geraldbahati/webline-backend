@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
@@ -32,6 +33,7 @@ type ProductService struct {
 	productOptionRepo        *repository.ProductOptionRepository
 	productSizeRepo          *repository.ProductSizeRepository
 	discountRepo             *repository.DiscountRepository
+	userRepo                 *repository.UserRepository
 	logger                   *zap.Logger
 	config                   *appconfig.Config
 	s3Client                 *s3.Client
@@ -47,6 +49,7 @@ func NewProductService(
 	productOptionRepo *repository.ProductOptionRepository,
 	productSizeRepo *repository.ProductSizeRepository,
 	discountRepo *repository.DiscountRepository,
+	userRepo *repository.UserRepository,
 	logger *zap.Logger,
 	config *appconfig.Config,
 	s3Client *s3.Client,
@@ -62,6 +65,7 @@ func NewProductService(
 		productColorRepo:         productColorRepo,
 		productSizeRepo:          productSizeRepo,
 		discountRepo:             discountRepo,
+		userRepo:                 userRepo,
 		logger:                   logger,
 		config:                   config,
 		s3Client:                 s3Client,
@@ -2282,6 +2286,28 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 
 // GetProducts retrieves all products
 func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, error) {
+	// get user id from the context
+	userId, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to get user id from context", zap.Error(err))
+		return nil, err
+	}
+
+	// check if user is admin
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userId)
+	if err != nil {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to check if user is admin", zap.Error(err))
+		return nil, err
+	}
+
+	if !isAdmin {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("user is not authorized to get products", zap.Error(err))
+		return nil, err
+	}
+
 	products, err := s.productRepo.GetV2Products(ctx)
 	if err != nil {
 		switch {
@@ -2339,6 +2365,28 @@ func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*mo
 
 // CreateV2Product creates or update a product
 func (s *ProductService) CreateV2Product(ctx context.Context, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
+	// get userID from the context
+	userID, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to get user id from context", zap.Error(err))
+		return err
+	}
+
+	// Check if user is admin
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
+	if err != nil {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to check if user is admin", zap.Error(err))
+		return err
+	}
+
+	if !isAdmin {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("user is not authorized to create product", zap.Error(err))
+		return err
+	}
+
 	// Check if the product exist
 	existingProduct, err := s.productRepo.GetProductBySlug(ctx, params.Slug)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {

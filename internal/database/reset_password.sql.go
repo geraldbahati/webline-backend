@@ -22,22 +22,22 @@ func (q *Queries) DeleteExpiredTResets(ctx context.Context) error {
 
 const deletePasswordResetToken = `-- name: DeletePasswordResetToken :exec
 DELETE FROM password_reset_tokens
-WHERE token = $1
+WHERE email = $1
 `
 
-func (q *Queries) DeletePasswordResetToken(ctx context.Context, token string) error {
-	_, err := q.db.ExecContext(ctx, deletePasswordResetToken, token)
+func (q *Queries) DeletePasswordResetToken(ctx context.Context, email string) error {
+	_, err := q.db.ExecContext(ctx, deletePasswordResetToken, email)
 	return err
 }
 
 const getPasswordResetToken = `-- name: GetPasswordResetToken :one
 SELECT id, email, token, expires_at, created_at
 FROM password_reset_tokens
-WHERE token = $1
+WHERE email = $1
 `
 
-func (q *Queries) GetPasswordResetToken(ctx context.Context, token string) (PasswordResetToken, error) {
-	row := q.db.QueryRowContext(ctx, getPasswordResetToken, token)
+func (q *Queries) GetPasswordResetToken(ctx context.Context, email string) (PasswordResetToken, error) {
+	row := q.db.QueryRowContext(ctx, getPasswordResetToken, email)
 	var i PasswordResetToken
 	err := row.Scan(
 		&i.ID,
