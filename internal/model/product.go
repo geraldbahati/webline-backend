@@ -10,24 +10,18 @@ import (
 
 type ProductImage struct {
 	ID        uuid.UUID `json:"id"`
-	ProductID string    `json:"product_id"`
-	S3URL     string    `json:"s3_url"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ProductID string    `json:"productID"`
+	S3URL     string    `json:"s3URL"`
 }
 
 type Product struct {
-	ID              uuid.UUID
-	Name            string
-	Description     string
-	Price           string
-	Stock           int32
-	CategoryID      uuid.UUID
-	IsActive        bool
-	Featured        bool
-	ImageURL        string
-	DiscountPercent float64
-	Slug            string
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	Description     string    `json:"description"`
+	Price           string    `json:"price"`
+	ImageURL        string    `json:"imageURL"`
+	DiscountPercent float64   `json:"discountPercent"`
+	Slug            string    `json:"slug"`
 }
 
 type V2Product struct {
@@ -66,20 +60,19 @@ type V2ProductImage struct {
 }
 
 type ProductDetail struct {
-	ID              uuid.UUID
-	Name            string
-	Description     string
-	Price           string
-	Stock           int32
-	CategoryID      uuid.UUID
-	IsActive        bool
-	Featured        bool
-	DiscountPercent float64
-	Slug            string
-	Images          []ProductImage
-	Colors          []ProductColor
-	Specifications  []ProductSpecification
-	Options         []ProductOption
+	ID              uuid.UUID              `json:"id"`
+	Name            string                 `json:"name"`
+	Description     string                 `json:"description"`
+	Price           string                 `json:"price"`
+	Stock           int32                  `json:"stock"`
+	CategoryName    string                 `json:"categoryName"`
+	Featured        bool                   `json:"featured"`
+	DiscountPercent float64                `json:"discountPercent"`
+	Slug            string                 `json:"slug"`
+	Images          []ProductImage         `json:"images"`
+	Colors          []ProductColor         `json:"colors"`
+	Specifications  []ProductSpecification `json:"specifications"`
+	Options         []ProductOption        `json:"options"`
 }
 
 type CreateProductRequest struct {
@@ -101,26 +94,27 @@ type Specification struct {
 }
 
 type ProductSchema struct {
-	ID          uuid.UUID
-	Name        string
-	Description string
-	Price       string
-	Stock       int32
-	CategoryID  uuid.UUID
-	IsActive    bool
-	Featured    bool
-	Slug        string
+	ID           uuid.UUID
+	Name         string
+	Description  string
+	Price        string
+	Stock        int32
+	CategoryID   uuid.UUID
+	CategoryName string
+	Status       string
+	Featured     bool
+	Slug         string
 }
 
 type ProductColor struct {
-	ID        uuid.UUID
-	ColorName string
+	ID        uuid.UUID `json:"id"`
+	ColorName string    `json:"colorName"`
 }
 
 type ProductSpecification struct {
-	ID        uuid.UUID
-	SpecName  string
-	SpecValue string
+	ID        uuid.UUID `json:"id"`
+	SpecName  string    `json:"specName"`
+	SpecValue string    `json:"specValue"`
 }
 
 type ProductVariant struct {
@@ -142,15 +136,15 @@ type ProductQueryResult struct {
 }
 
 type ProductOption struct {
-	ID           uuid.UUID
-	OptionName   string
-	OptionValues []ProductOptionValue
+	ID           uuid.UUID            `json:"id"`
+	OptionName   string               `json:"optionName"`
+	OptionValues []ProductOptionValue `json:"optionValues"`
 }
 
 type ProductOptionValue struct {
-	ID              uuid.UUID
-	ValueName       string
-	AdditionalPrice float64
+	ID              uuid.UUID `json:"id"`
+	ValueName       string    `json:"valueName"`
+	AdditionalPrice float64   `json:"additionalPrice"`
 }
 
 type ProductSize struct {
