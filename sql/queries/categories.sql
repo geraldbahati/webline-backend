@@ -132,7 +132,7 @@ product_details AS (
     LEFT JOIN
         order_items oi ON p.id = oi.product_id
     WHERE
-        p.is_active = true
+        p.status = 'active'
     GROUP BY
         p.id, p.category_id, p.name, proc.name, sz.size, st.name
 ),
