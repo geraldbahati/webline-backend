@@ -118,7 +118,7 @@ SELECT
     p.end_date,
     p.created_at,
     p.updated_at,
-    pr.id AS product_id,
+    pr.slug AS slug,
     pr.name AS product_name,
     pr.description AS product_description,
     pr.price,
@@ -146,7 +146,7 @@ type GetPromotionsWithProductsRow struct {
 	EndDate            sql.NullTime
 	CreatedAt          sql.NullTime
 	UpdatedAt          sql.NullTime
-	ProductID          uuid.UUID
+	Slug               sql.NullString
 	ProductName        string
 	ProductDescription sql.NullString
 	Price              string
@@ -175,7 +175,7 @@ func (q *Queries) GetPromotionsWithProducts(ctx context.Context) ([]GetPromotion
 			&i.EndDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.ProductID,
+			&i.Slug,
 			&i.ProductName,
 			&i.ProductDescription,
 			&i.Price,

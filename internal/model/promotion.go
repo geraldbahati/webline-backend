@@ -5,15 +5,15 @@ import (
 )
 
 type Promotion struct {
-	ProductID         uuid.UUID `json:"productID"`
-	Tagline           string    `json:"tagline"`
-	MainTitle         string    `json:"mainTitle"`
-	SubTitle          string    `json:"subTitle"`
-	Title             string    `json:"title"`
-	Description       string    `json:"description"`
-	Discount          float64   `json:"discount"`
-	PromotionImageUrl string    `json:"promotionImageUrl"`
-	ProductImageUrl   string    `json:"productImageUrl"`
+	Slug              string  `json:"slug"`
+	Tagline           string  `json:"tagline"`
+	MainTitle         string  `json:"mainTitle"`
+	SubTitle          string  `json:"subTitle"`
+	Title             string  `json:"title"`
+	Description       string  `json:"description"`
+	Discount          float64 `json:"discount"`
+	PromotionImageUrl string  `json:"promotionImageUrl"`
+	ProductImageUrl   string  `json:"productImageUrl"`
 }
 
 type PromotionSchema struct {

@@ -120,7 +120,7 @@ func (r *PromotionRepository) GetPromotionsWithProducts(ctx context.Context) ([]
 		}
 
 		promotionList = append(promotionList, &model.Promotion{
-			ProductID:         promotion.ProductID,
+			Slug:              promotion.Slug.String,
 			Tagline:           promotion.Tagline.String,
 			MainTitle:         promotion.MainTitle,
 			SubTitle:          promotion.Subtitle,

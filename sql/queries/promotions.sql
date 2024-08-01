@@ -40,7 +40,7 @@ SELECT
     p.end_date,
     p.created_at,
     p.updated_at,
-    pr.id AS product_id,
+    pr.slug AS slug,
     pr.name AS product_name,
     pr.description AS product_description,
     pr.price,

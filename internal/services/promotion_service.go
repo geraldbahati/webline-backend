@@ -122,7 +122,6 @@ func (s *PromotionService) CreatePromotion(ctx context.Context, r *http.Request,
 	}
 
 	return &model.Promotion{
-		ProductID:         product.ID,
 		Tagline:           promotion.Tagline,
 		MainTitle:         promotion.MainTitle,
 		SubTitle:          promotion.SubTitle,
