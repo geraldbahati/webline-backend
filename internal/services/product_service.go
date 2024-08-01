@@ -176,8 +176,7 @@ func (s *ProductService) GetProductByID(ctx context.Context, productID string) (
 		Description:     product.Description,
 		Price:           product.Price,
 		Stock:           product.Stock,
-		CategoryID:      product.CategoryID,
-		IsActive:        product.IsActive,
+		CategoryName:    product.CategoryName,
 		DiscountPercent: discountPercentage,
 		Featured:        product.Featured,
 		Slug:            product.Slug,
@@ -231,8 +230,7 @@ func (s *ProductService) GetProductBySlug(ctx context.Context, slug string) (mod
 		Description:     product.Description,
 		Price:           product.Price,
 		Stock:           product.Stock,
-		CategoryID:      product.CategoryID,
-		IsActive:        product.IsActive,
+		CategoryName:    product.CategoryName,
 		DiscountPercent: discountPercentage,
 		Featured:        product.Featured,
 		Slug:            product.Slug,
@@ -294,8 +292,6 @@ func (s *ProductService) getProductImages(ctx context.Context, productID uuid.UU
 			ID:        image.ID,
 			ProductID: image.ProductID.UUID.String(),
 			S3URL:     s.constructS3URL(image.ImageUrl),
-			CreatedAt: image.CreatedAt.Time,
-			UpdatedAt: image.UpdatedAt.Time,
 		})
 	}
 
@@ -524,10 +520,6 @@ func (s *ProductService) mapProductsToModel(ctx context.Context, products []mode
 			Name:            product.Name,
 			Description:     product.Description,
 			Price:           product.Price,
-			Stock:           product.Stock,
-			CategoryID:      product.CategoryID,
-			IsActive:        product.IsActive,
-			Featured:        product.Featured,
 			Slug:            product.Slug,
 			ImageURL:        s.constructS3URL(productImages[0].ImageUrl),
 			DiscountPercent: discountPercentage,
@@ -849,8 +841,6 @@ func (s *ProductService) mapToProductImageModel(dbImage database.ProductImage) m
 		ID:        dbImage.ID,
 		ProductID: dbImage.ProductID.UUID.String(),
 		S3URL:     s.constructS3URL(dbImage.ImageUrl),
-		CreatedAt: dbImage.CreatedAt.Time,
-		UpdatedAt: dbImage.UpdatedAt.Time,
 	}
 }
 
@@ -1065,8 +1055,7 @@ func (s *ProductService) mapProductsToDetail(ctx context.Context, products []mod
 			Description:     product.Description,
 			Price:           product.Price,
 			Stock:           product.Stock,
-			CategoryID:      product.CategoryID,
-			IsActive:        product.IsActive,
+			CategoryName:    product.CategoryName,
 			Featured:        product.Featured,
 			Colors:          colors,
 			Specifications:  specs,
