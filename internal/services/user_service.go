@@ -8,7 +8,6 @@ import (
 	"time"
 	"weblineBackend/internal/app_errors"
 
-	"go.uber.org/zap"
 	"log"
 	"strings"
 	"weblineBackend/internal/appconfig"
@@ -16,6 +15,8 @@ import (
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
+
+	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -375,14 +376,6 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 		s.logger.Error("Failed to get user by id", zap.Error(err))
 		return nil, err
 	}
-
-	roles, err := s.userRoleRepository.GetRolesForUser(ctx, user.ID)
-	if err != nil {
-		s.logger.Error("Failed to get roles for user", zap.Error(err))
-		return nil, err
-	}
-
-	user.Roles = roles
 
 	roles, err := s.userRoleRepository.GetRolesForUser(ctx, user.ID)
 	if err != nil {
