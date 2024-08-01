@@ -33,9 +33,11 @@ FROM products
 WHERE id = $1;
 
 -- name: GetProductBySlug :one
-SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
-FROM products
-WHERE slug = $1;
+SELECT p.id, p.name, p.description, p.price, p.stock, c.name AS category_name, p.created_at, p.updated_at, p.status, p.created_by, p.updated_by, p.featured, p.search_keyword, p.slug
+FROM products p
+         JOIN categories c ON p.category_id = c.id
+WHERE p.slug = $1;
+
 
 -- name: ListProducts :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
@@ -151,8 +153,11 @@ WITH RECURSIVE category_hierarchy AS (
              INNER JOIN category_hierarchy ch ON c2.parent_id = ch.id
 )
 SELECT
-    p.*
+    p.id, p.name, p.description, p.price, p.stock, p.created_at, p.updated_at, p.status,
+    p.created_by, p.updated_by, p.featured, p.search_keyword, p.slug,
+    c.name AS category_name
 FROM products p
+         JOIN categories c ON p.category_id = c.id
 WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
 LIMIT $2 OFFSET $3;
 
