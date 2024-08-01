@@ -75,7 +75,7 @@ func (r *ProductRepository) CreateProduct(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.Status == "active",
+			Status:      product.Status,
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		}
@@ -107,7 +107,7 @@ func (r *ProductRepository) GetProductByID(
 		Price:       product.Price,
 		Stock:       product.Stock.Int32,
 		CategoryID:  product.CategoryID,
-		IsActive:    product.Status == "active",
+		Status:      product.Status,
 		Featured:    product.Featured.Bool,
 		Slug:        product.Slug.String,
 	}, nil
@@ -125,15 +125,15 @@ func (r *ProductRepository) GetProductBySlug(
 	}
 
 	return model.ProductSchema{
-		ID:          product.ID,
-		Name:        product.Name,
-		Description: product.Description.String,
-		Price:       product.Price,
-		Stock:       product.Stock.Int32,
-		CategoryID:  product.CategoryID,
-		IsActive:    product.Status == "active",
-		Featured:    product.Featured.Bool,
-		Slug:        product.Slug.String,
+		ID:           product.ID,
+		Name:         product.Name,
+		Description:  product.Description.String,
+		Price:        product.Price,
+		Stock:        product.Stock.Int32,
+		CategoryName: product.CategoryName,
+		Status:       product.Status,
+		Featured:     product.Featured.Bool,
+		Slug:         product.Slug.String,
 	}, nil
 }
 
@@ -176,7 +176,7 @@ func (r *ProductRepository) UpdateProduct(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.Status == "active",
+			Status:      product.Status,
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		}
@@ -228,15 +228,15 @@ func (r *ProductRepository) GetProductsByCategoryID(
 	var productSchemas []model.ProductSchema
 	for _, product := range products {
 		productSchemas = append(productSchemas, model.ProductSchema{
-			ID:          product.ID,
-			Name:        product.Name,
-			Description: product.Description.String,
-			Price:       product.Price,
-			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID,
-			IsActive:    product.Status == "active",
-			Featured:    product.Featured.Bool,
-			Slug:        product.Slug.String,
+			ID:           product.ID,
+			Name:         product.Name,
+			Description:  product.Description.String,
+			Price:        product.Price,
+			Stock:        product.Stock.Int32,
+			CategoryName: product.CategoryName,
+			Status:       product.Status,
+			Featured:     product.Featured.Bool,
+			Slug:         product.Slug.String,
 		})
 	}
 
@@ -277,7 +277,7 @@ func (r *ProductRepository) SearchProducts(
 			Price:       product.Price,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
-			IsActive:    product.Status == "active",
+			Status:      product.Status,
 			Featured:    product.Featured.Bool,
 			Slug:        product.Slug.String,
 		})
@@ -315,15 +315,15 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 	var productSchemas []model.ProductSchema
 	for _, product := range products {
 		productSchemas = append(productSchemas, model.ProductSchema{
-			ID:          product.ID,
-			Name:        product.Name,
-			Description: product.Description.String,
-			Price:       product.Price,
-			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID,
-			IsActive:    product.Status == "active",
-			Featured:    product.Featured.Bool,
-			Slug:        product.Slug.String,
+			ID:           product.ID,
+			Name:         product.Name,
+			Description:  product.Description.String,
+			Price:        product.Price,
+			Stock:        product.Stock.Int32,
+			CategoryName: product.CategoryName,
+			Status:       product.Status,
+			Featured:     product.Featured.Bool,
+			Slug:         product.Slug.String,
 		})
 	}
 
@@ -375,11 +375,8 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceAsc(ctx context.Context,
 			Name:        row.Name,
 			Description: row.Description.String,
 			Price:       row.Price,
-			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID,
-			IsActive:    row.Status == "active",
-			Featured:    row.Featured.Bool,
-			Slug:        row.Slug.String,
+
+			Slug: row.Slug.String,
 		})
 	}
 
@@ -400,11 +397,8 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceDesc(ctx context.Context
 			Name:        row.Name,
 			Description: row.Description.String,
 			Price:       row.Price,
-			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID,
-			IsActive:    row.Status == "active",
-			Featured:    row.Featured.Bool,
-			Slug:        row.Slug.String,
+
+			Slug: row.Slug.String,
 		})
 	}
 
@@ -425,11 +419,8 @@ func (r *ProductRepository) GetAllProductsByFiltersNameAsc(ctx context.Context, 
 			Name:        row.Name,
 			Description: row.Description.String,
 			Price:       row.Price,
-			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID,
-			IsActive:    row.Status == "active",
-			Featured:    row.Featured.Bool,
-			Slug:        row.Slug.String,
+
+			Slug: row.Slug.String,
 		})
 	}
 
@@ -450,11 +441,8 @@ func (r *ProductRepository) GetAllProductsByFiltersNameDesc(ctx context.Context,
 			Name:        row.Name,
 			Description: row.Description.String,
 			Price:       row.Price,
-			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID,
-			IsActive:    row.Status == "active",
-			Featured:    row.Featured.Bool,
-			Slug:        row.Slug.String,
+
+			Slug: row.Slug.String,
 		})
 	}
 
@@ -475,11 +463,8 @@ func (r *ProductRepository) GetAllProductsByFiltersNewest(ctx context.Context, p
 			Name:        row.Name,
 			Description: row.Description.String,
 			Price:       row.Price,
-			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID,
-			IsActive:    row.Status == "active",
-			Featured:    row.Featured.Bool,
-			Slug:        row.Slug.String,
+
+			Slug: row.Slug.String,
 		})
 	}
 
@@ -500,11 +485,8 @@ func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, p
 			Name:        row.Name,
 			Description: row.Description.String,
 			Price:       row.Price,
-			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID,
-			IsActive:    row.Status == "active",
-			Featured:    row.Featured.Bool,
-			Slug:        row.Slug.String,
+
+			Slug: row.Slug.String,
 		})
 	}
 
