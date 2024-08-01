@@ -59,7 +59,7 @@ SELECT
 FROM
     products
 WHERE
-    status = true
+    status = 'active'
   AND created_at >= NOW() - INTERVAL '100 days'
 ORDER BY
     created_at DESC
@@ -95,7 +95,7 @@ FROM
         JOIN discounts d ON p.id = d.product_id
         LEFT JOIN first_images fi ON p.id = fi.product_id
 WHERE
-    p.status = true
+    p.status = 'active'
   AND d.start_date <= now()
   AND d.end_date >= now()
 ORDER BY
