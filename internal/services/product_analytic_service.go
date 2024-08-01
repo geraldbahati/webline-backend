@@ -44,8 +44,6 @@ func (s *ProductAnalyticService) getProductImages(ctx context.Context, productID
 			ID:        image.ID,
 			ProductID: image.ProductID.UUID.String(),
 			S3URL:     s.constructS3URL(image.ImageUrl),
-			CreatedAt: image.CreatedAt.Time,
-			UpdatedAt: image.UpdatedAt.Time,
 		})
 	}
 
