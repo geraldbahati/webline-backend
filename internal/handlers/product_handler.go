@@ -559,3 +559,99 @@ func (h *ProductHandler) ArchiveProductHandler(w http.ResponseWriter, r *http.Re
 	// respond with success
 	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product archived"})
 }
+
+// ArchiveProductsHandler archives multiple products
+func (h *ProductHandler) ArchiveProductsHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// archive products
+	err := h.productService.ArchiveProducts(r.Context(), params.Slugs)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to archive products")
+		return
+	}
+
+	// respond with success
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Products archived"})
+}
+
+// ActivateProductsHandler activates multiple products
+func (h *ProductHandler) ActivateProductsHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// activate products
+	err := h.productService.ActivateProducts(r.Context(), params.Slugs)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to activate products")
+		return
+	}
+
+	// respond with success
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Products activated"})
+}
+
+// DraftProductsHandler drafts multiple products
+func (h *ProductHandler) DraftProductsHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// draft products
+	err := h.productService.DraftProducts(r.Context(), params.Slugs)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to draft products")
+		return
+	}
+
+	// respond with success
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Products drafted"})
+}
+
+// DeleteProductsHandler deletes multiple products
+func (h *ProductHandler) DeleteProductsHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// delete products
+	err := h.productService.DeleteProducts(r.Context(), params.Slugs)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to delete products")
+		return
+	}
+
+	// respond with success
+	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Products deleted"})
+}
