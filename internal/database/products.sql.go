@@ -14,6 +14,22 @@ import (
 	"github.com/lib/pq"
 )
 
+const activateProductsBySlugs = `-- name: ActivateProductsBySlugs :exec
+UPDATE products
+SET status = 'active', updated_by = $2
+WHERE slug = ANY($1::text[])
+`
+
+type ActivateProductsBySlugsParams struct {
+	Column1   []string
+	UpdatedBy uuid.NullUUID
+}
+
+func (q *Queries) ActivateProductsBySlugs(ctx context.Context, arg ActivateProductsBySlugsParams) error {
+	_, err := q.db.ExecContext(ctx, activateProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
+	return err
+}
+
 const archiveProductByID = `-- name: ArchiveProductByID :exec
 UPDATE products
 SET status = 'archived', updated_at = NOW()
@@ -22,6 +38,22 @@ WHERE id = $1
 
 func (q *Queries) ArchiveProductByID(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, archiveProductByID, id)
+	return err
+}
+
+const archiveProductsBySlugs = `-- name: ArchiveProductsBySlugs :exec
+UPDATE products
+SET status = 'archived', updated_by = $2
+WHERE slug = ANY($1::text[])
+`
+
+type ArchiveProductsBySlugsParams struct {
+	Column1   []string
+	UpdatedBy uuid.NullUUID
+}
+
+func (q *Queries) ArchiveProductsBySlugs(ctx context.Context, arg ArchiveProductsBySlugsParams) error {
+	_, err := q.db.ExecContext(ctx, archiveProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
 	return err
 }
 
@@ -190,7 +222,7 @@ type CreateProductRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
-	Slug          sql.NullString
+	Slug          string
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (CreateProductRow, error) {
@@ -249,6 +281,32 @@ DELETE FROM product_specifications WHERE product_id = $1
 
 func (q *Queries) DeleteProductSpecificationsByProductID(ctx context.Context, productID uuid.NullUUID) error {
 	_, err := q.db.ExecContext(ctx, deleteProductSpecificationsByProductID, productID)
+	return err
+}
+
+const deleteProductsBySlugs = `-- name: DeleteProductsBySlugs :exec
+DELETE FROM products
+WHERE slug = ANY($1::text[])
+`
+
+func (q *Queries) DeleteProductsBySlugs(ctx context.Context, dollar_1 []string) error {
+	_, err := q.db.ExecContext(ctx, deleteProductsBySlugs, pq.Array(dollar_1))
+	return err
+}
+
+const draftProductsBySlugs = `-- name: DraftProductsBySlugs :exec
+UPDATE products
+SET status = 'draft', updated_by = $2
+WHERE slug = ANY($1::text[])
+`
+
+type DraftProductsBySlugsParams struct {
+	Column1   []string
+	UpdatedBy uuid.NullUUID
+}
+
+func (q *Queries) DraftProductsBySlugs(ctx context.Context, arg DraftProductsBySlugsParams) error {
+	_, err := q.db.ExecContext(ctx, draftProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
 	return err
 }
 
@@ -370,7 +428,7 @@ type GetAllProductsByFiltersNameAscRow struct {
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
-	Slug          sql.NullString
+	Slug          string
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -546,7 +604,7 @@ type GetAllProductsByFiltersNameDescRow struct {
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
-	Slug          sql.NullString
+	Slug          string
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -722,7 +780,7 @@ type GetAllProductsByFiltersNewestRow struct {
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
-	Slug          sql.NullString
+	Slug          string
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -898,7 +956,7 @@ type GetAllProductsByFiltersOldestRow struct {
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
-	Slug          sql.NullString
+	Slug          string
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -1074,7 +1132,7 @@ type GetAllProductsByFiltersPriceAscRow struct {
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
-	Slug          sql.NullString
+	Slug          string
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -1250,7 +1308,7 @@ type GetAllProductsByFiltersPriceDescRow struct {
 	CreatedBy     uuid.NullUUID
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
-	Slug          sql.NullString
+	Slug          string
 	Size          sql.NullString
 	ColorName     sql.NullString
 	ProcessorName sql.NullString
@@ -1392,7 +1450,7 @@ type GetProductByIDRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
-	Slug          sql.NullString
+	Slug          string
 }
 
 func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductByIDRow, error) {
@@ -1438,10 +1496,10 @@ type GetProductBySlugRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
-	Slug          sql.NullString
+	Slug          string
 }
 
-func (q *Queries) GetProductBySlug(ctx context.Context, slug sql.NullString) (GetProductBySlugRow, error) {
+func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProductBySlugRow, error) {
 	row := q.db.QueryRowContext(ctx, getProductBySlug, slug)
 	var i GetProductBySlugRow
 	err := row.Scan(
@@ -1590,7 +1648,7 @@ type GetProductsByFiltersDefaultRow struct {
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetProductsByFiltersDefault(ctx context.Context, arg GetProductsByFiltersDefaultParams) ([]GetProductsByFiltersDefaultRow, error) {
@@ -1706,7 +1764,7 @@ type GetProductsByFiltersNameAscRow struct {
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetProductsByFiltersNameAsc(ctx context.Context, arg GetProductsByFiltersNameAscParams) ([]GetProductsByFiltersNameAscRow, error) {
@@ -1822,7 +1880,7 @@ type GetProductsByFiltersNameDescRow struct {
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetProductsByFiltersNameDesc(ctx context.Context, arg GetProductsByFiltersNameDescParams) ([]GetProductsByFiltersNameDescRow, error) {
@@ -1938,7 +1996,7 @@ type GetProductsByFiltersNewestRow struct {
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetProductsByFiltersNewest(ctx context.Context, arg GetProductsByFiltersNewestParams) ([]GetProductsByFiltersNewestRow, error) {
@@ -2054,7 +2112,7 @@ type GetProductsByFiltersOldestRow struct {
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetProductsByFiltersOldest(ctx context.Context, arg GetProductsByFiltersOldestParams) ([]GetProductsByFiltersOldestRow, error) {
@@ -2170,7 +2228,7 @@ type GetProductsByFiltersPriceAscRow struct {
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetProductsByFiltersPriceAsc(ctx context.Context, arg GetProductsByFiltersPriceAscParams) ([]GetProductsByFiltersPriceAscRow, error) {
@@ -2286,7 +2344,7 @@ type GetProductsByFiltersPriceDescRow struct {
 	CreatedBy   uuid.NullUUID
 	UpdatedBy   uuid.NullUUID
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetProductsByFiltersPriceDesc(ctx context.Context, arg GetProductsByFiltersPriceDescParams) ([]GetProductsByFiltersPriceDescRow, error) {
@@ -2382,7 +2440,7 @@ type GetProductsByParentCategoryIDRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
-	Slug          sql.NullString
+	Slug          string
 	CategoryName  string
 }
 
@@ -2567,7 +2625,7 @@ type GetV2ProductDetailBySlugRow struct {
 	ID             uuid.UUID
 	Name           string
 	Description    sql.NullString
-	Slug           sql.NullString
+	Slug           string
 	Price          float64
 	Stock          int32
 	PartNumber     string
@@ -2577,7 +2635,7 @@ type GetV2ProductDetailBySlugRow struct {
 	Images         json.RawMessage
 }
 
-func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug sql.NullString) (GetV2ProductDetailBySlugRow, error) {
+func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug string) (GetV2ProductDetailBySlugRow, error) {
 	row := q.db.QueryRowContext(ctx, getV2ProductDetailBySlug, slug)
 	var i GetV2ProductDetailBySlugRow
 	err := row.Scan(
@@ -2635,7 +2693,7 @@ type GetV2ProductsRow struct {
 	Status      string
 	Imageurl    string
 	Discount    string
-	Slug        sql.NullString
+	Slug        string
 	Createdat   sql.NullTime
 	Inpromotion bool
 	Totalsales  int32
@@ -2702,7 +2760,7 @@ type ListProductsRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
-	Slug          sql.NullString
+	Slug          string
 }
 
 func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error) {
@@ -2810,7 +2868,7 @@ type SearchProductsRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
-	Slug          sql.NullString
+	Slug          string
 }
 
 func (q *Queries) SearchProducts(ctx context.Context, dollar_1 sql.NullString) ([]SearchProductsRow, error) {
@@ -2895,7 +2953,7 @@ type UpdateProductRow struct {
 	UpdatedBy     uuid.NullUUID
 	Featured      sql.NullBool
 	SearchKeyword interface{}
-	Slug          sql.NullString
+	Slug          string
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (UpdateProductRow, error) {
