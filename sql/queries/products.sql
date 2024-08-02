@@ -1258,3 +1258,23 @@ FROM
     specs_cte s ON p.id = s.product_id
         LEFT JOIN
     images_cte i ON p.id = i.product_id;
+
+
+-- name: ArchiveProductsBySlugs :exec
+UPDATE products
+SET status = 'archived', updated_by = $2
+WHERE slug = ANY($1::text[]);
+
+-- name: ActivateProductsBySlugs :exec
+UPDATE products
+SET status = 'active', updated_by = $2
+WHERE slug = ANY($1::text[]);
+
+-- name: DraftProductsBySlugs :exec
+UPDATE products
+SET status = 'draft', updated_by = $2
+WHERE slug = ANY($1::text[]);
+
+-- name: DeleteProductsBySlugs :exec
+DELETE FROM products
+WHERE slug = ANY($1::text[]);
