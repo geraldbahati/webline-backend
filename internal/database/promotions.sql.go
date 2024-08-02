@@ -146,7 +146,7 @@ type GetPromotionsWithProductsRow struct {
 	EndDate            sql.NullTime
 	CreatedAt          sql.NullTime
 	UpdatedAt          sql.NullTime
-	Slug               sql.NullString
+	Slug               string
 	ProductName        string
 	ProductDescription sql.NullString
 	Price              string

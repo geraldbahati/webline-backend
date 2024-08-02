@@ -38,7 +38,7 @@ type GetProductSEORow struct {
 	ImageUrl        string
 }
 
-func (q *Queries) GetProductSEO(ctx context.Context, slug sql.NullString) (GetProductSEORow, error) {
+func (q *Queries) GetProductSEO(ctx context.Context, slug string) (GetProductSEORow, error) {
 	row := q.db.QueryRowContext(ctx, getProductSEO, slug)
 	var i GetProductSEORow
 	err := row.Scan(
