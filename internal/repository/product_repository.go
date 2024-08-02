@@ -77,7 +77,7 @@ func (r *ProductRepository) CreateProduct(
 			CategoryID:  product.CategoryID,
 			Status:      product.Status,
 			Featured:    product.Featured.Bool,
-			Slug:        product.Slug.String,
+			Slug:        product.Slug,
 		}
 
 		return nil
@@ -109,7 +109,7 @@ func (r *ProductRepository) GetProductByID(
 		CategoryID:  product.CategoryID,
 		Status:      product.Status,
 		Featured:    product.Featured.Bool,
-		Slug:        product.Slug.String,
+		Slug:        product.Slug,
 	}, nil
 }
 
@@ -118,7 +118,7 @@ func (r *ProductRepository) GetProductBySlug(
 	ctx context.Context,
 	slug string,
 ) (model.ProductSchema, error) {
-	product, err := r.Queries.GetProductBySlug(ctx, sql.NullString{String: slug, Valid: true})
+	product, err := r.Queries.GetProductBySlug(ctx, slug)
 	if err != nil {
 		r.logger.Error("failed to get product by slug", zap.Error(err))
 		return model.ProductSchema{}, fmt.Errorf("failed to get product by slug: %w", err)
@@ -133,7 +133,7 @@ func (r *ProductRepository) GetProductBySlug(
 		CategoryName: product.CategoryName,
 		Status:       product.Status,
 		Featured:     product.Featured.Bool,
-		Slug:         product.Slug.String,
+		Slug:         product.Slug,
 	}, nil
 }
 
@@ -178,7 +178,7 @@ func (r *ProductRepository) UpdateProduct(
 			CategoryID:  product.CategoryID,
 			Status:      product.Status,
 			Featured:    product.Featured.Bool,
-			Slug:        product.Slug.String,
+			Slug:        product.Slug,
 		}
 
 		return nil
@@ -236,7 +236,7 @@ func (r *ProductRepository) GetProductsByCategoryID(
 			CategoryName: product.CategoryName,
 			Status:       product.Status,
 			Featured:     product.Featured.Bool,
-			Slug:         product.Slug.String,
+			Slug:         product.Slug,
 		})
 	}
 
@@ -279,7 +279,7 @@ func (r *ProductRepository) SearchProducts(
 			CategoryID:  product.CategoryID,
 			Status:      product.Status,
 			Featured:    product.Featured.Bool,
-			Slug:        product.Slug.String,
+			Slug:        product.Slug,
 		})
 	}
 
@@ -323,7 +323,7 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 			CategoryName: product.CategoryName,
 			Status:       product.Status,
 			Featured:     product.Featured.Bool,
-			Slug:         product.Slug.String,
+			Slug:         product.Slug,
 		})
 	}
 
@@ -376,7 +376,7 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceAsc(ctx context.Context,
 			Description: row.Description.String,
 			Price:       row.Price,
 
-			Slug: row.Slug.String,
+			Slug: row.Slug,
 		})
 	}
 
@@ -398,7 +398,7 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceDesc(ctx context.Context
 			Description: row.Description.String,
 			Price:       row.Price,
 
-			Slug: row.Slug.String,
+			Slug: row.Slug,
 		})
 	}
 
@@ -420,7 +420,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNameAsc(ctx context.Context, 
 			Description: row.Description.String,
 			Price:       row.Price,
 
-			Slug: row.Slug.String,
+			Slug: row.Slug,
 		})
 	}
 
@@ -442,7 +442,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNameDesc(ctx context.Context,
 			Description: row.Description.String,
 			Price:       row.Price,
 
-			Slug: row.Slug.String,
+			Slug: row.Slug,
 		})
 	}
 
@@ -464,7 +464,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNewest(ctx context.Context, p
 			Description: row.Description.String,
 			Price:       row.Price,
 
-			Slug: row.Slug.String,
+			Slug: row.Slug,
 		})
 	}
 
@@ -486,7 +486,7 @@ func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, p
 			Description: row.Description.String,
 			Price:       row.Price,
 
-			Slug: row.Slug.String,
+			Slug: row.Slug,
 		})
 	}
 
@@ -520,7 +520,7 @@ func (r *ProductRepository) GetProductSEO(
 	ctx context.Context,
 	slug string,
 ) (*model.ProductSEO, error) {
-	seo, err := r.Queries.GetProductSEO(ctx, sql.NullString{String: slug, Valid: true})
+	seo, err := r.Queries.GetProductSEO(ctx, slug)
 	if err != nil {
 		r.logger.Error("failed to get product SEO", zap.Error(err))
 		return nil, fmt.Errorf("failed to get product SEO: %w", err)
@@ -576,7 +576,7 @@ func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Produ
 			Status:      row.Status,
 			ImageURL:    row.Imageurl,
 			Discount:    discount,
-			Slug:        row.Slug.String,
+			Slug:        row.Slug,
 			CreatedAt:   row.Createdat.Time,
 			InPromotion: row.Inpromotion,
 			TotalSales:  row.Totalsales,
@@ -592,7 +592,7 @@ func (r *ProductRepository) GetV2ProductDetailBySlug(
 	ctx context.Context,
 	slug string,
 ) (*model.V2ProductDetail, error) {
-	product, err := r.Queries.GetV2ProductDetailBySlug(ctx, sql.NullString{String: slug, Valid: true})
+	product, err := r.Queries.GetV2ProductDetailBySlug(ctx, slug)
 	if err != nil {
 		r.logger.Error("failed to get product by slug", zap.Error(err))
 		return nil, fmt.Errorf("failed to get product by slug: %w", err)
@@ -603,7 +603,7 @@ func (r *ProductRepository) GetV2ProductDetailBySlug(
 		Description:    product.Description.String,
 		Price:          product.Price,
 		Stock:          product.Stock,
-		Slug:           product.Slug.String,
+		Slug:           product.Slug,
 		CategoryID:     product.CategoryID,
 		PartNumber:     product.PartNumber,
 		Specifications: product.Specifications,
@@ -644,6 +644,75 @@ func (r *ProductRepository) ArchiveProductByID(ctx context.Context, id uuid.UUID
 	if err != nil {
 		r.logger.Error("failed to archive product", zap.Error(err))
 		return fmt.Errorf("failed to archive product: %w", err)
+	}
+	return nil
+}
+
+// ArchiveProductsBySlugs archives products by their slugs
+func (r *ProductRepository) ArchiveProductsBySlugs(ctx context.Context, userID uuid.UUID, slugs []string) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.ArchiveProductsBySlugs(ctx, database.ArchiveProductsBySlugsParams{
+			UpdatedBy: uuid.NullUUID{UUID: userID, Valid: true},
+			Column1:   slugs,
+		}); err != nil {
+			return fmt.Errorf("failed to archive products: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to archive products", zap.Error(err))
+		return fmt.Errorf("failed to archive products: %w", err)
+	}
+	return nil
+}
+
+// ActivateProductsBySlugs activates products by their slugs
+func (r *ProductRepository) ActivateProductsBySlugs(ctx context.Context, userID uuid.UUID, slugs []string) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.ActivateProductsBySlugs(ctx, database.ActivateProductsBySlugsParams{
+			UpdatedBy: uuid.NullUUID{UUID: userID, Valid: true},
+			Column1:   slugs,
+		}); err != nil {
+			return fmt.Errorf("failed to activate products: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to activate products", zap.Error(err))
+		return fmt.Errorf("failed to activate products: %w", err)
+	}
+	return nil
+}
+
+// DeleteProductsBySlugs deletes products by their slugs
+func (r *ProductRepository) DeleteProductsBySlugs(ctx context.Context, slugs []string) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.DeleteProductsBySlugs(ctx, slugs); err != nil {
+			return fmt.Errorf("failed to delete products: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to delete products", zap.Error(err))
+		return fmt.Errorf("failed to delete products: %w", err)
+	}
+	return nil
+}
+
+// DraftProductsBySlugs drafts products by their slugs
+func (r *ProductRepository) DraftProductsBySlugs(ctx context.Context, userID uuid.UUID, slugs []string) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.DraftProductsBySlugs(ctx, database.DraftProductsBySlugsParams{
+			UpdatedBy: uuid.NullUUID{UUID: userID, Valid: true},
+			Column1:   slugs,
+		}); err != nil {
+			return fmt.Errorf("failed to draft products: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to draft products", zap.Error(err))
+		return fmt.Errorf("failed to draft products: %w", err)
 	}
 	return nil
 }
