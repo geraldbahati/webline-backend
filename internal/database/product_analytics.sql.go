@@ -48,7 +48,7 @@ type GetBestSellerProductsRow struct {
 	UpdatedAt   sql.NullTime
 	Status      string
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 	TotalSold   int64
 }
 
@@ -138,7 +138,7 @@ type GetDailyDealsRow struct {
 	CreatedBy          uuid.NullUUID
 	UpdatedBy          uuid.NullUUID
 	Featured           sql.NullBool
-	Slug               sql.NullString
+	Slug               string
 	DiscountPercentage string
 	StartDate          sql.NullTime
 	EndDate            sql.NullTime
@@ -219,7 +219,7 @@ type GetFeaturedProductsRow struct {
 	UpdatedAt   sql.NullTime
 	Status      string
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetFeaturedProducts(ctx context.Context, limit int32) ([]GetFeaturedProductsRow, error) {
@@ -291,7 +291,7 @@ type GetNewArrivalProductsRow struct {
 	UpdatedAt   sql.NullTime
 	Status      string
 	Featured    sql.NullBool
-	Slug        sql.NullString
+	Slug        string
 }
 
 func (q *Queries) GetNewArrivalProducts(ctx context.Context, limit int32) ([]GetNewArrivalProductsRow, error) {
