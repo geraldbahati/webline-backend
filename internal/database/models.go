@@ -184,7 +184,7 @@ type Product struct {
 	MetaTitle       sql.NullString
 	MetaDescription sql.NullString
 	MetaKeywords    sql.NullString
-	Slug            sql.NullString
+	Slug            string
 	Status          string
 }
 
