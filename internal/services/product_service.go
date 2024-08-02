@@ -1412,7 +1412,7 @@ func (s *ProductService) GetProductsByFiltersPriceAsc(
 			CategoryID:      row.CategoryID,
 			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
-			Slug:            row.Slug.String,
+			Slug:            row.Slug,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
 		})
@@ -1464,7 +1464,7 @@ func (s *ProductService) GetProductsByFiltersPriceDesc(
 			CategoryID:      row.CategoryID,
 			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
-			Slug:            row.Slug.String,
+			Slug:            row.Slug,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
 		})
@@ -1517,7 +1517,7 @@ func (s *ProductService) GetProductsByFiltersNameAsc(
 			CategoryID:      row.CategoryID,
 			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
-			Slug:            row.Slug.String,
+			Slug:            row.Slug,
 			ImageURL:        productImages[0].S3URL,
 			DiscountPercent: discountPercent,
 		})
@@ -1567,7 +1567,7 @@ func (s *ProductService) GetProductsByFiltersNameDesc(
 			Price:           row.Price,
 			Stock:           row.Stock.Int32,
 			CategoryID:      row.CategoryID,
-			Slug:            row.Slug.String,
+			Slug:            row.Slug,
 			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -1618,7 +1618,7 @@ func (s *ProductService) GetProductsByFiltersDefault(
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID, Slug: row.Slug.String,
+			CategoryID:  row.CategoryID, Slug: row.Slug,
 			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -1666,7 +1666,7 @@ func (s *ProductService) GetProductsByFiltersNewest(ctx context.Context, categor
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID, Slug: row.Slug.String,
+			CategoryID:  row.CategoryID, Slug: row.Slug,
 			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -1714,7 +1714,7 @@ func (s *ProductService) GetProductsByFiltersOldest(ctx context.Context, categor
 			Description: row.Description.String,
 			Price:       row.Price,
 			Stock:       row.Stock.Int32,
-			CategoryID:  row.CategoryID, Slug: row.Slug.String,
+			CategoryID:  row.CategoryID, Slug: row.Slug,
 			IsActive:        row.Status == "active",
 			Featured:        row.Featured.Bool,
 			ImageURL:        productImages[0].S3URL,
@@ -2542,6 +2542,142 @@ func (s *ProductService) ArchiveProduct(ctx context.Context, slug string) error 
 	if err != nil {
 		s.logger.Error("failed to archive product", zap.Error(err))
 		return fmt.Errorf("failed to archive product: %w", err)
+	}
+
+	return nil
+}
+
+// ArchiveProducts archives multiple products
+func (s *ProductService) ArchiveProducts(ctx context.Context, slugs []string) error {
+	// Get the user ID from the context
+	userID, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to get user id from context", zap.Error(err))
+		return err
+	}
+
+	// Check if user is admin
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
+	if err != nil {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to check if user is admin", zap.Error(err))
+		return err
+	}
+
+	if !isAdmin {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("user is not authorized to archive products", zap.Error(err))
+		return err
+	}
+
+	// Archive the products
+	err = s.productRepo.ArchiveProductsBySlugs(ctx, userID, slugs)
+	if err != nil {
+		s.logger.Error("failed to archive products", zap.Error(err))
+		return fmt.Errorf("failed to archive products: %w", err)
+	}
+
+	return nil
+}
+
+// ActivateProducts activates multiple products
+func (s *ProductService) ActivateProducts(ctx context.Context, slugs []string) error {
+	// Get the user ID from the context
+	userID, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to get user id from context", zap.Error(err))
+		return err
+	}
+
+	// Check if user is admin
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
+	if err != nil {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to check if user is admin", zap.Error(err))
+		return err
+	}
+
+	if !isAdmin {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("user is not authorized to activate products", zap.Error(err))
+		return err
+	}
+
+	// Activate the products
+	err = s.productRepo.ActivateProductsBySlugs(ctx, userID, slugs)
+	if err != nil {
+		s.logger.Error("failed to activate products", zap.Error(err))
+		return fmt.Errorf("failed to activate products: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteProducts deletes multiple products
+func (s *ProductService) DeleteProducts(ctx context.Context, slugs []string) error {
+	// Get the user ID from the context
+	userID, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to get user id from context", zap.Error(err))
+		return err
+	}
+
+	// Check if user is admin
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
+	if err != nil {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to check if user is admin", zap.Error(err))
+		return err
+	}
+
+	if !isAdmin {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("user is not authorized to delete products", zap.Error(err))
+		return err
+	}
+
+	// Delete the products
+	err = s.productRepo.DeleteProductsBySlugs(ctx, slugs)
+	if err != nil {
+		s.logger.Error("failed to delete products", zap.Error(err))
+		return fmt.Errorf("failed to delete products: %w", err)
+	}
+
+	return nil
+}
+
+// DraftProducts drafts multiple products
+func (s *ProductService) DraftProducts(ctx context.Context, slugs []string) error {
+	// Get the user ID from the context
+	userID, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to get user id from context", zap.Error(err))
+		return err
+	}
+
+	// Check if user is admin
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
+	if err != nil {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("failed to check if user is admin", zap.Error(err))
+		return err
+	}
+
+	if !isAdmin {
+		err := app_errors.NewUnauthorizedUserError()
+		s.logger.Error("user is not authorized to draft products", zap.Error(err))
+		return err
+	}
+
+	// Draft the products
+	err = s.productRepo.DraftProductsBySlugs(ctx, userID, slugs)
+	if err != nil {
+		s.logger.Error("failed to draft products", zap.Error(err))
+		return fmt.Errorf("failed to draft products: %w", err)
 	}
 
 	return nil
