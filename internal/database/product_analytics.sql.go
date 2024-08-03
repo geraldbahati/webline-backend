@@ -28,8 +28,9 @@ SELECT
     SUM(oi.quantity) AS total_sold
 FROM
     products p
-        JOIN
-    order_items oi ON p.id = oi.product_id
+        JOIN order_items oi ON p.id = oi.product_id
+WHERE
+    p.status = 'active'
 GROUP BY
     p.id
 ORDER BY

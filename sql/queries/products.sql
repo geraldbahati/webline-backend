@@ -123,7 +123,7 @@ WHERE
         p.search_keyword @@ plainto_tsquery('english', $1) OR
         ch.id IS NOT NULL
         )
-  AND p.status = true
+  AND p.status = 'active'
 ORDER BY
     p.id,
     ts_rank(p.search_keyword, plainto_tsquery('english', $1)) DESC,
@@ -132,7 +132,7 @@ ORDER BY
 
 -- name: CountProducts :one
 SELECT COUNT(*) AS count
-FROM products;
+FROM products WHERE status = 'active';
 
 -- name: GetProductsByParentCategoryID :many
 WITH RECURSIVE category_hierarchy AS (
@@ -159,6 +159,7 @@ SELECT
 FROM products p
          JOIN categories c ON p.category_id = c.id
 WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
+AND p.status = 'active'
 LIMIT $2 OFFSET $3;
 
 
@@ -182,7 +183,8 @@ WITH RECURSIVE category_hierarchy AS (
 )
 SELECT COUNT(*) AS count
 FROM products p
-WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch);
+WHERE p.category_id IN (SELECT ch.id FROM category_hierarchy ch)
+AND p.status = 'active';
 
 -- name: CountFilteredProducts :one
 WITH RECURSIVE category_hierarchy AS (
@@ -203,31 +205,35 @@ WITH RECURSIVE category_hierarchy AS (
         c.parent_id
     FROM
         categories c
-    INNER JOIN
+            INNER JOIN
         category_hierarchy ch ON c.parent_id = ch.id
 ),
-filtered_products AS (
-    SELECT
-        p.id
-    FROM
-        products p
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes s ON ps.size_id = s.id
-    LEFT JOIN
-        product_colors pc ON p.id = pc.product_id
-    LEFT JOIN
-        colors c ON pc.color_id = c.id
-    WHERE
-        p.category_id IN (SELECT id FROM category_hierarchy)
-        -- Size filter
-        AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-        -- Color filter
-        AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-        AND p.price BETWEEN $2 AND $3
-)
+               filtered_products AS (
+                   SELECT
+                       p.id
+                   FROM
+                       products p
+                           LEFT JOIN
+                       product_sizes ps ON p.id = ps.product_id
+                           LEFT JOIN
+                       sizes s ON ps.size_id = s.id
+                           LEFT JOIN
+                       product_colors pc ON p.id = pc.product_id
+                           LEFT JOIN
+                       colors c ON pc.color_id = c.id
+                   WHERE
+                       p.category_id IN (SELECT id FROM category_hierarchy)
+                     -- Size filter
+                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+                     -- Color filter
+                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+                     -- Price range filter
+                     AND p.price BETWEEN $2 AND $3
+                     -- Status filter
+                     AND p.status = 'active'
+               )
 SELECT COUNT(*) AS total_count FROM filtered_products;
+
 
 
 -- name: GetProductsByFiltersPriceAsc :many
@@ -270,6 +276,7 @@ WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
   AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
   AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
   AND p.price BETWEEN $7 AND $8
+  AND p.status = 'active'
 ORDER BY p.price ASC;
 
 -- name: GetProductsByFiltersPriceDesc :many
@@ -312,6 +319,7 @@ WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
   AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
   AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
   AND p.price BETWEEN $7 AND $8
+    AND p.status = 'active'
 ORDER BY p.price DESC;
 
 -- name: GetProductsByFiltersNameAsc :many
@@ -354,6 +362,7 @@ WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
   AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
   AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
   AND p.price BETWEEN $7 AND $8
+    AND p.status = 'active'
 ORDER BY p.name ASC;
 
 -- name: GetProductsByFiltersNameDesc :many
@@ -396,6 +405,7 @@ WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
   AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
   AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
   AND p.price BETWEEN $7 AND $8
+    AND p.status = 'active'
 ORDER BY p.name DESC;
 
 -- name: GetProductsByFiltersDefault :many
@@ -438,6 +448,7 @@ WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
   AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
   AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
   AND p.price BETWEEN $7 AND $8
+    AND p.status = 'active'
 ORDER BY p.created_at DESC;
 
 -- name: GetProductsByFiltersNewest :many
@@ -480,6 +491,7 @@ WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
   AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
   AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
   AND p.price BETWEEN $7 AND $8
+    AND p.status = 'active'
 ORDER BY p.created_at DESC;
 
 -- name: GetProductsByFiltersOldest :many
@@ -522,6 +534,7 @@ WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
   AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
   AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
   AND p.price BETWEEN $7 AND $8
+    AND p.status = 'active'
 ORDER BY p.created_at ASC;
 
 -- name: GetFilterOptions :many
@@ -529,8 +542,10 @@ SELECT DISTINCT
     col.color_name AS filter_option, 'color' AS filter_type
 FROM
     colors col
-        JOIN
-    product_colors pc ON col.id = pc.color_id
+        JOIN product_colors pc ON col.id = pc.color_id
+        JOIN products p ON pc.product_id = p.id
+WHERE
+    p.status = 'active'
 
 UNION
 
@@ -538,8 +553,10 @@ SELECT DISTINCT
     sz.size AS filter_option, 'size' AS filter_type
 FROM
     sizes sz
-        JOIN
-    product_sizes ps ON sz.id = ps.size_id
+        JOIN product_sizes ps ON sz.id = ps.size_id
+        JOIN products p ON ps.product_id = p.id
+WHERE
+    p.status = 'active'
 
 UNION
 
@@ -547,8 +564,10 @@ SELECT DISTINCT
     pr.name AS filter_option, 'processor' AS filter_type
 FROM
     processors pr
-        JOIN
-    product_processors pp ON pr.id = pp.processor_id
+        JOIN product_processors pp ON pr.id = pp.processor_id
+        JOIN products p ON pp.product_id = p.id
+WHERE
+    p.status = 'active'
 
 UNION
 
@@ -556,9 +575,10 @@ SELECT DISTINCT
     so.name AS filter_option, 'storage' AS filter_type
 FROM
     storage_options so
-        JOIN
-    product_storage_options pso ON so.id = pso.storage_option_id;
-
+        JOIN product_storage_options pso ON so.id = pso.storage_option_id
+        JOIN products p ON pso.product_id = p.id
+WHERE
+    p.status = 'active';
 
 -- name: GetAllProductsByFiltersPriceAsc :many
 WITH RECURSIVE category_hierarchy AS (
@@ -626,6 +646,7 @@ WITH RECURSIVE category_hierarchy AS (
                      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
                      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
                      AND p.price BETWEEN $2 AND $3
+                    AND p.status = 'active'
                )
 SELECT
     fp.id,
@@ -718,6 +739,7 @@ WITH RECURSIVE category_hierarchy AS (
                      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
                      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
                      AND p.price BETWEEN $2 AND $3
+                    AND p.status = 'active'
                )
 SELECT
     fp.id,
@@ -810,6 +832,7 @@ WITH RECURSIVE category_hierarchy AS (
                      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
                      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
                      AND p.price BETWEEN $2 AND $3
+                    AND p.status = 'active'
                )
 SELECT
     fp.id,
@@ -903,6 +926,7 @@ LIMIT
                          AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
                          AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
                          AND p.price BETWEEN $2 AND $3
+                        AND p.status = 'active'
                    )
     SELECT
         fp.id,
@@ -996,6 +1020,7 @@ WITH RECURSIVE category_hierarchy AS (
                      AND (pr.name = ANY(COALESCE($8::VARCHAR[], ARRAY[]::VARCHAR[])) OR $8 IS NULL)
                      AND (so.name = ANY(COALESCE($9::VARCHAR[], ARRAY[]::VARCHAR[])) OR $9 IS NULL)
                      AND p.price BETWEEN $2 AND $3
+                    AND p.status = 'active'
                )
 SELECT
     fp.id,
@@ -1089,6 +1114,7 @@ WITH RECURSIVE category_hierarchy AS (
                      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
                      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
                      AND p.price BETWEEN $2 AND $3
+                    AND p.status = 'active'
                )
 SELECT
     fp.id,
@@ -1165,6 +1191,7 @@ WITH RECURSIVE category_hierarchy AS (
                      AND (pr.name = ANY($6::VARCHAR[]) OR $6 IS NULL)
                      AND (so.name = ANY($7::VARCHAR[]) OR $7 IS NULL)
                      AND p.price BETWEEN $2 AND $3
+                    AND p.status = 'active'
                )
 SELECT
     COUNT(*) AS total_products
