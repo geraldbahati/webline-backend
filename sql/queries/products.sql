@@ -1202,7 +1202,7 @@ FROM
 WITH first_image AS (
     SELECT DISTINCT ON (product_id) product_id, image_url
     FROM product_images
-    ORDER BY product_id, created_at
+    ORDER BY product_id, position
 )
 SELECT
     p.name,
