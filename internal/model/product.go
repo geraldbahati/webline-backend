@@ -86,6 +86,7 @@ type CreateProductRequest struct {
 	PartNumber     string                  `json:"partNumber"`
 	Images         []*multipart.FileHeader `json:"images"`
 	Specifications []Specification         `json:"specifications"`
+	ImageUrls      []string                `json:"imageUrls"`
 }
 
 type Specification struct {
