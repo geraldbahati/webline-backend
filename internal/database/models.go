@@ -202,6 +202,7 @@ type ProductImage struct {
 	ImageUrl  string
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+	Position  sql.NullInt32
 }
 
 type ProductInteraction struct {
