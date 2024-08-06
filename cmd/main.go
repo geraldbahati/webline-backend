@@ -195,6 +195,12 @@ func setupRouter(
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
 
+	// health check
+	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+
+		w.WriteHeader(http.StatusOK)
+	}).Methods(http.MethodGet)
+
 	// Serve static files from the "uploads/profile" and "uploads/product-image" directories
 	r.PathPrefix("/uploads/profile/").Handler(http.StripPrefix("/uploads/profile/", http.FileServer(http.Dir("uploads/profile"))))
 	r.PathPrefix("/uploads/product-image/").Handler(http.StripPrefix("/uploads/product-image/", http.FileServer(http.Dir("uploads/product-image"))))
