@@ -9,6 +9,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"weblineBackend/internal/app_errors"
@@ -856,6 +857,22 @@ func (s *ProductService) mapToProductImageModels(dbImages []database.ProductImag
 // constructS3URL constructs the S3 URL for a given file path
 func (s *ProductService) constructS3URL(filePath string) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)
+}
+
+// getFilePathFromS3URL extracts the file path from an S3 URL
+func (s *ProductService) getFilePathFromS3URL(s3URL string) string {
+	parsedURL, err := url.Parse(s3URL)
+	if err != nil {
+		s.logger.Error("failed to parse S3 URL", zap.Error(err))
+		return ""
+	}
+
+	// Remove the bucket name and leading slash
+	path := strings.TrimPrefix(parsedURL.Path, fmt.Sprintf("/%s/", s.config.AWSBucketName))
+	// Ensure no leading slash
+	path = strings.TrimPrefix(path, "/")
+
+	return path
 }
 
 // DeleteProductImage deletes a product image from the database and S3
@@ -2383,6 +2400,31 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 		if err != nil {
 			s.logger.Error("failed to update product", zap.Error(err))
 			return fmt.Errorf("failed to update product: %w", err)
+		}
+
+		// Update the order of images
+		if len(params.ImageUrls) > 0 {
+			var fileNames []string
+			for _, imageUrl := range params.ImageUrls {
+				// get the file name from the URL
+				fileName := s.getFilePathFromS3URL(imageUrl)
+				if fileName != "" {
+					fileNames = append(fileNames, fileName)
+				}
+
+			}
+
+			// update the order of images
+
+			if fileNames != nil && len(fileNames) > 0 {
+				log.Println(fileNames)
+
+				err = s.productImageRepo.UpdateProductImageUrls(ctx, existingProduct.ID, fileNames)
+				if err != nil {
+					s.logger.Error("failed to update product image urls", zap.Error(err))
+					return fmt.Errorf("failed to update product image urls: %w", err)
+				}
+			}
 		}
 
 		// Update the product images
