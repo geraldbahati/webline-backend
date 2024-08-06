@@ -151,3 +151,25 @@ func (r *ProductImageRepository) GetImageKeysByProductID(
 	}
 	return imageKeys, nil
 }
+
+// UpdateProductImageUrls updates the image URLs for a product
+func (r *ProductImageRepository) UpdateProductImageUrls(
+	ctx context.Context,
+	productID uuid.UUID,
+	imageUrls []string,
+) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.UpdateProductImages(ctx, database.UpdateProductImagesParams{
+			ProductID: uuid.NullUUID{UUID: productID, Valid: true},
+			Column2:   imageUrls,
+		}); err != nil {
+			return fmt.Errorf("failed to update product image URLs: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update product image URLs", zap.Error(err))
+		return err
+	}
+	return nil
+}
