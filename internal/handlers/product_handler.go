@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -493,6 +494,13 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 	// get the images
 	images := r.MultipartForm.File["images"]
 
+	// Process image Urls
+	imageUrls := make([]string, 0)
+	for _, imageUrl := range r.MultipartForm.Value["url"] {
+		imageUrls = append(imageUrls, imageUrl)
+	}
+	params.ImageUrls = imageUrls
+
 	// Process specifications
 	specifications := make([]model.Specification, 0)
 	for _, spec := range r.MultipartForm.Value["specifications"] {
@@ -505,15 +513,19 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 	}
 	params.Specifications = specifications
 
-	// create product
+	log.Println("params: ", params)
+
+	//create product
 	err = h.productService.CreateV2Product(r.Context(), &params, images)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product")
 		return
 	}
 
-	// respond with product
+	//respond with product
 	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product created/updated successfully"})
+
+	RespondWithJSON(w, http.StatusOK, params)
 }
 
 // DeleteProductHandler deletes a product
