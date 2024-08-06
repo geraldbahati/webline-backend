@@ -9,12 +9,13 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createProductImage = `-- name: CreateProductImage :one
 INSERT INTO product_images (product_id, image_url)
 VALUES ($1, $2)
-    RETURNING id, product_id, image_url, created_at, updated_at
+    RETURNING id, product_id, image_url, created_at, updated_at, position
 `
 
 type CreateProductImageParams struct {
@@ -31,6 +32,7 @@ func (q *Queries) CreateProductImage(ctx context.Context, arg CreateProductImage
 		&i.ImageUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Position,
 	)
 	return i, err
 }
@@ -73,7 +75,7 @@ func (q *Queries) GetImageKeysByProductID(ctx context.Context, productID uuid.Nu
 }
 
 const getProductImageByID = `-- name: GetProductImageByID :one
-SELECT id, product_id, image_url, created_at, updated_at
+SELECT id, product_id, image_url, created_at, updated_at, position
 FROM product_images
 WHERE id = $1
 `
@@ -87,15 +89,16 @@ func (q *Queries) GetProductImageByID(ctx context.Context, id uuid.UUID) (Produc
 		&i.ImageUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Position,
 	)
 	return i, err
 }
 
 const listProductImagesByProductID = `-- name: ListProductImagesByProductID :many
-SELECT id, product_id, image_url, created_at, updated_at
+SELECT id, product_id, image_url, created_at, updated_at, position
 FROM product_images
 WHERE product_id = $1
-ORDER BY created_at
+ORDER BY position
 `
 
 func (q *Queries) ListProductImagesByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductImage, error) {
@@ -113,6 +116,7 @@ func (q *Queries) ListProductImagesByProductID(ctx context.Context, productID uu
 			&i.ImageUrl,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Position,
 		); err != nil {
 			return nil, err
 		}
@@ -131,7 +135,7 @@ const updateProductImage = `-- name: UpdateProductImage :one
 UPDATE product_images
 SET image_url = $2, updated_at = NOW()
 WHERE id = $1
-    RETURNING id, product_id, image_url, created_at, updated_at
+    RETURNING id, product_id, image_url, created_at, updated_at, position
 `
 
 type UpdateProductImageParams struct {
@@ -148,6 +152,31 @@ func (q *Queries) UpdateProductImage(ctx context.Context, arg UpdateProductImage
 		&i.ImageUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Position,
 	)
 	return i, err
+}
+
+const updateProductImages = `-- name: UpdateProductImages :exec
+WITH updated_images AS (
+    SELECT pi.id,
+           pi.image_url,
+           row_number() OVER (ORDER BY array_position($2::text[], pi.image_url)) AS new_position
+    FROM product_images pi
+    WHERE pi.product_id = $1 AND pi.image_url = ANY($2::text[])
+)
+UPDATE product_images
+SET position = updated_images.new_position
+FROM updated_images
+WHERE product_images.id = updated_images.id
+`
+
+type UpdateProductImagesParams struct {
+	ProductID uuid.NullUUID
+	Column2   []string
+}
+
+func (q *Queries) UpdateProductImages(ctx context.Context, arg UpdateProductImagesParams) error {
+	_, err := q.db.ExecContext(ctx, updateProductImages, arg.ProductID, pq.Array(arg.Column2))
+	return err
 }
