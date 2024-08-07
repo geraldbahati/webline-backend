@@ -1539,6 +1539,87 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 	return i, err
 }
 
+const getProductPricingByProductID = `-- name: GetProductPricingByProductID :one
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    COALESCE(d.discount_percentage, 0) AS discount_percent,
+    pi.image_url AS imageUrl
+FROM
+    products p
+        LEFT JOIN LATERAL (
+        SELECT
+            pi.image_url
+        FROM
+            product_images pi
+        WHERE
+            pi.product_id = p.id
+        ORDER BY
+            pi.position ASC
+        LIMIT 1
+        ) pi ON TRUE
+        LEFT JOIN discounts d ON d.product_id = p.id
+WHERE
+    p.id = $1
+LIMIT 1
+`
+
+type GetProductPricingByProductIDRow struct {
+	ID              uuid.UUID
+	Name            string
+	Description     sql.NullString
+	Price           string
+	DiscountPercent string
+	Imageurl        string
+}
+
+func (q *Queries) GetProductPricingByProductID(ctx context.Context, id uuid.UUID) (GetProductPricingByProductIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getProductPricingByProductID, id)
+	var i GetProductPricingByProductIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.Price,
+		&i.DiscountPercent,
+		&i.Imageurl,
+	)
+	return i, err
+}
+
+const getProductSpecsByID = `-- name: GetProductSpecsByID :one
+SELECT
+    p.description,
+    json_agg(
+            json_build_object(
+                    'name', ps.spec_name,
+                    'value', ps.spec_value
+            )
+    ) AS specs
+FROM
+    products p
+        JOIN
+    product_specifications ps ON ps.product_id = p.id
+WHERE
+    p.id = $1
+GROUP BY
+    p.description
+`
+
+type GetProductSpecsByIDRow struct {
+	Description sql.NullString
+	Specs       json.RawMessage
+}
+
+func (q *Queries) GetProductSpecsByID(ctx context.Context, id uuid.UUID) (GetProductSpecsByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getProductSpecsByID, id)
+	var i GetProductSpecsByIDRow
+	err := row.Scan(&i.Description, &i.Specs)
+	return i, err
+}
+
 const getProductsByCategoryID = `-- name: GetProductsByCategoryID :many
 SELECT id, name, description, price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword
 FROM products
