@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"weblineBackend/internal/database"
@@ -715,4 +716,65 @@ func (r *ProductRepository) DraftProductsBySlugs(ctx context.Context, userID uui
 		return fmt.Errorf("failed to draft products: %w", err)
 	}
 	return nil
+}
+
+// GetProductPricingByProductID retrieves the pricing of a product by its ID
+func (r *ProductRepository) GetProductPricingByProductID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*model.ProductPricing, error) {
+	pricing, err := r.Queries.GetProductPricingByProductID(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get product pricing by ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product pricing by ID: %w", err)
+	}
+
+	price, err := strconv.ParseFloat(pricing.Price, 64)
+	if err != nil {
+		r.logger.Error("failed to parse price", zap.Error(err))
+		price = 0
+	}
+
+	discount, err := strconv.ParseFloat(pricing.DiscountPercent, 64)
+	if err != nil {
+		r.logger.Error("failed to parse discount", zap.Error(err))
+		discount = 0
+	}
+
+	return &model.ProductPricing{
+		ID:              pricing.ID,
+		Name:            pricing.Name,
+		Description:     pricing.Description.String,
+		Price:           price,
+		DiscountPercent: discount,
+		ImageUrl:        pricing.Imageurl,
+	}, nil
+}
+
+// GetProductSpecsByID retrieves the specifications of a product by its ID
+func (r *ProductRepository) GetProductSpecsByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*model.ProductSpecs, error) {
+	// Retrieve the product specs from the database using the SQLC-generated method
+	row, err := r.Queries.GetProductSpecsByID(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get product specs by ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product specs by ID: %w", err)
+	}
+
+	// Unmarshal the JSON specs into a slice of ProductSpec
+	var specifications []model.ProductSpec
+	if err := json.Unmarshal(row.Specs, &specifications); err != nil {
+		r.logger.Error("failed to unmarshal specs", zap.Error(err))
+		return nil, fmt.Errorf("failed to unmarshal specs: %w", err)
+	}
+
+	// Create the ProductSpecs struct
+	productSpecs := &model.ProductSpecs{
+		Description: row.Description.String,
+		Specs:       specifications,
+	}
+
+	return productSpecs, nil
 }
