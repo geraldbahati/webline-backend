@@ -2382,8 +2382,8 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 	if err == nil {
 		_, err := s.productRepo.UpdateProduct(ctx, database.UpdateProductParams{
 			ID:          existingProduct.ID,
-			Name:        params.Name,
-			Description: sql.NullString{String: params.Description, Valid: true},
+			Name:        strings.TrimSpace(params.Name),
+			Description: sql.NullString{String: strings.TrimSpace(params.Description), Valid: true},
 			Price:       fmt.Sprintf("%.0f", params.Price),
 			Stock:       sql.NullInt32{Int32: int32(params.Stock), Valid: true},
 			Status:      params.Status,
@@ -2723,4 +2723,66 @@ func (s *ProductService) DraftProducts(ctx context.Context, slugs []string) erro
 	}
 
 	return nil
+}
+
+// GetProductImagesBySlug retrieves all product images by slug
+func (s *ProductService) GetProductImagesBySlug(ctx context.Context, slug string) ([]string, error) {
+	// Get the product by slug
+	product, err := s.productRepo.GetProductBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get product by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	// Get the product images
+	filePath, err := s.productImageRepo.GetImageKeysByProductID(ctx, product.ID)
+	if err != nil {
+		s.logger.Error("failed to get product images", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product images: %w", err)
+	}
+
+	var images []string
+	for _, path := range filePath {
+		images = append(images, s.constructS3URL(path))
+	}
+
+	return images, nil
+}
+
+// GetProductPricingBySlug retrieves the product pricing by slug
+func (s *ProductService) GetProductPricingBySlug(ctx context.Context, slug string) (*model.ProductPricing, error) {
+	// Get the product by slug
+	product, err := s.productRepo.GetProductBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get product by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	// Get the product pricing
+	pricing, err := s.productRepo.GetProductPricingByProductID(ctx, product.ID)
+	if err != nil {
+		s.logger.Error("failed to get product pricing", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product pricing: %w", err)
+	}
+
+	return pricing, nil
+}
+
+// GetProductSpecsBySlug retrieves the product specifications by slug
+func (s *ProductService) GetProductSpecsBySlug(ctx context.Context, slug string) (*model.ProductSpecs, error) {
+	// Get the product by slug
+	product, err := s.productRepo.GetProductBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get product by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	// Get the product specifications
+	specs, err := s.productRepo.GetProductSpecsByID(ctx, product.ID)
+	if err != nil {
+		s.logger.Error("failed to get product specifications", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product specifications: %w", err)
+	}
+
+	return specs, nil
 }
