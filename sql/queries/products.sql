@@ -1305,3 +1305,47 @@ WHERE slug = ANY($1::text[]);
 -- name: DeleteProductsBySlugs :exec
 DELETE FROM products
 WHERE slug = ANY($1::text[]);
+
+-- name: GetProductPricingByProductID :one
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    p.price,
+    COALESCE(d.discount_percentage, 0) AS discount_percent,
+    pi.image_url AS imageUrl
+FROM
+    products p
+        LEFT JOIN LATERAL (
+        SELECT
+            pi.image_url
+        FROM
+            product_images pi
+        WHERE
+            pi.product_id = p.id
+        ORDER BY
+            pi.position ASC
+        LIMIT 1
+        ) pi ON TRUE
+        LEFT JOIN discounts d ON d.product_id = p.id
+WHERE
+    p.id = $1
+LIMIT 1;
+
+-- name: GetProductSpecsByID :one
+SELECT
+    p.description,
+    json_agg(
+            json_build_object(
+                    'name', ps.spec_name,
+                    'value', ps.spec_value
+            )
+    ) AS specs
+FROM
+    products p
+        JOIN
+    product_specifications ps ON ps.product_id = p.id
+WHERE
+    p.id = $1
+GROUP BY
+    p.description;
