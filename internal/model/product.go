@@ -199,3 +199,36 @@ type ProductSEO struct {
 	Brand       string    `json:"brand"`
 	ImageUrl    string    `json:"imageUrl"`
 }
+
+//addToCart({
+//id: generateRandomId(),
+//productID: product.id,
+//colorID: '',
+//sizeID: '',
+//optionIDs: [],
+//name: product.name,
+//description: product.description,
+//price: parseFloat(product.price),
+//quantity: quantity,
+//imageURL: image,
+//discountPercent: product.discountPercent,
+//});
+
+type ProductPricing struct {
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	Description     string    `json:"description"`
+	Price           float64   `json:"price"`
+	DiscountPercent float64   `json:"discountPercent"`
+	ImageUrl        string    `json:"imageUrl"`
+}
+
+type ProductSpecs struct {
+	Description string        `json:"description"`
+	Specs       []ProductSpec `json:"specs"`
+}
+
+type ProductSpec struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
