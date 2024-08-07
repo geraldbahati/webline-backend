@@ -2765,6 +2765,9 @@ func (s *ProductService) GetProductPricingBySlug(ctx context.Context, slug strin
 		return nil, fmt.Errorf("failed to get product pricing: %w", err)
 	}
 
+	// generate the image url
+	pricing.ImageUrl = s.constructS3URL(pricing.ImageUrl)
+
 	return pricing, nil
 }
 
