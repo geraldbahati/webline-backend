@@ -667,3 +667,87 @@ func (h *ProductHandler) DeleteProductsHandler(w http.ResponseWriter, r *http.Re
 	// respond with success
 	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Products deleted"})
 }
+
+// GetProductImagesBySlugHandler gets product images by its slug
+func (h *ProductHandler) GetProductImagesBySlugHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// get product images
+	productImages, err := h.productService.GetProductImagesBySlug(r.Context(), slug)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			RespondWithError(w, http.StatusNotFound, "Product images not found")
+			return
+		default:
+			RespondWithError(w, http.StatusInternalServerError, "Failed to get product images")
+			return
+		}
+	}
+
+	// respond with product images
+	RespondWithJSON(w, http.StatusOK, productImages)
+}
+
+// GetProductPricingBySlugHandler gets product pricing by its slug
+func (h *ProductHandler) GetProductPricingBySlugHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// get product pricing
+	productPricing, err := h.productService.GetProductPricingBySlug(r.Context(), slug)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			RespondWithError(w, http.StatusNotFound, "Product pricing not found")
+			return
+		default:
+			RespondWithError(w, http.StatusInternalServerError, "Failed to get product pricing")
+			return
+		}
+	}
+
+	// respond with product pricing
+	RespondWithJSON(w, http.StatusOK, productPricing)
+}
+
+// GetProductSpecsBySlugHandler gets product specs by its slug
+func (h *ProductHandler) GetProductSpecsBySlugHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// get product specs
+	productSpecs, err := h.productService.GetProductSpecsBySlug(r.Context(), slug)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			RespondWithError(w, http.StatusNotFound, "Product specs not found")
+			return
+		default:
+			RespondWithError(w, http.StatusInternalServerError, "Failed to get product specs")
+			return
+		}
+	}
+
+	// respond with product specs
+	RespondWithJSON(w, http.StatusOK, productSpecs)
+}
