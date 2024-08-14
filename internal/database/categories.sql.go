@@ -245,145 +245,6 @@ func (q *Queries) GetCategoryByName(ctx context.Context, name string) (Category,
 	return i, err
 }
 
-const getCategoryHierarchy = `-- name: GetCategoryHierarchy :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c1.id AS category_id,
-        c1.name AS category_name,
-        c1.parent_id,
-        c1.position
-    FROM categories c1
-    WHERE c1.parent_id IS NULL
-    UNION ALL
-    SELECT
-        c2.id AS category_id,
-        c2.name AS category_name,
-        c2.parent_id,
-        c2.position
-    FROM categories c2
-    INNER JOIN category_hierarchy ch ON ch.category_id = c2.parent_id
-),
-product_details AS (
-    SELECT
-        p.id AS product_id,
-        p.category_id,
-        p.name AS product_name,
-        proc.name AS processor,
-        sz.size AS size,
-        st.name AS storage,
-        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.created_at ASC LIMIT 1) AS image_url,
-        COALESCE(SUM(oi.quantity), 0) AS total_sold,
-        ROW_NUMBER() OVER (PARTITION BY p.category_id ORDER BY COALESCE(SUM(oi.quantity), 0) DESC) AS rank
-    FROM
-        products p
-    LEFT JOIN
-        product_processors pp ON pp.product_id = p.id
-    LEFT JOIN
-        processors proc ON proc.id = pp.processor_id
-    LEFT JOIN
-        product_sizes ps ON p.id = ps.product_id
-    LEFT JOIN
-        sizes sz ON ps.size_id = sz.id
-    LEFT JOIN
-        product_storage_options pso ON p.id = pso.product_id
-    LEFT JOIN
-        storage_options st ON st.id = pso.storage_option_id
-    LEFT JOIN
-        order_items oi ON p.id = oi.product_id
-    WHERE
-        p.status = 'active'
-    GROUP BY
-        p.id, p.category_id, p.name, proc.name, sz.size, st.name
-),
-category_details AS (
-    SELECT
-        ch.category_id,
-        ch.category_name,
-        ch.parent_id,
-        ch.position,
-        pd.product_id,
-        pd.product_name,
-        pd.processor,
-        pd.size,
-        pd.storage,
-        pd.image_url,
-        pd.total_sold
-    FROM
-        category_hierarchy ch
-    LEFT JOIN
-        product_details pd ON pd.category_id = ch.category_id
-    WHERE
-        pd.rank <= 3 OR pd.rank IS NULL
-)
-SELECT
-    ch.category_id,
-    ch.category_name,
-    ch.parent_id,
-    ch.position,
-    cd.product_id,
-    cd.product_name,
-    cd.processor,
-    cd.size,
-    cd.storage,
-    cd.image_url,
-    cd.total_sold
-FROM
-    category_hierarchy ch
-LEFT JOIN
-    category_details cd ON cd.category_id = ch.category_id
-ORDER BY
-    ch.position
-`
-
-type GetCategoryHierarchyRow struct {
-	CategoryID   uuid.UUID
-	CategoryName string
-	ParentID     uuid.NullUUID
-	Position     int32
-	ProductID    uuid.NullUUID
-	ProductName  sql.NullString
-	Processor    sql.NullString
-	Size         sql.NullString
-	Storage      sql.NullString
-	ImageUrl     sql.NullString
-	TotalSold    interface{}
-}
-
-func (q *Queries) GetCategoryHierarchy(ctx context.Context) ([]GetCategoryHierarchyRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryHierarchy)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetCategoryHierarchyRow
-	for rows.Next() {
-		var i GetCategoryHierarchyRow
-		if err := rows.Scan(
-			&i.CategoryID,
-			&i.CategoryName,
-			&i.ParentID,
-			&i.Position,
-			&i.ProductID,
-			&i.ProductName,
-			&i.Processor,
-			&i.Size,
-			&i.Storage,
-			&i.ImageUrl,
-			&i.TotalSold,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getCategoryTree = `-- name: GetCategoryTree :many
 WITH RECURSIVE category_tree AS (
     SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
@@ -442,226 +303,6 @@ func (q *Queries) GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, er
 	return items, nil
 }
 
-const getFilterOptionsByCategoryID = `-- name: GetFilterOptionsByCategoryID :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id
-    FROM categories c
-    WHERE c.id = $1
-
-    UNION ALL
-
-    SELECT c2.id
-    FROM categories c2
-             INNER JOIN category_tree ct ON c2.parent_id = ct.id
-)
-SELECT
-    col.id AS color_id, col.color_name, col.color_value,
-    NULL::uuid AS processor_id, NULL::text AS processor_name,
-    NULL::uuid AS size_id, NULL::text AS size_name,
-    NULL::uuid AS storage_id, NULL::text AS storage_name
-FROM
-    colors col
-        JOIN
-    product_colors pc ON col.id = pc.color_id
-        JOIN
-    products p ON pc.product_id = p.id
-        JOIN
-    category_tree ct ON p.category_id = ct.id
-
-UNION
-
-SELECT
-    NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
-    pr.id AS processor_id, pr.name AS processor_name,
-    NULL::uuid AS size_id, NULL::text AS size_name,
-    NULL::uuid AS storage_id, NULL::text AS storage_name
-FROM
-    processors pr
-        JOIN
-    product_processors pp ON pr.id = pp.processor_id
-        JOIN
-    products p ON pp.product_id = p.id
-        JOIN
-    category_tree ct ON p.category_id = ct.id
-
-UNION
-
-SELECT
-    NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
-    NULL::uuid AS processor_id, NULL::text AS processor_name,
-    sz.id AS size_id, sz.size AS size_name,
-    NULL::uuid AS storage_id, NULL::text AS storage_name
-FROM
-    sizes sz
-        JOIN
-    product_sizes ps ON sz.id = ps.size_id
-        JOIN
-    products p ON ps.product_id = p.id
-        JOIN
-    category_tree ct ON p.category_id = ct.id
-
-UNION
-
-SELECT
-    NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
-    NULL::uuid AS processor_id, NULL::text AS processor_name,
-    NULL::uuid AS size_id, NULL::text AS size_name,
-    so.id AS storage_id, so.name AS storage_name
-FROM
-    storage_options so
-        JOIN
-    product_storage_options pso ON so.id = pso.storage_option_id
-        JOIN
-    products p ON pso.product_id = p.id
-        JOIN
-    category_tree ct ON p.category_id = ct.id
-`
-
-type GetFilterOptionsByCategoryIDRow struct {
-	ColorID       uuid.UUID
-	ColorName     string
-	ColorValue    sql.NullString
-	ProcessorID   uuid.NullUUID
-	ProcessorName sql.NullString
-	SizeID        uuid.NullUUID
-	SizeName      sql.NullString
-	StorageID     uuid.NullUUID
-	StorageName   sql.NullString
-}
-
-func (q *Queries) GetFilterOptionsByCategoryID(ctx context.Context, id uuid.UUID) ([]GetFilterOptionsByCategoryIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilterOptionsByCategoryID, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilterOptionsByCategoryIDRow
-	for rows.Next() {
-		var i GetFilterOptionsByCategoryIDRow
-		if err := rows.Scan(
-			&i.ColorID,
-			&i.ColorName,
-			&i.ColorValue,
-			&i.ProcessorID,
-			&i.ProcessorName,
-			&i.SizeID,
-			&i.SizeName,
-			&i.StorageID,
-			&i.StorageName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFilterOptionsByCategoryName = `-- name: GetFilterOptionsByCategoryName :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.name = $1
-
-    UNION ALL
-
-    SELECT c2.id, c2.name
-    FROM categories c2
-    INNER JOIN category_tree ct ON c2.parent_id = ct.id
-)
-SELECT DISTINCT
-    col.color_name AS filter_option, 'color' AS filter_type
-FROM
-    colors col
-JOIN
-    product_colors pc ON col.id = pc.color_id
-JOIN
-    products p ON pc.product_id = p.id
-JOIN
-    category_tree ct ON p.category_id = ct.id
-
-UNION
-
-SELECT DISTINCT
-    sz.size AS filter_option, 'size' AS filter_type
-FROM
-    sizes sz
-JOIN
-    product_sizes ps ON sz.id = ps.size_id
-JOIN
-    products p ON ps.product_id = p.id
-JOIN
-    category_tree ct ON p.category_id = ct.id
-
-UNION
-
-SELECT DISTINCT
-    pr.name AS filter_option, 'processor' AS filter_type
-FROM
-    processors pr
-JOIN
-    product_processors pp ON pr.id = pp.processor_id
-JOIN
-    products p ON pp.product_id = p.id
-JOIN
-    category_tree ct ON p.category_id = ct.id
-
-UNION
-
-SELECT DISTINCT
-    c3.name AS filter_option, 'brand' AS filter_type
-FROM
-    categories c3
-JOIN
-    category_tree ct ON c3.parent_id = ct.id
-
-UNION
-
-SELECT DISTINCT
-    so.name AS filter_option, 'storage' AS filter_type
-FROM
-    storage_options so
-JOIN
-    product_storage_options pso ON so.id = pso.storage_option_id
-JOIN
-    products p ON pso.product_id = p.id
-JOIN
-    category_tree ct ON p.category_id = ct.id
-`
-
-type GetFilterOptionsByCategoryNameRow struct {
-	FilterOption string
-	FilterType   string
-}
-
-func (q *Queries) GetFilterOptionsByCategoryName(ctx context.Context, name string) ([]GetFilterOptionsByCategoryNameRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilterOptionsByCategoryName, name)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilterOptionsByCategoryNameRow
-	for rows.Next() {
-		var i GetFilterOptionsByCategoryNameRow
-		if err := rows.Scan(&i.FilterOption, &i.FilterType); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getParentCategories = `-- name: GetParentCategories :many
 SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
 FROM categories
@@ -702,6 +343,11 @@ func (q *Queries) GetParentCategories(ctx context.Context) ([]Category, error) {
 }
 
 const getV2CategoryHierarchy = `-- name: GetV2CategoryHierarchy :many
+
+
+
+
+
 WITH RECURSIVE category_hierarchy AS (
     SELECT
         id,
@@ -751,6 +397,309 @@ type GetV2CategoryHierarchyRow struct {
 	Level    int32
 }
 
+// -- name: GetCategoryHierarchy :many
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c1.id AS category_id,
+//	    c1.name AS category_name,
+//	    c1.parent_id,
+//	    c1.position
+//	FROM categories c1
+//	WHERE c1.parent_id IS NULL
+//	UNION ALL
+//	SELECT
+//	    c2.id AS category_id,
+//	    c2.name AS category_name,
+//	    c2.parent_id,
+//	    c2.position
+//	FROM categories c2
+//	INNER JOIN category_hierarchy ch ON ch.category_id = c2.parent_id
+//
+// ),
+// product_details AS (
+//
+//	SELECT
+//	    p.id AS product_id,
+//	    p.category_id,
+//	    p.name AS product_name,
+//	    proc.name AS processor,
+//	    sz.size AS size,
+//	    st.name AS storage,
+//	    (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.created_at ASC LIMIT 1) AS image_url,
+//	    COALESCE(SUM(oi.quantity), 0) AS total_sold,
+//	    ROW_NUMBER() OVER (PARTITION BY p.category_id ORDER BY COALESCE(SUM(oi.quantity), 0) DESC) AS rank
+//	FROM
+//	    products p
+//	LEFT JOIN
+//	    product_processors pp ON pp.product_id = p.id
+//	LEFT JOIN
+//	    processors proc ON proc.id = pp.processor_id
+//	LEFT JOIN
+//	    product_sizes ps ON p.id = ps.product_id
+//	LEFT JOIN
+//	    sizes sz ON ps.size_id = sz.id
+//	LEFT JOIN
+//	    product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN
+//	    storage_options st ON st.id = pso.storage_option_id
+//	LEFT JOIN
+//	    order_items oi ON p.id = oi.product_id
+//	WHERE
+//	    p.status = 'active'
+//	GROUP BY
+//	    p.id, p.category_id, p.name, proc.name, sz.size, st.name
+//
+// ),
+// category_details AS (
+//
+//	SELECT
+//	    ch.category_id,
+//	    ch.category_name,
+//	    ch.parent_id,
+//	    ch.position,
+//	    pd.product_id,
+//	    pd.product_name,
+//	    pd.processor,
+//	    pd.size,
+//	    pd.storage,
+//	    pd.image_url,
+//	    pd.total_sold
+//	FROM
+//	    category_hierarchy ch
+//	LEFT JOIN
+//	    product_details pd ON pd.category_id = ch.category_id
+//	WHERE
+//	    pd.rank <= 3 OR pd.rank IS NULL
+//
+// )
+// SELECT
+//
+//	ch.category_id,
+//	ch.category_name,
+//	ch.parent_id,
+//	ch.position,
+//	cd.product_id,
+//	cd.product_name,
+//	cd.processor,
+//	cd.size,
+//	cd.storage,
+//	cd.image_url,
+//	cd.total_sold
+//
+// FROM
+//
+//	category_hierarchy ch
+//
+// LEFT JOIN
+//
+//	category_details cd ON cd.category_id = ch.category_id
+//
+// ORDER BY
+//
+//	ch.position;
+//
+// -- name: GetFilterOptionsByCategoryName :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.name = $1
+//
+//	UNION ALL
+//
+//	SELECT c2.id, c2.name
+//	FROM categories c2
+//	INNER JOIN category_tree ct ON c2.parent_id = ct.id
+//
+// )
+// SELECT DISTINCT
+//
+//	col.color_name AS filter_option, 'color' AS filter_type
+//
+// FROM
+//
+//	colors col
+//
+// JOIN
+//
+//	product_colors pc ON col.id = pc.color_id
+//
+// JOIN
+//
+//	products p ON pc.product_id = p.id
+//
+// JOIN
+//
+//	category_tree ct ON p.category_id = ct.id
+//
+// # UNION
+//
+// SELECT DISTINCT
+//
+//	sz.size AS filter_option, 'size' AS filter_type
+//
+// FROM
+//
+//	sizes sz
+//
+// JOIN
+//
+//	product_sizes ps ON sz.id = ps.size_id
+//
+// JOIN
+//
+//	products p ON ps.product_id = p.id
+//
+// JOIN
+//
+//	category_tree ct ON p.category_id = ct.id
+//
+// # UNION
+//
+// SELECT DISTINCT
+//
+//	pr.name AS filter_option, 'processor' AS filter_type
+//
+// FROM
+//
+//	processors pr
+//
+// JOIN
+//
+//	product_processors pp ON pr.id = pp.processor_id
+//
+// JOIN
+//
+//	products p ON pp.product_id = p.id
+//
+// JOIN
+//
+//	category_tree ct ON p.category_id = ct.id
+//
+// # UNION
+//
+// SELECT DISTINCT
+//
+//	c3.name AS filter_option, 'brand' AS filter_type
+//
+// FROM
+//
+//	categories c3
+//
+// JOIN
+//
+//	category_tree ct ON c3.parent_id = ct.id
+//
+// # UNION
+//
+// SELECT DISTINCT
+//
+//	so.name AS filter_option, 'storage' AS filter_type
+//
+// FROM
+//
+//	storage_options so
+//
+// JOIN
+//
+//	product_storage_options pso ON so.id = pso.storage_option_id
+//
+// JOIN
+//
+//	products p ON pso.product_id = p.id
+//
+// JOIN
+//
+//	category_tree ct ON p.category_id = ct.id;
+//
+// -- name: GetFilterOptionsByCategoryID :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id
+//	FROM categories c
+//	WHERE c.id = $1
+//
+//	UNION ALL
+//
+//	SELECT c2.id
+//	FROM categories c2
+//	         INNER JOIN category_tree ct ON c2.parent_id = ct.id
+//
+// )
+// SELECT
+//
+//	col.id AS color_id, col.color_name, col.color_value,
+//	NULL::uuid AS processor_id, NULL::text AS processor_name,
+//	NULL::uuid AS size_id, NULL::text AS size_name,
+//	NULL::uuid AS storage_id, NULL::text AS storage_name
+//
+// FROM
+//
+//	colors col
+//	    JOIN
+//	product_colors pc ON col.id = pc.color_id
+//	    JOIN
+//	products p ON pc.product_id = p.id
+//	    JOIN
+//	category_tree ct ON p.category_id = ct.id
+//
+// # UNION
+//
+// SELECT
+//
+//	NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
+//	pr.id AS processor_id, pr.name AS processor_name,
+//	NULL::uuid AS size_id, NULL::text AS size_name,
+//	NULL::uuid AS storage_id, NULL::text AS storage_name
+//
+// FROM
+//
+//	processors pr
+//	    JOIN
+//	product_processors pp ON pr.id = pp.processor_id
+//	    JOIN
+//	products p ON pp.product_id = p.id
+//	    JOIN
+//	category_tree ct ON p.category_id = ct.id
+//
+// # UNION
+//
+// SELECT
+//
+//	NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
+//	NULL::uuid AS processor_id, NULL::text AS processor_name,
+//	sz.id AS size_id, sz.size AS size_name,
+//	NULL::uuid AS storage_id, NULL::text AS storage_name
+//
+// FROM
+//
+//	sizes sz
+//	    JOIN
+//	product_sizes ps ON sz.id = ps.size_id
+//	    JOIN
+//	products p ON ps.product_id = p.id
+//	    JOIN
+//	category_tree ct ON p.category_id = ct.id
+//
+// # UNION
+//
+// SELECT
+//
+//	NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
+//	NULL::uuid AS processor_id, NULL::text AS processor_name,
+//	NULL::uuid AS size_id, NULL::text AS size_name,
+//	so.id AS storage_id, so.name AS storage_name
+//
+// FROM
+//
+//	storage_options so
+//	    JOIN
+//	product_storage_options pso ON so.id = pso.storage_option_id
+//	    JOIN
+//	products p ON pso.product_id = p.id
+//	    JOIN
+//	category_tree ct ON p.category_id = ct.id;
 func (q *Queries) GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHierarchyRow, error) {
 	rows, err := q.db.QueryContext(ctx, getV2CategoryHierarchy)
 	if err != nil {

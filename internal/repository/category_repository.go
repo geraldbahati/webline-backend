@@ -227,84 +227,84 @@ func (r *CategoryRepository) GetCategoryByName(
 	return category, nil
 }
 
-// GetCategoryHierarchy retrieves the category hierarchy
-func (r *CategoryRepository) GetCategoryHierarchy(
-	ctx context.Context,
-) ([]database.GetCategoryHierarchyRow, error) {
-	hierarchy, err := r.Queries.GetCategoryHierarchy(ctx)
-	if err != nil {
-		r.logger.Error("failed to get category hierarchy", zap.Error(err))
-		return nil, fmt.Errorf("failed to get category hierarchy: %w", err)
-	}
-
-	r.logger.Info("Category hierarchy successfully retrieved")
-	return hierarchy, nil
-}
-
-// GetFilterOptionsByCategoryName retrieves filter options by category name
-func (r *CategoryRepository) GetFilterOptionsByCategoryName(
-	ctx context.Context,
-	categoryName string,
-) ([]database.GetFilterOptionsByCategoryNameRow, error) {
-	filterOptions, err := r.Queries.GetFilterOptionsByCategoryName(ctx, categoryName)
-	if err != nil {
-		r.logger.Error("failed to get filter options by category name", zap.Error(err))
-		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
-	}
-	return filterOptions, nil
-}
-
-// GetFilterOptionsByCategoryID retrieves filter options by category ID
-func (r *CategoryRepository) GetFilterOptionsByCategoryID(
-	ctx context.Context,
-	categoryID uuid.UUID,
-) (*model.ProductMetafields, error) {
-	// Execute the SQLC query to get the raw filter options
-	rawFilterOptions, err := r.Queries.GetFilterOptionsByCategoryID(ctx, categoryID)
-	if err != nil {
-		r.logger.Error("failed to get filter options by category ID", zap.Error(err))
-		return nil, fmt.Errorf("failed to get filter options by category ID: %w", err)
-	}
-
-	// Initialize the FilterOptions struct
-	filterOptions := &model.ProductMetafields{
-		Color:     []model.ColorMetafield{},
-		Processor: []model.ProcessorMetafield{},
-		Size:      []model.SizeMetafield{},
-		Storage:   []model.StorageMetafield{},
-	}
-
-	// Iterate over the raw filter options and populate the FilterOptions struct
-	for _, raw := range rawFilterOptions {
-
-		filterOptions.Color = append(filterOptions.Color, model.ColorMetafield{
-			ID:    raw.ColorID,
-			Name:  raw.ColorName,
-			Value: raw.ColorValue.String,
-		})
-
-		if raw.ProcessorID.Valid {
-			filterOptions.Processor = append(filterOptions.Processor, model.ProcessorMetafield{
-				ID:   raw.ProcessorID.UUID,
-				Name: raw.ProcessorName.String,
-			})
-		}
-		if raw.SizeID.Valid {
-			filterOptions.Size = append(filterOptions.Size, model.SizeMetafield{
-				ID:   raw.SizeID.UUID,
-				Name: raw.SizeName.String,
-			})
-		}
-		if raw.StorageID.Valid {
-			filterOptions.Storage = append(filterOptions.Storage, model.StorageMetafield{
-				ID:   raw.StorageID.UUID,
-				Name: raw.StorageName.String,
-			})
-		}
-	}
-
-	return filterOptions, nil
-}
+//// GetCategoryHierarchy retrieves the category hierarchy
+//func (r *CategoryRepository) GetCategoryHierarchy(
+//	ctx context.Context,
+//) ([]database.GetCategoryHierarchyRow, error) {
+//	hierarchy, err := r.Queries.GetCategoryHierarchy(ctx)
+//	if err != nil {
+//		r.logger.Error("failed to get category hierarchy", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get category hierarchy: %w", err)
+//	}
+//
+//	r.logger.Info("Category hierarchy successfully retrieved")
+//	return hierarchy, nil
+//}
+//
+//// GetFilterOptionsByCategoryName retrieves filter options by category name
+//func (r *CategoryRepository) GetFilterOptionsByCategoryName(
+//	ctx context.Context,
+//	categoryName string,
+//) ([]database.GetFilterOptionsByCategoryNameRow, error) {
+//	filterOptions, err := r.Queries.GetFilterOptionsByCategoryName(ctx, categoryName)
+//	if err != nil {
+//		r.logger.Error("failed to get filter options by category name", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
+//	}
+//	return filterOptions, nil
+//}
+//
+//// GetFilterOptionsByCategoryID retrieves filter options by category ID
+//func (r *CategoryRepository) GetFilterOptionsByCategoryID(
+//	ctx context.Context,
+//	categoryID uuid.UUID,
+//) (*model.ProductMetafields, error) {
+//	// Execute the SQLC query to get the raw filter options
+//	rawFilterOptions, err := r.Queries.GetFilterOptionsByCategoryID(ctx, categoryID)
+//	if err != nil {
+//		r.logger.Error("failed to get filter options by category ID", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get filter options by category ID: %w", err)
+//	}
+//
+//	// Initialize the FilterOptions struct
+//	filterOptions := &model.ProductMetafields{
+//		Color:     []model.ColorMetafield{},
+//		Processor: []model.ProcessorMetafield{},
+//		Size:      []model.SizeMetafield{},
+//		Storage:   []model.StorageMetafield{},
+//	}
+//
+//	// Iterate over the raw filter options and populate the FilterOptions struct
+//	for _, raw := range rawFilterOptions {
+//
+//		filterOptions.Color = append(filterOptions.Color, model.ColorMetafield{
+//			ID:    raw.ColorID,
+//			Name:  raw.ColorName,
+//			Value: raw.ColorValue.String,
+//		})
+//
+//		if raw.ProcessorID.Valid {
+//			filterOptions.Processor = append(filterOptions.Processor, model.ProcessorMetafield{
+//				ID:   raw.ProcessorID.UUID,
+//				Name: raw.ProcessorName.String,
+//			})
+//		}
+//		if raw.SizeID.Valid {
+//			filterOptions.Size = append(filterOptions.Size, model.SizeMetafield{
+//				ID:   raw.SizeID.UUID,
+//				Name: raw.SizeName.String,
+//			})
+//		}
+//		if raw.StorageID.Valid {
+//			filterOptions.Storage = append(filterOptions.Storage, model.StorageMetafield{
+//				ID:   raw.StorageID.UUID,
+//				Name: raw.StorageName.String,
+//			})
+//		}
+//	}
+//
+//	return filterOptions, nil
+//}
 
 // UpdateCategoryImage updates the image of a category
 func (r *CategoryRepository) UpdateCategoryImage(
