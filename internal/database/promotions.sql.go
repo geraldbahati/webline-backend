@@ -8,13 +8,16 @@ package database
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const addProductToPromotion = `-- name: AddProductToPromotion :exec
 INSERT INTO promotion_products (promotion_id, product_id)
 VALUES ($1, $2)
+ON CONFLICT (promotion_id, product_id) DO NOTHING
 `
 
 type AddProductToPromotionParams struct {
@@ -27,42 +30,49 @@ func (q *Queries) AddProductToPromotion(ctx context.Context, arg AddProductToPro
 	return err
 }
 
+const addProductsToPromotion = `-- name: AddProductsToPromotion :exec
+INSERT INTO promotion_products (promotion_id, product_id)
+VALUES ($1, unnest($2::uuid[]))
+ON CONFLICT (promotion_id, product_id) DO NOTHING
+`
+
+type AddProductsToPromotionParams struct {
+	PromotionID uuid.UUID
+	Column2     []uuid.UUID
+}
+
+func (q *Queries) AddProductsToPromotion(ctx context.Context, arg AddProductsToPromotionParams) error {
+	_, err := q.db.ExecContext(ctx, addProductsToPromotion, arg.PromotionID, pq.Array(arg.Column2))
+	return err
+}
+
 const createPromotion = `-- name: CreatePromotion :one
-INSERT INTO promotions (tagline, main_title, subtitle, title, description, image_url, start_date, end_date)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, tagline, main_title, subtitle, title, description, image_url, start_date, end_date, created_at, updated_at
+INSERT INTO promotions ( title, description, image_url, start_date, end_date)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, title, description, image_url, start_date, end_date, created_at, updated_at
 `
 
 type CreatePromotionParams struct {
-	Tagline     sql.NullString
-	MainTitle   string
-	Subtitle    string
 	Title       string
 	Description sql.NullString
 	ImageUrl    sql.NullString
-	StartDate   sql.NullTime
-	EndDate     sql.NullTime
+	StartDate   time.Time
+	EndDate     time.Time
 }
 
 type CreatePromotionRow struct {
 	ID          uuid.UUID
-	Tagline     sql.NullString
-	MainTitle   string
-	Subtitle    string
 	Title       string
 	Description sql.NullString
 	ImageUrl    sql.NullString
-	StartDate   sql.NullTime
-	EndDate     sql.NullTime
+	StartDate   time.Time
+	EndDate     time.Time
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
 }
 
 func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams) (CreatePromotionRow, error) {
 	row := q.db.QueryRowContext(ctx, createPromotion,
-		arg.Tagline,
-		arg.MainTitle,
-		arg.Subtitle,
 		arg.Title,
 		arg.Description,
 		arg.ImageUrl,
@@ -72,9 +82,6 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 	var i CreatePromotionRow
 	err := row.Scan(
 		&i.ID,
-		&i.Tagline,
-		&i.MainTitle,
-		&i.Subtitle,
 		&i.Title,
 		&i.Description,
 		&i.ImageUrl,
@@ -86,101 +93,131 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 	return i, err
 }
 
-const getPromotionsWithProducts = `-- name: GetPromotionsWithProducts :many
-WITH first_images AS (
-    SELECT DISTINCT ON (product_id)
-        product_id,
-        image_url
-    FROM
-        product_images
-    ORDER BY
-        product_id,
-        created_at
-),
-     active_discounts AS (
-         SELECT
-             product_id,
-             discount_percentage
-         FROM
-             discounts
-         WHERE
-             start_date <= NOW() AND end_date >= NOW()
-     )
+const getProductIDsByPromotionID = `-- name: GetProductIDsByPromotionID :many
 SELECT
-    p.id AS promotion_id,
-    p.tagline,
-    p.main_title,
-    p.subtitle,
-    p.title,
-    p.description,
-    p.image_url AS promotion_image_url,
-    p.start_date,
-    p.end_date,
-    p.created_at,
-    p.updated_at,
-    pr.slug AS slug,
-    pr.name AS product_name,
-    pr.description AS product_description,
-    pr.price,
-    COALESCE(ad.discount_percentage, 0) AS discount_percentage,
-    fi.image_url AS product_image_url
+    product_id
 FROM
-    promotions p
-        JOIN promotion_products pp ON p.id = pp.promotion_id
-        JOIN products pr ON pp.product_id = pr.id
-        LEFT JOIN first_images fi ON pr.id = fi.product_id
-        LEFT JOIN active_discounts ad ON pr.id = ad.product_id
-ORDER BY
-    p.created_at DESC
+    promotion_products
+WHERE
+    promotion_id = $1
 `
 
-type GetPromotionsWithProductsRow struct {
-	PromotionID        uuid.UUID
-	Tagline            sql.NullString
-	MainTitle          string
-	Subtitle           string
-	Title              string
-	Description        sql.NullString
-	PromotionImageUrl  sql.NullString
-	StartDate          sql.NullTime
-	EndDate            sql.NullTime
-	CreatedAt          sql.NullTime
-	UpdatedAt          sql.NullTime
-	Slug               string
-	ProductName        string
-	ProductDescription sql.NullString
-	Price              string
-	DiscountPercentage string
-	ProductImageUrl    sql.NullString
-}
-
-func (q *Queries) GetPromotionsWithProducts(ctx context.Context) ([]GetPromotionsWithProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getPromotionsWithProducts)
+func (q *Queries) GetProductIDsByPromotionID(ctx context.Context, promotionID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, getProductIDsByPromotionID, promotionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetPromotionsWithProductsRow
+	var items []uuid.UUID
 	for rows.Next() {
-		var i GetPromotionsWithProductsRow
+		var product_id uuid.UUID
+		if err := rows.Scan(&product_id); err != nil {
+			return nil, err
+		}
+		items = append(items, product_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPromotionBySlug = `-- name: GetPromotionBySlug :one
+SELECT
+    id,
+    title,
+    description,
+    image_url,
+    created_at,
+    updated_at,
+    start_date,
+    end_date,
+    slug,
+    status
+FROM
+    promotions
+WHERE
+    slug = $1
+  AND status = 'active'
+  AND start_date <= NOW()
+  AND end_date >= NOW()
+ORDER BY
+    updated_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetPromotionBySlug(ctx context.Context, slug string) (Promotion, error) {
+	row := q.db.QueryRowContext(ctx, getPromotionBySlug, slug)
+	var i Promotion
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Slug,
+		&i.Status,
+	)
+	return i, err
+}
+
+const getPromotions = `-- name: GetPromotions :many
+SELECT
+    p.title AS name,
+    p.slug AS slug,
+    p.description AS description,
+    p.image_url AS imageUrl,
+    CAST(
+            CASE
+                WHEN COUNT(pp.product_id) = 1 THEN (
+                    SELECT pr.slug
+                    FROM promotion_products pp_inner
+                             JOIN products pr ON pp_inner.product_id = pr.id
+                    WHERE pp_inner.promotion_id = p.id
+                    LIMIT 1
+                )
+                ELSE ''
+                END AS text
+    ) AS productSlug
+FROM
+    promotions p
+        LEFT JOIN
+    promotion_products pp ON p.id = pp.promotion_id
+GROUP BY
+    p.id, p.title, p.slug, p.description, p.image_url, p.created_at
+ORDER BY
+    p.created_at
+`
+
+type GetPromotionsRow struct {
+	Name        string
+	Slug        string
+	Description sql.NullString
+	Imageurl    sql.NullString
+	Productslug string
+}
+
+func (q *Queries) GetPromotions(ctx context.Context) ([]GetPromotionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPromotions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPromotionsRow
+	for rows.Next() {
+		var i GetPromotionsRow
 		if err := rows.Scan(
-			&i.PromotionID,
-			&i.Tagline,
-			&i.MainTitle,
-			&i.Subtitle,
-			&i.Title,
-			&i.Description,
-			&i.PromotionImageUrl,
-			&i.StartDate,
-			&i.EndDate,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Name,
 			&i.Slug,
-			&i.ProductName,
-			&i.ProductDescription,
-			&i.Price,
-			&i.DiscountPercentage,
-			&i.ProductImageUrl,
+			&i.Description,
+			&i.Imageurl,
+			&i.Productslug,
 		); err != nil {
 			return nil, err
 		}
@@ -193,4 +230,134 @@ func (q *Queries) GetPromotionsWithProducts(ctx context.Context) ([]GetPromotion
 		return nil, err
 	}
 	return items, nil
+}
+
+const getV2Promotions = `-- name: GetV2Promotions :many
+SELECT
+    p.id,
+    p.title AS name,
+    p.slug,
+    CASE
+        WHEN COUNT(pp.product_id) = 1 THEN 'feature'
+        ELSE 'sale'
+        END AS type,
+    p.image_url,
+    COUNT(pp.product_id) AS numberOfProducts,
+    p.status,
+    p.start_date AS startDate,
+    p.end_date AS endDate
+FROM
+    promotions p
+        LEFT JOIN
+    promotion_products pp ON p.id = pp.promotion_id
+        LEFT JOIN
+    discounts d ON pp.product_id = d.product_id
+GROUP BY
+    p.id, p.title, p.slug, p.image_url, p.status, p.start_date, p.end_date
+`
+
+type GetV2PromotionsRow struct {
+	ID               uuid.UUID
+	Name             string
+	Slug             string
+	Type             string
+	ImageUrl         sql.NullString
+	Numberofproducts int64
+	Status           string
+	Startdate        time.Time
+	Enddate          time.Time
+}
+
+func (q *Queries) GetV2Promotions(ctx context.Context) ([]GetV2PromotionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getV2Promotions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetV2PromotionsRow
+	for rows.Next() {
+		var i GetV2PromotionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Type,
+			&i.ImageUrl,
+			&i.Numberofproducts,
+			&i.Status,
+			&i.Startdate,
+			&i.Enddate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeProductsFromPromotion = `-- name: RemoveProductsFromPromotion :exec
+DELETE FROM promotion_products
+WHERE promotion_id = $1
+  AND product_id = ANY($2::uuid[])
+`
+
+type RemoveProductsFromPromotionParams struct {
+	PromotionID uuid.UUID
+	Column2     []uuid.UUID
+}
+
+func (q *Queries) RemoveProductsFromPromotion(ctx context.Context, arg RemoveProductsFromPromotionParams) error {
+	_, err := q.db.ExecContext(ctx, removeProductsFromPromotion, arg.PromotionID, pq.Array(arg.Column2))
+	return err
+}
+
+const updatePromotion = `-- name: UpdatePromotion :exec
+UPDATE promotions
+SET title = $2, description = $3, start_date = $4, end_date = $5, status = $6, image_url = $7
+WHERE id = $1
+`
+
+type UpdatePromotionParams struct {
+	ID          uuid.UUID
+	Title       string
+	Description sql.NullString
+	StartDate   time.Time
+	EndDate     time.Time
+	Status      string
+	ImageUrl    sql.NullString
+}
+
+func (q *Queries) UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) error {
+	_, err := q.db.ExecContext(ctx, updatePromotion,
+		arg.ID,
+		arg.Title,
+		arg.Description,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Status,
+		arg.ImageUrl,
+	)
+	return err
+}
+
+const updatePromotionImage = `-- name: UpdatePromotionImage :exec
+UPDATE promotions
+SET image_url = $2
+WHERE id = $1
+`
+
+type UpdatePromotionImageParams struct {
+	ID       uuid.UUID
+	ImageUrl sql.NullString
+}
+
+func (q *Queries) UpdatePromotionImage(ctx context.Context, arg UpdatePromotionImageParams) error {
+	_, err := q.db.ExecContext(ctx, updatePromotionImage, arg.ID, arg.ImageUrl)
+	return err
 }

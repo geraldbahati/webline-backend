@@ -68,6 +68,14 @@ type Discount struct {
 	UpdatedAt          sql.NullTime
 }
 
+type ExchangeRate struct {
+	ID           int32
+	CurrencyCode string
+	RateToKes    string
+	ValidFrom    time.Time
+	ValidTo      sql.NullTime
+}
+
 type GuestCheckout struct {
 	ID            uuid.UUID
 	Email         string
@@ -171,7 +179,6 @@ type Product struct {
 	ID              uuid.UUID
 	Name            string
 	Description     sql.NullString
-	Price           string
 	Stock           sql.NullInt32
 	CategoryID      uuid.UUID
 	CreatedAt       sql.NullTime
@@ -186,6 +193,7 @@ type Product struct {
 	MetaKeywords    sql.NullString
 	Slug            string
 	Status          string
+	UsdPrice        string
 }
 
 type ProductColor struct {
@@ -293,11 +301,10 @@ type Promotion struct {
 	ImageUrl    sql.NullString
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
-	Tagline     sql.NullString
-	MainTitle   string
-	Subtitle    string
-	StartDate   sql.NullTime
-	EndDate     sql.NullTime
+	StartDate   time.Time
+	EndDate     time.Time
+	Slug        string
+	Status      string
 }
 
 type PromotionProduct struct {

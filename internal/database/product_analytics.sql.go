@@ -13,11 +13,22 @@ import (
 )
 
 const getBestSellerProducts = `-- name: GetBestSellerProducts :many
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
 SELECT
     p.id,
     p.name,
     p.description,
-    p.price,
+    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     p.stock,
     p.category_id,
     p.created_at,
@@ -42,7 +53,7 @@ type GetBestSellerProductsRow struct {
 	ID          uuid.UUID
 	Name        string
 	Description sql.NullString
-	Price       string
+	PriceInKes  string
 	Stock       sql.NullInt32
 	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
@@ -66,7 +77,7 @@ func (q *Queries) GetBestSellerProducts(ctx context.Context, limit int32) ([]Get
 			&i.ID,
 			&i.Name,
 			&i.Description,
-			&i.Price,
+			&i.PriceInKes,
 			&i.Stock,
 			&i.CategoryID,
 			&i.CreatedAt,
@@ -90,16 +101,27 @@ func (q *Queries) GetBestSellerProducts(ctx context.Context, limit int32) ([]Get
 }
 
 const getDailyDeals = `-- name: GetDailyDeals :many
-WITH first_images AS (
-    SELECT DISTINCT ON (product_id) product_id, image_url
-    FROM product_images
-    ORDER BY product_id, created_at
-)
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+),
+     first_images AS (
+         SELECT DISTINCT ON (product_id) product_id, image_url
+         FROM product_images
+         ORDER BY product_id, created_at
+     )
 SELECT
     p.id,
     p.name,
     p.description,
-    p.price,
+    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     p.stock,
     p.category_id,
     p.created_at,
@@ -130,7 +152,7 @@ type GetDailyDealsRow struct {
 	ID                 uuid.UUID
 	Name               string
 	Description        sql.NullString
-	Price              string
+	PriceInKes         string
 	Stock              sql.NullInt32
 	CategoryID         uuid.UUID
 	CreatedAt          sql.NullTime
@@ -159,7 +181,7 @@ func (q *Queries) GetDailyDeals(ctx context.Context) ([]GetDailyDealsRow, error)
 			&i.ID,
 			&i.Name,
 			&i.Description,
-			&i.Price,
+			&i.PriceInKes,
 			&i.Stock,
 			&i.CategoryID,
 			&i.CreatedAt,
@@ -188,11 +210,22 @@ func (q *Queries) GetDailyDeals(ctx context.Context) ([]GetDailyDealsRow, error)
 }
 
 const getFeaturedProducts = `-- name: GetFeaturedProducts :many
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
 SELECT
     id,
     name,
     description,
-    price,
+    (usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     stock,
     category_id,
     created_at,
@@ -213,7 +246,7 @@ type GetFeaturedProductsRow struct {
 	ID          uuid.UUID
 	Name        string
 	Description sql.NullString
-	Price       string
+	PriceInKes  string
 	Stock       sql.NullInt32
 	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
@@ -236,7 +269,7 @@ func (q *Queries) GetFeaturedProducts(ctx context.Context, limit int32) ([]GetFe
 			&i.ID,
 			&i.Name,
 			&i.Description,
-			&i.Price,
+			&i.PriceInKes,
 			&i.Stock,
 			&i.CategoryID,
 			&i.CreatedAt,
@@ -259,11 +292,22 @@ func (q *Queries) GetFeaturedProducts(ctx context.Context, limit int32) ([]GetFe
 }
 
 const getNewArrivalProducts = `-- name: GetNewArrivalProducts :many
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
 SELECT
     id,
     name,
     description,
-    price,
+    (usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     stock,
     category_id,
     created_at,
@@ -275,7 +319,7 @@ FROM
     products
 WHERE
     status = 'active'
-  AND created_at >= NOW() - INTERVAL '100 days'
+  AND created_at >= NOW() - INTERVAL '135 days'
 ORDER BY
     created_at DESC
 LIMIT $1
@@ -285,7 +329,7 @@ type GetNewArrivalProductsRow struct {
 	ID          uuid.UUID
 	Name        string
 	Description sql.NullString
-	Price       string
+	PriceInKes  string
 	Stock       sql.NullInt32
 	CategoryID  uuid.UUID
 	CreatedAt   sql.NullTime
@@ -308,7 +352,7 @@ func (q *Queries) GetNewArrivalProducts(ctx context.Context, limit int32) ([]Get
 			&i.ID,
 			&i.Name,
 			&i.Description,
-			&i.Price,
+			&i.PriceInKes,
 			&i.Stock,
 			&i.CategoryID,
 			&i.CreatedAt,

@@ -17,7 +17,7 @@ SELECT
     r.product_id,
     p.name,
     p.description,
-    p.price,
+    p.usd_price,
     r.score
 FROM
     recommendations r
@@ -39,7 +39,7 @@ type GetUserRecommendationsRow struct {
 	ProductID   uuid.NullUUID
 	Name        string
 	Description sql.NullString
-	Price       string
+	UsdPrice    string
 	Score       int64
 }
 
@@ -56,7 +56,7 @@ func (q *Queries) GetUserRecommendations(ctx context.Context, arg GetUserRecomme
 			&i.ProductID,
 			&i.Name,
 			&i.Description,
-			&i.Price,
+			&i.UsdPrice,
 			&i.Score,
 		); err != nil {
 			return nil, err

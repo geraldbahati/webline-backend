@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"
+	"strings"
 	"weblineBackend/internal/repository/sqlc"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gorilla/mux"
@@ -21,6 +23,18 @@ import (
 	"weblineBackend/internal/services"
 )
 
+// CustomEncodeCaller creates a custom caller encoder that strips the /app prefix
+func CustomEncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	// Convert the full file path to a string
+	filePath := caller.String()
+
+	// Remove the "/app" prefix
+	filePath = strings.TrimPrefix(filePath, "/app/")
+
+	// Add the modified file path to the encoder
+	enc.AppendString(filePath)
+}
+
 func main() {
 	// Load environment variables from .env file
 	err := godotenv.Load()
@@ -29,13 +43,21 @@ func main() {
 	}
 
 	// Initialize the logger
-	logger, _ := zap.NewDevelopment()
+	// Start with the development config
+	zapConfig := zap.NewDevelopmentConfig()
+
+	// Modify the encoder config to include the full file path in the caller
+	zapConfig.EncoderConfig.EncodeCaller = CustomEncodeCaller
+
+	// Build the logger using the modified config
+	logger, _ := zapConfig.Build()
 	defer func(logger *zap.Logger) {
 		err := logger.Sync()
 		if err != nil {
 			logger.Error("Failed to sync logger", zap.Error(err))
 		}
 	}(logger)
+
 	logger.Info("Starting the application...")
 
 	// Load configuration
@@ -93,6 +115,7 @@ func main() {
 	verificationTokenRepoImpl := sqlc.NewVerificationTokenRepositoryImpl(conn, logger)
 	passwordResetRepoImpl := sqlc.NewPasswordResetRepositoryImpl(conn, logger)
 	adminRequestRepoImpl := sqlc.NewAdminRequestRepositoryImpl(conn, logger)
+	exchangeRateRepoImpl := sqlc.NewExchangeRateRepositoryImpl(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, verificationTokenRepoImpl, passwordResetRepoImpl, tokenRepo, &cfg, logger)
@@ -108,18 +131,19 @@ func main() {
 		productSizeRepo,
 		discountRepo,
 		userRepo,
+		exchangeRateRepoImpl,
 		logger,
 		&cfg,
 		s3Client,
 	)
 	productSizeService := services.NewProductSizeService(productSizeRepo, logger)
 	cartService := services.NewCartService(logger, &cfg, cartRepo, productRepo, productImageRepo)
-	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, productRepo, &cfg)
+	orderService := services.NewOrderService(logger, guestCheckoutRepo, orderRepo, orderItemRepo, paymentRepo, userRepo, productRepo, exchangeRateRepoImpl, &cfg)
 	paymentService := services.NewPaymentService(paymentRepo, orderRepo, orderItemRepo, logger, &cfg)
 	inquiryService := services.NewInquiryService(productRepo, logger, &cfg)
 	productSEOService := services.NewProductSEOService(logger, &cfg, productRepo)
 	productAnalyticService := services.NewProductAnalyticService(logger, &cfg, productAnalyticRepo, productImageRepo, discountRepo)
-	promotionService := services.NewPromotionService(logger, &cfg, s3Client, promotionRepo, productRepo, productImageRepo, discountRepo)
+	promotionService := services.NewPromotionService(logger, &cfg, s3Client, promotionRepo, productRepo, productImageRepo, discountRepo, userRepo)
 	discountService := services.NewDiscountService(logger, discountRepo, productRepo)
 	adminRequestService := services.NewAdminRequestService(adminRequestRepoImpl, userRepo, logger, &cfg)
 	roleService := services.NewRoleService(roleRepo, logger)
@@ -255,21 +279,15 @@ func setupRouter(
 
 	// Product routes
 	productRouter := r.PathPrefix("/api/products").Subrouter()
-	productRouter.HandleFunc("", productHandler.CreateProductHandler).Methods(http.MethodPost)
 	productRouter.HandleFunc("/{slug}", productHandler.GetProductBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/images", productHandler.GetProductImagesBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/pricing", productHandler.GetProductPricingBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/specs", productHandler.GetProductSpecsBySlugHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/{id}/", productHandler.GetProductByIDHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("", productHandler.GetAllProductsHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/{id}", productHandler.UpdateProductHandler).Methods(http.MethodPut)
-	productRouter.HandleFunc("/{id}", productHandler.SoftDeleteProductHandler).Methods(http.MethodDelete)
 	productRouter.HandleFunc("/{slug}/seo", productHandler.GetProductSEOHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/all/sitemap", productHandler.GetAllProductSitemapHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/actions/search", productHandler.SearchProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/category/{id}", productHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/parent-category/{id}", productHandler.GetProductsByParentCategoryIDHandler).Methods(http.MethodOptions)
 	productRouter.HandleFunc("/filter/{category_id}", productHandler.GetProductsByFiltersHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/filter/all/options", productHandler.GetProductsByFilterOptionsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/filter/options/{name}", productHandler.GetFilterOptionsByCategoryNameHandler).Methods(http.MethodGet)
@@ -278,6 +296,7 @@ func setupRouter(
 	adminProductRouter := r.PathPrefix("/api/v2/products").Subrouter()
 	adminProductRouter.HandleFunc("", productHandler.GetProductsHandler).Methods(http.MethodGet)
 	adminProductRouter.HandleFunc("/{slug}/detail", productHandler.GetProductDetailHandler).Methods(http.MethodGet)
+	adminProductRouter.HandleFunc("/meta-fields/{categoryID}", productHandler.GetProductMetaFieldsByCategoryIDHandler).Methods(http.MethodGet)
 
 	protectedAdminProductRouter := adminProductRouter.PathPrefix("").Subrouter()
 	protectedAdminProductRouter.Use(middleware.Auth)
@@ -372,12 +391,22 @@ func setupRouter(
 
 	// Promotion routes
 	promotionRouter := r.PathPrefix("/api/promotions").Subrouter()
-	promotionRouter.HandleFunc("", promotionHandler.CreatePromotion).Methods(http.MethodPost)
 	promotionRouter.HandleFunc("", promotionHandler.GetPromotions).Methods(http.MethodGet)
+
+	// Admin promotion routes
+	adminPromotionRouter := r.PathPrefix("/api/v2/promotions").Subrouter()
+	adminPromotionRouter.HandleFunc("", promotionHandler.GetV2Promotions).Methods(http.MethodGet)
+
+	protectedAdminPromotionRouter := adminPromotionRouter.PathPrefix("").Subrouter()
+	protectedAdminPromotionRouter.Use(middleware.Auth)
+	protectedAdminPromotionRouter.HandleFunc("", promotionHandler.CreateOrEditV2Promotion).Methods(http.MethodPost)
 
 	// Discount routes
 	discountRouter := r.PathPrefix("/api/discounts").Subrouter()
-	discountRouter.HandleFunc("", discountHandler.CreateDiscountHandler).Methods(http.MethodPost)
+
+	protectedDiscountRouter := discountRouter.PathPrefix("").Subrouter()
+	protectedDiscountRouter.Use(middleware.Auth)
+	protectedDiscountRouter.HandleFunc("", discountHandler.CreateDiscountHandler).Methods(http.MethodPost)
 
 	// Role routes
 	roleRouter := r.PathPrefix("/api/roles").Subrouter()
