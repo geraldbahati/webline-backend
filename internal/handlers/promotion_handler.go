@@ -1,10 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
-	"strconv"
+	"time"
+	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 )
 
@@ -20,37 +21,6 @@ func NewPromotionHandler(promotionService *services.PromotionService) *Promotion
 	}
 }
 
-// CreatePromotion creates a new promotion
-func (h *PromotionHandler) CreatePromotion(w http.ResponseWriter, r *http.Request) {
-	// get title, description, discount and product ID
-	tagline := r.FormValue("tagline")
-	mainTitle := r.FormValue("main_title")
-	subTitle := r.FormValue("sub_title")
-	title := r.FormValue("title")
-	description := r.FormValue("description")
-	discountStr := r.FormValue("discount")
-
-	var discount float64
-	if discountStr != "" {
-		discount, _ = strconv.ParseFloat(discountStr, 64)
-	}
-	productID, err := uuid.Parse(r.FormValue("product_id"))
-	if err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Invalid product ID")
-		return
-	}
-
-	// create promotion
-	promotion, err := h.promotionService.CreatePromotion(r.Context(), r, tagline, mainTitle, subTitle, title, description, discount, productID)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to create promotion: %w", err).Error())
-		return
-	}
-
-	// respond with promotion
-	RespondWithJSON(w, http.StatusOK, promotion)
-}
-
 // GetPromotions retrieves all promotions
 func (h *PromotionHandler) GetPromotions(w http.ResponseWriter, r *http.Request) {
 	// get promotions
@@ -62,4 +32,94 @@ func (h *PromotionHandler) GetPromotions(w http.ResponseWriter, r *http.Request)
 
 	// respond with promotions
 	RespondWithJSON(w, http.StatusOK, promotions)
+}
+
+// GetV2Promotions retrieves all promotions for dashboard
+func (h *PromotionHandler) GetV2Promotions(w http.ResponseWriter, r *http.Request) {
+	// get promotions
+	promotions, err := h.promotionService.GetV2Promotions(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to get promotions: %w", err).Error())
+		return
+	}
+
+	// respond with promotions
+	RespondWithJSON(w, http.StatusOK, promotions)
+}
+
+// CreateOrEditV2Promotion creates or edits a promotion
+func (h *PromotionHandler) CreateOrEditV2Promotion(w http.ResponseWriter, r *http.Request) {
+	// Parse the multipart form
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse multipart form: %v", err))
+		return
+	}
+
+	// Extract form values with a helper function
+	params := model.CreatePromotionParams{
+		Name:        r.FormValue("name"),
+		Description: r.FormValue("description"),
+		Slug:        r.FormValue("slug"),
+		Status:      r.FormValue("status"),
+	}
+
+	// Parse and validate the start and end dates
+	if startDate, endDate, err := parsePromotionDates(r); err != nil {
+		RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	} else {
+		params.StartDate = startDate
+		params.EndDate = endDate
+	}
+
+	// Extract product slugs
+	if slugs, ok := r.MultipartForm.Value["productSlugs"]; ok {
+		params.ProductSlugs = slugs
+	} else {
+		params.ProductSlugs = []string{}
+	}
+
+	// Handle the image file upload
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		if errors.Is(err, http.ErrMissingFile) {
+			RespondWithError(w, http.StatusBadRequest, "Image file is required")
+			return
+		}
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve image file: %v", err))
+		return
+	}
+	defer file.Close()
+
+	image := &model.ImageFile{
+		File:       file,
+		FileHeader: header,
+	}
+
+	// Create or edit the promotion
+	if err := h.promotionService.CreateOrEditV2Promotion(r.Context(), &params, image); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to create or edit promotion")
+		return
+	}
+
+	// Respond with success
+	RespondWithSuccess(w, http.StatusOK, "Promotion created or edited successfully")
+}
+
+// parsePromotionDates parses and validates the start and end dates from the form
+func parsePromotionDates(r *http.Request) (startDate, endDate time.Time, err error) {
+	startDateStr := r.FormValue("startDate")
+	endDateStr := r.FormValue("endDate")
+
+	startDate, err = time.Parse(time.RFC3339, startDateStr)
+	if err != nil {
+		return startDate, endDate, fmt.Errorf("invalid start date: %v", err)
+	}
+
+	endDate, err = time.Parse(time.RFC3339, endDateStr)
+	if err != nil {
+		return startDate, endDate, fmt.Errorf("invalid end date: %v", err)
+	}
+
+	return startDate, endDate, nil
 }

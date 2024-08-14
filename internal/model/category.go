@@ -38,3 +38,31 @@ type Collection struct {
 	ParentName string    `json:"parentName"`
 	ImageUrl   string    `json:"imageUrl"`
 }
+
+type ColorMetafield struct {
+	ID    uuid.UUID `json:"id"`
+	Name  string    `json:"name"`
+	Value string    `json:"value"`
+}
+
+type ProcessorMetafield struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type StorageMetafield struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type SizeMetafield struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type ProductMetafields struct {
+	Color     []ColorMetafield     `json:"color"`
+	Processor []ProcessorMetafield `json:"processor"`
+	Size      []SizeMetafield      `json:"size"`
+	Storage   []StorageMetafield   `json:"storage"`
+}

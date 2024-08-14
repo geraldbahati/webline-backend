@@ -28,51 +28,6 @@ func NewProductHandler(productService *services.ProductService, productSEOServic
 	}
 }
 
-// CreateProductHandler creates a new product
-func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Request) {
-	var params struct {
-		Name        string  `json:"name"`
-		Description string  `json:"description"`
-		Price       float64 `json:"price"`
-		Stock       int32   `json:"stock"`
-		CategoryID  string  `json:"category_id"`
-		PartNumber  string  `json:"part_number"`
-	}
-
-	// decode request body
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
-		return
-	}
-
-	// create product
-	product, err := h.productService.CreateProduct(r.Context(), params.Name, params.Description, params.Price, params.CategoryID, params.PartNumber, params.Stock)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to create product")
-		return
-	}
-
-	// respond with product
-	RespondWithJSON(w, http.StatusOK, product)
-}
-
-// GetProductByIDHandler gets a product by its ID
-func (h *ProductHandler) GetProductByIDHandler(w http.ResponseWriter, r *http.Request) {
-	// get product ID
-	vars := mux.Vars(r)
-	productID := vars["id"]
-
-	// get product
-	product, err := h.productService.GetProductByID(r.Context(), productID)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to get product")
-		return
-	}
-
-	// respond with product
-	RespondWithJSON(w, http.StatusOK, product)
-}
-
 // GetAllProductsHandler gets all products
 func (h *ProductHandler) GetAllProductsHandler(w http.ResponseWriter, r *http.Request) {
 	// get page and page size
@@ -108,24 +63,26 @@ func (h *ProductHandler) GetAllProductsHandler(w http.ResponseWriter, r *http.Re
 		RespondWithError(w, http.StatusBadRequest, "Invalid price_to")
 		return
 	}
+	//
+	//var products *model.PaginationResult[[]*model.Product]
+	//switch sortBy {
+	//case "price_asc":
+	//	products, err = h.productService.GetAllProductsByFiltersPriceAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	//case "price_desc":
+	//	products, err = h.productService.GetAllProductsByFiltersPriceDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	//case "name_asc":
+	//	products, err = h.productService.GetAllProductsByFiltersNameAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	//case "name_desc":
+	//	products, err = h.productService.GetAllProductsByFiltersNameDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	//case "newest":
+	//	products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	//case "oldest":
+	//	products, err = h.productService.GetAllProductsByFiltersOldest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	//default:
+	//	products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
+	//}
 
-	var products *model.PaginationResult[[]*model.Product]
-	switch sortBy {
-	case "price_asc":
-		products, err = h.productService.GetAllProductsByFiltersPriceAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-	case "price_desc":
-		products, err = h.productService.GetAllProductsByFiltersPriceDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-	case "name_asc":
-		products, err = h.productService.GetAllProductsByFiltersNameAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-	case "name_desc":
-		products, err = h.productService.GetAllProductsByFiltersNameDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-	case "newest":
-		products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-	case "oldest":
-		products, err = h.productService.GetAllProductsByFiltersOldest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-	default:
-		products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-	}
+	products, err := h.productService.GetAllProductsByFilters(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize, sortBy)
 
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
@@ -133,55 +90,6 @@ func (h *ProductHandler) GetAllProductsHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	RespondWithJSON(w, http.StatusOK, products)
-}
-
-// UpdateProductHandler updates a product
-func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Request) {
-	// get product ID
-	vars := mux.Vars(r)
-	productID := vars["id"]
-
-	var params struct {
-		Name        string  `json:"name"`
-		Description string  `json:"description"`
-		Price       float64 `json:"price"`
-		CategoryID  string  `json:"category_id"`
-		Stock       int32   `json:"stock"`
-		Featured    bool    `json:"featured"`
-	}
-
-	// decode request body
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
-		return
-	}
-
-	// update product
-	product, err := h.productService.UpdateProduct(r.Context(), productID, params.Name, params.Description, params.Price, params.CategoryID, params.Stock, params.Featured)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to update product")
-		return
-	}
-
-	// respond with product
-	RespondWithJSON(w, http.StatusOK, product)
-}
-
-// SoftDeleteProductHandler deletes a product
-func (h *ProductHandler) SoftDeleteProductHandler(w http.ResponseWriter, r *http.Request) {
-	// get product ID
-	vars := mux.Vars(r)
-	productID := vars["id"]
-
-	// delete product
-	err := h.productService.SoftDeleteProduct(r.Context(), productID)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to delete product")
-		return
-	}
-
-	// respond with success
-	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product deleted"})
 }
 
 // GetProductsByCategoryIDHandler gets all products by category ID
@@ -210,22 +118,22 @@ func (h *ProductHandler) GetProductsByCategoryIDHandler(w http.ResponseWriter, r
 	RespondWithJSON(w, http.StatusOK, products)
 }
 
-// GetProductsByParentCategoryIDHandler gets all products by parent category ID
-func (h *ProductHandler) GetProductsByParentCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
-	// get category ID
-	vars := mux.Vars(r)
-	categoryID := vars["id"]
-
-	// get products
-	products, err := h.productService.GetProductsByParentCategoryID(r.Context(), categoryID)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by parent category ID")
-		return
-	}
-
-	// respond with products
-	RespondWithJSON(w, http.StatusOK, products)
-}
+//// GetProductsByParentCategoryIDHandler gets all products by parent category ID
+//func (h *ProductHandler) GetProductsByParentCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
+//	// get category ID
+//	vars := mux.Vars(r)
+//	categoryID := vars["id"]
+//
+//	// get products
+//	products, err := h.productService.GetProductsByParentCategoryID(r.Context(), categoryID)
+//	if err != nil {
+//		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by parent category ID")
+//		return
+//	}
+//
+//	// respond with products
+//	RespondWithJSON(w, http.StatusOK, products)
+//}
 
 func (h *ProductHandler) GetProductsByFiltersHandler(w http.ResponseWriter, r *http.Request) {
 	categoryID := mux.Vars(r)["category_id"]
@@ -262,23 +170,18 @@ func (h *ProductHandler) GetProductsByFiltersHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	var products []model.FilterProduct
-	switch sortBy {
-	case "price_asc":
-		products, err = h.productService.GetProductsByFiltersPriceAsc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
-	case "price_desc":
-		products, err = h.productService.GetProductsByFiltersPriceDesc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
-	case "name_asc":
-		products, err = h.productService.GetProductsByFiltersNameAsc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
-	case "name_desc":
-		products, err = h.productService.GetProductsByFiltersNameDesc(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
-	case "newest":
-		products, err = h.productService.GetProductsByFiltersNewest(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
-	case "oldest":
-		products, err = h.productService.GetProductsByFiltersOldest(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
-	default:
-		products, err = h.productService.GetProductsByFiltersDefault(r.Context(), categoryUUID, categoryNames, colors, processors, storage, sizes, priceFrom, priceTo)
-	}
+	products, err := h.productService.GetProductsByFilters(
+		r.Context(),
+		categoryUUID,
+		categoryNames,
+		colors,
+		processors,
+		storage,
+		sizes,
+		priceFrom,
+		priceTo,
+		sortBy,
+	)
 
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
@@ -524,8 +427,6 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 
 	//respond with product
 	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product created/updated successfully"})
-
-	RespondWithJSON(w, http.StatusOK, params)
 }
 
 // DeleteProductHandler deletes a product
@@ -750,4 +651,28 @@ func (h *ProductHandler) GetProductSpecsBySlugHandler(w http.ResponseWriter, r *
 
 	// respond with product specs
 	RespondWithJSON(w, http.StatusOK, productSpecs)
+}
+
+// GetProductMetaFieldsByCategoryIDHandler gets product meta fields by category ID
+func (h *ProductHandler) GetProductMetaFieldsByCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
+	// get category ID
+	vars := mux.Vars(r)
+	categoryID := vars["categoryID"]
+
+	// parse category ID
+	categoryUUID, err := uuid.Parse(categoryID)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
+		return
+	}
+
+	// get product meta fields
+	productMetaFields, err := h.productService.GetFilterOptionsByCategoryID(r.Context(), categoryUUID)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get product meta fields")
+		return
+	}
+
+	// respond with product meta fields
+	RespondWithJSON(w, http.StatusOK, productMetaFields)
 }

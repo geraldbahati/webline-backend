@@ -25,22 +25,23 @@ type Product struct {
 }
 
 type V2Product struct {
-	Name        string    `json:"name"`
-	Price       float64   `json:"price"`
-	Status      string    `json:"status"`
-	ImageURL    string    `json:"imageURL"`
-	Discount    float64   `json:"discount"`
-	Slug        string    `json:"slug"`
-	CreatedAt   time.Time `json:"createdAt"`
-	InPromotion bool      `json:"inPromotion"`
-	TotalSales  int32     `json:"totalSales"`
-	PartNumber  string    `json:"partNumber"`
+	Name         string    `json:"name"`
+	Price        string    `json:"price"`
+	Status       string    `json:"status"`
+	ImageURL     string    `json:"imageURL"`
+	CategoryName string    `json:"categoryName"`
+	Discount     float64   `json:"discount"`
+	Slug         string    `json:"slug"`
+	CreatedAt    time.Time `json:"createdAt"`
+	InPromotion  bool      `json:"inPromotion"`
+	TotalSales   int32     `json:"totalSales"`
+	PartNumber   string    `json:"partNumber"`
 }
 
 type V2ProductDetail struct {
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
-	Price          float64         `json:"price"`
+	Price          string          `json:"price"`
 	Stock          int32           `json:"stock"`
 	PartNumber     string          `json:"partNumber"`
 	Slug           string          `json:"slug"`
@@ -60,33 +61,25 @@ type V2ProductImage struct {
 }
 
 type ProductDetail struct {
-	ID              uuid.UUID              `json:"id"`
-	Name            string                 `json:"name"`
-	Description     string                 `json:"description"`
-	Price           string                 `json:"price"`
-	Stock           int32                  `json:"stock"`
-	CategoryName    string                 `json:"categoryName"`
-	Featured        bool                   `json:"featured"`
-	DiscountPercent float64                `json:"discountPercent"`
-	Slug            string                 `json:"slug"`
-	Images          []ProductImage         `json:"images"`
-	Colors          []ProductColor         `json:"colors"`
-	Specifications  []ProductSpecification `json:"specifications"`
-	Options         []ProductOption        `json:"options"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
 }
 
 type CreateProductRequest struct {
-	Slug           string                  `json:"slug"`
-	Name           string                  `json:"name"`
-	Description    string                  `json:"description"`
-	Price          float64                 `json:"price"`
-	Stock          int                     `json:"stock"`
-	CategoryID     uuid.UUID               `json:"categoryID"`
-	Status         string                  `json:"status"`
-	PartNumber     string                  `json:"partNumber"`
-	Images         []*multipart.FileHeader `json:"images"`
-	Specifications []Specification         `json:"specifications"`
-	ImageUrls      []string                `json:"imageUrls"`
+	Slug            string                  `json:"slug"`
+	Name            string                  `json:"name"`
+	Description     string                  `json:"description"`
+	Price           float64                 `json:"price"`
+	Stock           int                     `json:"stock"`
+	CategoryID      uuid.UUID               `json:"categoryID"`
+	Status          string                  `json:"status"`
+	PartNumber      string                  `json:"partNumber"`
+	MetaTitle       string                  `json:"metaTitle"`
+	MetaDescription string                  `json:"metaDescription"`
+	MetaKeywords    string                  `json:"metaKeywords"`
+	Images          []*multipart.FileHeader `json:"images"`
+	Specifications  []Specification         `json:"specifications"`
+	ImageUrls       []string                `json:"imageUrls"`
 }
 
 type Specification struct {
@@ -98,7 +91,7 @@ type ProductSchema struct {
 	ID           uuid.UUID
 	Name         string
 	Description  string
-	Price        string
+	USD          string
 	Stock        int32
 	CategoryID   uuid.UUID
 	CategoryName string
@@ -171,17 +164,30 @@ type ProductFilterOptions struct {
 }
 
 type FilterProduct struct {
-	ID              uuid.UUID
-	Name            string
-	Description     string
-	Price           string
-	Stock           int32
-	CategoryID      uuid.UUID
-	IsActive        bool
-	Featured        bool
-	ImageURL        string
-	DiscountPercent float64
-	Slug            string
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	Description     string    `json:"description"`
+	Price           string    `json:"price"`
+	Stock           int32     `json:"stock"`
+	CategoryID      uuid.UUID `json:"categoryID"`
+	IsActive        bool      `json:"isActive"`
+	Featured        bool      `json:"featured"`
+	ImageURL        string    `json:"imageURL"`
+	DiscountPercent float64   `json:"discountPercent"`
+	Slug            string    `json:"slug"`
+}
+
+// UnifiedParams defines the common parameters for product filtering.
+type UnifiedParams struct {
+	ID             uuid.UUID
+	CategoryNames  []string
+	ColorNames     []string
+	ProcessorNames []string
+	StorageNames   []string
+	Sizes          []string
+	PriceFrom      float64
+	PriceTo        float64
+	SortOrder      string
 }
 
 type ProductSitemap struct {
@@ -200,25 +206,11 @@ type ProductSEO struct {
 	ImageUrl    string    `json:"imageUrl"`
 }
 
-//addToCart({
-//id: generateRandomId(),
-//productID: product.id,
-//colorID: '',
-//sizeID: '',
-//optionIDs: [],
-//name: product.name,
-//description: product.description,
-//price: parseFloat(product.price),
-//quantity: quantity,
-//imageURL: image,
-//discountPercent: product.discountPercent,
-//});
-
 type ProductPricing struct {
 	ID              uuid.UUID `json:"id"`
 	Name            string    `json:"name"`
 	Description     string    `json:"description"`
-	Price           float64   `json:"price"`
+	Price           string    `json:"price"`
 	DiscountPercent float64   `json:"discountPercent"`
 	ImageUrl        string    `json:"imageUrl"`
 }
