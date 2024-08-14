@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
@@ -18,20 +17,19 @@ import (
 )
 
 type CategoryService struct {
-	categoryRepo     *repository.CategoryRepository
-	productColorRepo *repository.ProductColourRepository
-	logger           *zap.Logger
-	cfg              *appconfig.Config
-	s3Client         *s3.Client
+	categoryRepo *repository.CategoryRepository
+	logger       *zap.Logger
+	cfg          *appconfig.Config
+	s3Client     *s3.Client
 }
 
-func NewCategoryService(categoryRepo *repository.CategoryRepository, productColorRepo *repository.ProductColourRepository, logger *zap.Logger, cfg *appconfig.Config, s3Client *s3.Client) *CategoryService {
+func NewCategoryService(categoryRepo *repository.CategoryRepository, logger *zap.Logger, cfg *appconfig.Config, s3Client *s3.Client) *CategoryService {
 	return &CategoryService{
-		categoryRepo:     categoryRepo,
-		productColorRepo: productColorRepo,
-		logger:           logger,
-		cfg:              cfg,
-		s3Client:         s3Client,
+		categoryRepo: categoryRepo,
+
+		logger:   logger,
+		cfg:      cfg,
+		s3Client: s3Client,
 	}
 }
 
@@ -319,17 +317,17 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 		return model.CategoryDetail{}, err
 	}
 
-	// get available colors for the category
-	availableColors, err := s.productColorRepo.GetAvailableColorsByCategoryID(ctx, category.ID)
-	if err != nil {
-		s.logger.Error("failed to get available colors by category ID", zap.Error(err))
-		return model.CategoryDetail{}, err
-	}
-
-	var colors []string
-	for _, color := range *availableColors {
-		colors = append(colors, color.ColorName)
-	}
+	//// get available colors for the category
+	//availableColors, err := s.productColorRepo.GetAvailableColorsByCategoryID(ctx, category.ID)
+	//if err != nil {
+	//	s.logger.Error("failed to get available colors by category ID", zap.Error(err))
+	//	return model.CategoryDetail{}, err
+	//}
+	//
+	//var colors []string
+	//for _, color := range *availableColors {
+	//	colors = append(colors, color.ColorName)
+	//}
 
 	// create a new category model
 	var subCategories []model.CategoryDetail
@@ -353,12 +351,12 @@ func (s *CategoryService) GetCategoryByNameService(ctx context.Context, name str
 	}
 
 	categoryModel := model.CategoryDetail{
-		ID:              category.ID,
-		Name:            category.Name,
-		ParentID:        category.ParentID.UUID,
-		IsActive:        category.IsActive,
-		SubCategories:   subCategories,
-		AvailableColors: colors,
+		ID:            category.ID,
+		Name:          category.Name,
+		ParentID:      category.ParentID.UUID,
+		IsActive:      category.IsActive,
+		SubCategories: subCategories,
+		//AvailableColors: colors,
 	}
 
 	return categoryModel, nil
@@ -382,21 +380,22 @@ type Category struct {
 	ParentID         uuid.UUID   `json:"-"` // Exclude from JSON output, used for processing
 }
 
-// GetCategoryHierarchyService retrieves the category hierarchy
-func (s *CategoryService) GetCategoryHierarchyService(ctx context.Context) ([]*Category, error) {
-	// get category tree
-	categories, err := s.categoryRepo.GetCategoryHierarchy(ctx)
-	if err != nil {
-		s.logger.Error("failed to get category tree", zap.Error(err))
-		return nil, err
-	}
-
-	// build the category hierarchy
-	categoryHierarchy := s.buildCategoryHierarchy(categories)
-
-	return categoryHierarchy, nil
-
-}
+//
+//// GetCategoryHierarchyService retrieves the category hierarchy
+//func (s *CategoryService) GetCategoryHierarchyService(ctx context.Context) ([]*Category, error) {
+//	// get category tree
+//	categories, err := s.categoryRepo.GetCategoryHierarchy(ctx)
+//	if err != nil {
+//		s.logger.Error("failed to get category tree", zap.Error(err))
+//		return nil, err
+//	}
+//
+//	// build the category hierarchy
+//	categoryHierarchy := s.buildCategoryHierarchy(categories)
+//
+//	return categoryHierarchy, nil
+//
+//}
 
 func uniqueStrings(input []string) []string {
 	keys := make(map[string]bool)
@@ -410,105 +409,105 @@ func uniqueStrings(input []string) []string {
 	return list
 }
 
-func (s *CategoryService) buildCategoryHierarchy(categories []database.GetCategoryHierarchyRow) []*Category {
-	categoryMap := make(map[uuid.UUID]*Category)
-	childParentMap := make(map[uuid.UUID]uuid.UUID)
-
-	for _, row := range categories {
-		if _, exists := categoryMap[row.CategoryID]; !exists {
-			categoryMap[row.CategoryID] = &Category{
-				CategoryID:       row.CategoryID.String(),
-				CategoryName:     row.CategoryName,
-				FeaturedProducts: []Product{},
-				Processors:       []string{},
-				Size:             []string{},
-				Storage:          []string{},
-				Children:         []*Category{},
-				Position:         int(row.Position),
-				ParentID:         row.ParentID.UUID,
-			}
-		}
-
-		if row.ParentID.UUID != uuid.Nil {
-			childParentMap[row.CategoryID] = row.ParentID.UUID
-		}
-
-		if row.ProductID.Valid {
-			category := categoryMap[row.CategoryID]
-
-			product := Product{
-				ProductID:   row.ProductID.UUID.String(),
-				ProductName: row.ProductName.String,
-				ImageURL:    s.constructS3URL(row.ImageUrl.String),
-			}
-
-			// Find the immediate parent category to place the product in the second layer
-			var parentCategory *Category
-			if parentID, exists := childParentMap[row.CategoryID]; exists {
-				if _, exists := childParentMap[parentID]; exists {
-					parentCategory = categoryMap[parentID]
-				}
-			}
-
-			if parentCategory != nil {
-				parentCategory.FeaturedProducts = append(parentCategory.FeaturedProducts, product)
-				if row.Processor.Valid {
-					parentCategory.Processors = append(parentCategory.Processors, row.Processor.String)
-				}
-				if row.Size.Valid {
-					parentCategory.Size = append(parentCategory.Size, row.Size.String)
-				}
-				if row.Storage.Valid {
-					parentCategory.Storage = append(parentCategory.Storage, row.Storage.String)
-				}
-			} else {
-				category.FeaturedProducts = append(category.FeaturedProducts, product)
-				if row.Processor.Valid {
-					category.Processors = append(category.Processors, row.Processor.String)
-				}
-				if row.Size.Valid {
-					category.Size = append(category.Size, row.Size.String)
-				}
-				if row.Storage.Valid {
-					category.Storage = append(category.Storage, row.Storage.String)
-				}
-			}
-		}
-	}
-
-	// Remove duplicate processors, sizes, and storages
-	for _, category := range categoryMap {
-		category.Processors = uniqueStrings(category.Processors)
-		category.Size = uniqueStrings(category.Size)
-		category.Storage = uniqueStrings(category.Storage)
-	}
-
-	// Organize the hierarchy
-	rootCategories := make([]*Category, 0)
-	for id, category := range categoryMap {
-		if parentID, exists := childParentMap[id]; exists {
-			if parentCategory, ok := categoryMap[parentID]; ok {
-				parentCategory.Children = append(parentCategory.Children, category)
-			}
-		} else {
-			rootCategories = append(rootCategories, category)
-		}
-	}
-
-	// Sort root categories by position
-	sort.SliceStable(rootCategories, func(i, j int) bool {
-		return rootCategories[i].Position < rootCategories[j].Position
-	})
-
-	// Sort children categories by position
-	for _, category := range categoryMap {
-		sort.SliceStable(category.Children, func(i, j int) bool {
-			return category.Children[i].Position < category.Children[j].Position
-		})
-	}
-
-	return rootCategories
-}
+//func (s *CategoryService) buildCategoryHierarchy(categories []database.GetCategoryHierarchyRow) []*Category {
+//	categoryMap := make(map[uuid.UUID]*Category)
+//	childParentMap := make(map[uuid.UUID]uuid.UUID)
+//
+//	for _, row := range categories {
+//		if _, exists := categoryMap[row.CategoryID]; !exists {
+//			categoryMap[row.CategoryID] = &Category{
+//				CategoryID:       row.CategoryID.String(),
+//				CategoryName:     row.CategoryName,
+//				FeaturedProducts: []Product{},
+//				Processors:       []string{},
+//				Size:             []string{},
+//				Storage:          []string{},
+//				Children:         []*Category{},
+//				Position:         int(row.Position),
+//				ParentID:         row.ParentID.UUID,
+//			}
+//		}
+//
+//		if row.ParentID.UUID != uuid.Nil {
+//			childParentMap[row.CategoryID] = row.ParentID.UUID
+//		}
+//
+//		if row.ProductID.Valid {
+//			category := categoryMap[row.CategoryID]
+//
+//			product := Product{
+//				ProductID:   row.ProductID.UUID.String(),
+//				ProductName: row.ProductName.String,
+//				ImageURL:    s.constructS3URL(row.ImageUrl.String),
+//			}
+//
+//			// Find the immediate parent category to place the product in the second layer
+//			var parentCategory *Category
+//			if parentID, exists := childParentMap[row.CategoryID]; exists {
+//				if _, exists := childParentMap[parentID]; exists {
+//					parentCategory = categoryMap[parentID]
+//				}
+//			}
+//
+//			if parentCategory != nil {
+//				parentCategory.FeaturedProducts = append(parentCategory.FeaturedProducts, product)
+//				if row.Processor.Valid {
+//					parentCategory.Processors = append(parentCategory.Processors, row.Processor.String)
+//				}
+//				if row.Size.Valid {
+//					parentCategory.Size = append(parentCategory.Size, row.Size.String)
+//				}
+//				if row.Storage.Valid {
+//					parentCategory.Storage = append(parentCategory.Storage, row.Storage.String)
+//				}
+//			} else {
+//				category.FeaturedProducts = append(category.FeaturedProducts, product)
+//				if row.Processor.Valid {
+//					category.Processors = append(category.Processors, row.Processor.String)
+//				}
+//				if row.Size.Valid {
+//					category.Size = append(category.Size, row.Size.String)
+//				}
+//				if row.Storage.Valid {
+//					category.Storage = append(category.Storage, row.Storage.String)
+//				}
+//			}
+//		}
+//	}
+//
+//	// Remove duplicate processors, sizes, and storages
+//	for _, category := range categoryMap {
+//		category.Processors = uniqueStrings(category.Processors)
+//		category.Size = uniqueStrings(category.Size)
+//		category.Storage = uniqueStrings(category.Storage)
+//	}
+//
+//	// Organize the hierarchy
+//	rootCategories := make([]*Category, 0)
+//	for id, category := range categoryMap {
+//		if parentID, exists := childParentMap[id]; exists {
+//			if parentCategory, ok := categoryMap[parentID]; ok {
+//				parentCategory.Children = append(parentCategory.Children, category)
+//			}
+//		} else {
+//			rootCategories = append(rootCategories, category)
+//		}
+//	}
+//
+//	// Sort root categories by position
+//	sort.SliceStable(rootCategories, func(i, j int) bool {
+//		return rootCategories[i].Position < rootCategories[j].Position
+//	})
+//
+//	// Sort children categories by position
+//	for _, category := range categoryMap {
+//		sort.SliceStable(category.Children, func(i, j int) bool {
+//			return category.Children[i].Position < category.Children[j].Position
+//		})
+//	}
+//
+//	return rootCategories
+//}
 
 // constructS3URL constructs the S3 URL for a given file path
 func (s *CategoryService) constructS3URL(filePath string) string {

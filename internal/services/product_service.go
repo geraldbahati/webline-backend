@@ -30,9 +30,7 @@ type ProductService struct {
 	productImageRepo         *repository.ProductImageRepository
 	productSpecificationRepo *repository.ProductSpecificationRepository
 	categoryRepo             *repository.CategoryRepository
-	productColorRepo         *repository.ProductColourRepository
 	productOptionRepo        *repository.ProductOptionRepository
-	productSizeRepo          *repository.ProductSizeRepository
 	discountRepo             *repository.DiscountRepository
 	userRepo                 *repository.UserRepository
 	exchangeRateRepo         repository.ExchangeRateRepository
@@ -47,9 +45,7 @@ func NewProductService(
 	productImageRepo *repository.ProductImageRepository,
 	productSpecificationRepo *repository.ProductSpecificationRepository,
 	categoryRepo *repository.CategoryRepository,
-	productColorRepo *repository.ProductColourRepository,
 	productOptionRepo *repository.ProductOptionRepository,
-	productSizeRepo *repository.ProductSizeRepository,
 	discountRepo *repository.DiscountRepository,
 	userRepo *repository.UserRepository,
 	exchangeRateRepo repository.ExchangeRateRepository,
@@ -65,8 +61,6 @@ func NewProductService(
 		productSpecificationRepo: productSpecificationRepo,
 		categoryRepo:             categoryRepo,
 		productOptionRepo:        productOptionRepo,
-		productColorRepo:         productColorRepo,
-		productSizeRepo:          productSizeRepo,
 		discountRepo:             discountRepo,
 		userRepo:                 userRepo,
 		exchangeRateRepo:         exchangeRateRepo,
@@ -169,24 +163,6 @@ func (s *ProductService) getProductImages(ctx context.Context, productID uuid.UU
 	}
 
 	return images, nil
-}
-
-func (s *ProductService) getProductColors(ctx context.Context, productID uuid.UUID) ([]model.ProductColor, error) {
-	productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: productID, Valid: true})
-	if err != nil {
-		s.logger.Error("failed to get product colors", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product colors: %w", err)
-	}
-
-	var colors []model.ProductColor
-	for _, color := range productColors {
-		colors = append(colors, model.ProductColor{
-			ID:        color.ID,
-			ColorName: color.ColorName,
-		})
-	}
-
-	return colors, nil
 }
 
 func (s *ProductService) getProductOptions(ctx context.Context, productID uuid.UUID) ([]model.ProductOption, error) {
@@ -884,105 +860,6 @@ func (s *ProductService) DeleteProductSpecification(ctx context.Context, id stri
 //	return productDetails, nil
 //}
 
-// CreateProductColor creates a new product color
-func (s *ProductService) CreateProductColor(
-	ctx context.Context,
-	productID,
-	color string,
-) (*database.CreateProductColorRow, error) {
-	// Parse the product ID
-	productUUID, err := uuid.Parse(productID)
-	if err != nil {
-		s.logger.Error("invalid product ID", zap.Error(err))
-		return nil, fmt.Errorf("invalid product ID: %w", err)
-	}
-
-	// Prepare parameters for creating product color
-	params := database.CreateProductColorParams{
-		ProductID: uuid.NullUUID{UUID: productUUID, Valid: true},
-		ColorName: color,
-	}
-
-	// Create product color
-	productColor, err := s.productColorRepo.CreateProductColor(ctx, params)
-	if err != nil {
-		s.logger.Error("failed to create product color", zap.Error(err))
-		return nil, fmt.Errorf("failed to create product color: %w", err)
-	}
-
-	return productColor, nil
-}
-
-// ListProductColorsByProductID lists product colors by product ID
-func (s *ProductService) ListProductColorsByProductID(
-	ctx context.Context,
-	productID string,
-) ([]database.ListProductColorsByProductIDRow, error) {
-	// Parse the product ID
-	productUUID, err := uuid.Parse(productID)
-	if err != nil {
-		s.logger.Error("invalid product ID", zap.Error(err))
-		return nil, fmt.Errorf("invalid product ID: %w", err)
-	}
-
-	// List product colors by product ID
-	productColors, err := s.productColorRepo.ListProductColorsByProductID(ctx, uuid.NullUUID{UUID: productUUID, Valid: true})
-	if err != nil {
-		s.logger.Error("failed to list product colors", zap.Error(err))
-		return nil, fmt.Errorf("failed to list product colors: %w", err)
-	}
-
-	return productColors, nil
-}
-
-// UpdateProductColor updates an existing product color
-func (s *ProductService) UpdateProductColor(
-	ctx context.Context,
-	id string,
-	color string,
-) (*database.UpdateProductColorRow, error) {
-	// Parse the product color ID
-	colorUUID, err := uuid.Parse(id)
-	if err != nil {
-		s.logger.Error("invalid product color ID", zap.Error(err))
-		return nil, fmt.Errorf("invalid product color ID: %w", err)
-	}
-
-	// Prepare parameters for updating product color
-	params := database.UpdateProductColorParams{
-		ID:        colorUUID,
-		ColorName: color,
-	}
-
-	// Update product color
-	productColor, err := s.productColorRepo.UpdateProductColor(ctx, params)
-	if err != nil {
-		s.logger.Error("failed to update product color", zap.Error(err))
-		return nil, fmt.Errorf("failed to update product color: %w", err)
-	}
-
-	return productColor, nil
-}
-
-// DeleteProductColor deletes a product color from the database
-func (s *ProductService) DeleteProductColor(ctx context.Context, id string) error {
-	// Parse the product color ID
-	colorUUID, err := uuid.Parse(id)
-	if err != nil {
-		s.logger.Error("invalid product color ID", zap.Error(err))
-		return fmt.Errorf("invalid product color ID: %w", err)
-	}
-
-	// Delete product color
-	err = s.productColorRepo.DeleteProductColor(ctx, colorUUID)
-	if err != nil {
-		s.logger.Error("failed to delete product color", zap.Error(err))
-		return fmt.Errorf("failed to delete product color: %w", err)
-	}
-
-	return nil
-}
-
 // CreateProductOption creates a new product option
 func (s *ProductService) CreateProductOption(
 	ctx context.Context,
@@ -1185,84 +1062,84 @@ func (s *ProductService) DeleteProductOptionValue(ctx context.Context, id string
 	return nil
 }
 
-// GetProductsByFilters retrieves products by filters and sort order.
-func (s *ProductService) GetProductsByFilters(
-	ctx context.Context,
-	categoryID uuid.UUID,
-	categoryNames, colorNames, processorNames, storageNames, sizes []string,
-	priceFrom, priceTo float64,
-	sortOrder string,
-) ([]model.FilterProduct, error) {
-
-	params := model.UnifiedParams{
-		ID:             categoryID,
-		CategoryNames:  categoryNames,
-		ColorNames:     colorNames,
-		ProcessorNames: processorNames,
-		StorageNames:   storageNames,
-		Sizes:          sizes,
-		PriceFrom:      priceFrom,
-		PriceTo:        priceTo,
-		SortOrder:      sortOrder,
-	}
-
-	filterProducts, err := s.productRepo.GetProductsByFilters(ctx, params)
-	if err != nil {
-		s.logger.Error("failed to get products by filters", zap.Error(err))
-		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-	}
-
-	for i := range filterProducts {
-		productImages, err := s.getProductImages(ctx, filterProducts[i].ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get product images: %w", err)
-		}
-
-		discountPercent, err := s.getProductDiscountPercentage(ctx, filterProducts[i].ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get product discount percentage: %w", err)
-		}
-
-		if len(productImages) > 0 {
-			filterProducts[i].ImageURL = productImages[0].S3URL
-		}
-		filterProducts[i].DiscountPercent = discountPercent
-	}
-
-	return filterProducts, nil
-}
+//// GetProductsByFilters retrieves products by filters and sort order.
+//func (s *ProductService) GetProductsByFilters(
+//	ctx context.Context,
+//	categoryID uuid.UUID,
+//	categoryNames, colorNames, processorNames, storageNames, sizes []string,
+//	priceFrom, priceTo float64,
+//	sortOrder string,
+//) ([]model.FilterProduct, error) {
+//
+//	params := model.UnifiedParams{
+//		ID:             categoryID,
+//		CategoryNames:  categoryNames,
+//		ColorNames:     colorNames,
+//		ProcessorNames: processorNames,
+//		StorageNames:   storageNames,
+//		Sizes:          sizes,
+//		PriceFrom:      priceFrom,
+//		PriceTo:        priceTo,
+//		SortOrder:      sortOrder,
+//	}
+//
+//	filterProducts, err := s.productRepo.GetProductsByFilters(ctx, params)
+//	if err != nil {
+//		s.logger.Error("failed to get products by filters", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+//	}
+//
+//	for i := range filterProducts {
+//		productImages, err := s.getProductImages(ctx, filterProducts[i].ID)
+//		if err != nil {
+//			return nil, fmt.Errorf("failed to get product images: %w", err)
+//		}
+//
+//		discountPercent, err := s.getProductDiscountPercentage(ctx, filterProducts[i].ID)
+//		if err != nil {
+//			return nil, fmt.Errorf("failed to get product discount percentage: %w", err)
+//		}
+//
+//		if len(productImages) > 0 {
+//			filterProducts[i].ImageURL = productImages[0].S3URL
+//		}
+//		filterProducts[i].DiscountPercent = discountPercent
+//	}
+//
+//	return filterProducts, nil
+//}
 
 type FilterOptionsByType map[string][]string
 
-// GetFilterOptionsByCategoryName retrieves filter options for products by category name
-func (s *ProductService) GetFilterOptionsByCategoryName(ctx context.Context, categoryName string) (FilterOptionsByType, error) {
-	filterOptions, err := s.categoryRepo.GetFilterOptionsByCategoryName(ctx, categoryName)
-	if err != nil {
-		s.logger.Error("failed to get filter options by category name", zap.Error(err))
-		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
-	}
-
-	groupedOptions := make(FilterOptionsByType)
-	for _, option := range filterOptions {
-		if _, exists := groupedOptions[option.FilterType]; !exists {
-			groupedOptions[option.FilterType] = []string{}
-		}
-		groupedOptions[option.FilterType] = append(groupedOptions[option.FilterType], option.FilterOption)
-	}
-
-	return groupedOptions, nil
-}
+//// GetFilterOptionsByCategoryName retrieves filter options for products by category name
+//func (s *ProductService) GetFilterOptionsByCategoryName(ctx context.Context, categoryName string) (FilterOptionsByType, error) {
+//	filterOptions, err := s.categoryRepo.GetFilterOptionsByCategoryName(ctx, categoryName)
+//	if err != nil {
+//		s.logger.Error("failed to get filter options by category name", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
+//	}
+//
+//	groupedOptions := make(FilterOptionsByType)
+//	for _, option := range filterOptions {
+//		if _, exists := groupedOptions[option.FilterType]; !exists {
+//			groupedOptions[option.FilterType] = []string{}
+//		}
+//		groupedOptions[option.FilterType] = append(groupedOptions[option.FilterType], option.FilterOption)
+//	}
+//
+//	return groupedOptions, nil
+//}
 
 // GetFilterOptionsByCategoryID retrieves filter options for products by category ID
-func (s *ProductService) GetFilterOptionsByCategoryID(ctx context.Context, categoryID uuid.UUID) (*model.ProductMetafields, error) {
-	filterOptions, err := s.categoryRepo.GetFilterOptionsByCategoryID(ctx, categoryID)
-	if err != nil {
-		s.logger.Error("failed to get filter options by category name", zap.Error(err))
-		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
-	}
-
-	return filterOptions, nil
-}
+//func (s *ProductService) GetFilterOptionsByCategoryID(ctx context.Context, categoryID uuid.UUID) (*model.ProductMetafields, error) {
+//	filterOptions, err := s.categoryRepo.GetFilterOptionsByCategoryID(ctx, categoryID)
+//	if err != nil {
+//		s.logger.Error("failed to get filter options by category name", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
+//	}
+//
+//	return filterOptions, nil
+//}
 
 type FilterOptions struct {
 	Categories    []model.ProductCategoryFilterOption `json:"categories"`
@@ -1273,227 +1150,227 @@ type FilterOptions struct {
 	Size          []string                            `json:"size"`
 }
 
-// GetFilterOptions retrieves filter options for products
-func (s *ProductService) GetFilterOptions(ctx context.Context) (*FilterOptions, error) {
+//// GetFilterOptions retrieves filter options for products
+//func (s *ProductService) GetFilterOptions(ctx context.Context) (*FilterOptions, error) {
+//
+//	filterOptions, err := s.productRepo.GetFilterOptions(ctx)
+//	if err != nil {
+//		s.logger.Error("failed to get filter options", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get filter options: %w", err)
+//	}
+//
+//	// Get available categories and their subcategories
+//	categories, err := s.categoryRepo.GetParentCategories(ctx)
+//	if err != nil {
+//		s.logger.Error("failed to get parent categories", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get parent categories: %w", err)
+//	}
+//
+//	// Get total number of products
+//	count, err := s.productRepo.CountProducts(ctx)
+//	if err != nil {
+//		s.logger.Error("failed to get total products", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get total products: %w", err)
+//	}
+//
+//	filters := &FilterOptions{
+//		TotalProducts: count,
+//	}
+//
+//	// Group the filter options by their type
+//	var categoryOptions []model.ProductCategoryFilterOption
+//	for _, category := range categories {
+//		// Get the subcategories of each parent category
+//		subCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
+//		if err != nil {
+//			s.logger.Error("failed to get subcategories", zap.Error(err))
+//			return nil, fmt.Errorf("failed to get subcategories: %w", err)
+//		}
+//
+//		var subCategoryOptions []model.ProductFilterOption
+//		for _, subCategory := range subCategories {
+//			subCategoryOptions = append(subCategoryOptions, model.ProductFilterOption{
+//				ID:   subCategory.ID,
+//				Name: subCategory.Name,
+//			})
+//		}
+//
+//		categoryOptions = append(categoryOptions, model.ProductCategoryFilterOption{
+//			Title:         category.Name,
+//			Subcategories: subCategoryOptions,
+//		})
+//	}
+//
+//	filters.Categories = categoryOptions
+//
+//	for _, option := range filterOptions {
+//		switch option.FilterType {
+//		case "processor":
+//			filters.Processor = append(filters.Processor, option.FilterOption)
+//		case "storage":
+//			filters.Storage = append(filters.Storage, option.FilterOption)
+//		case "color":
+//			filters.Color = append(filters.Color, option.FilterOption)
+//		case "size":
+//			filters.Size = append(filters.Size, option.FilterOption)
+//		}
+//	}
+//
+//	return filters, nil
+//}
 
-	filterOptions, err := s.productRepo.GetFilterOptions(ctx)
-	if err != nil {
-		s.logger.Error("failed to get filter options", zap.Error(err))
-		return nil, fmt.Errorf("failed to get filter options: %w", err)
-	}
-
-	// Get available categories and their subcategories
-	categories, err := s.categoryRepo.GetParentCategories(ctx)
-	if err != nil {
-		s.logger.Error("failed to get parent categories", zap.Error(err))
-		return nil, fmt.Errorf("failed to get parent categories: %w", err)
-	}
-
-	// Get total number of products
-	count, err := s.productRepo.CountProducts(ctx)
-	if err != nil {
-		s.logger.Error("failed to get total products", zap.Error(err))
-		return nil, fmt.Errorf("failed to get total products: %w", err)
-	}
-
-	filters := &FilterOptions{
-		TotalProducts: count,
-	}
-
-	// Group the filter options by their type
-	var categoryOptions []model.ProductCategoryFilterOption
-	for _, category := range categories {
-		// Get the subcategories of each parent category
-		subCategories, err := s.categoryRepo.GetCategoriesByParentID(ctx, uuid.NullUUID{UUID: category.ID, Valid: true})
-		if err != nil {
-			s.logger.Error("failed to get subcategories", zap.Error(err))
-			return nil, fmt.Errorf("failed to get subcategories: %w", err)
-		}
-
-		var subCategoryOptions []model.ProductFilterOption
-		for _, subCategory := range subCategories {
-			subCategoryOptions = append(subCategoryOptions, model.ProductFilterOption{
-				ID:   subCategory.ID,
-				Name: subCategory.Name,
-			})
-		}
-
-		categoryOptions = append(categoryOptions, model.ProductCategoryFilterOption{
-			Title:         category.Name,
-			Subcategories: subCategoryOptions,
-		})
-	}
-
-	filters.Categories = categoryOptions
-
-	for _, option := range filterOptions {
-		switch option.FilterType {
-		case "processor":
-			filters.Processor = append(filters.Processor, option.FilterOption)
-		case "storage":
-			filters.Storage = append(filters.Storage, option.FilterOption)
-		case "color":
-			filters.Color = append(filters.Color, option.FilterOption)
-		case "size":
-			filters.Size = append(filters.Size, option.FilterOption)
-		}
-	}
-
-	return filters, nil
-}
-
-// GetAllProductsByFilters retrieves all products by filters with specified sorting order
-func (s *ProductService) GetAllProductsByFilters(
-	ctx context.Context,
-	categoryNames, colorNames, processorNames, storageNames, sizes []string,
-	priceFrom, priceTo float64,
-	page, pageSize int32,
-	sortOrder string,
-) (*model.PaginationResult[[]*model.Product], error) {
-	// get the total number of products
-	count, err := s.productRepo.GetTotalProductsByFilters(ctx, database.GetTotalProductsByFiltersParams{
-		Column1:    categoryNames,
-		Column4:    sizes,
-		Column5:    colorNames,
-		Column6:    processorNames,
-		Column7:    storageNames,
-		UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-		UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-	})
-	if err != nil {
-		s.logger.Error("failed to get total products by filters", zap.Error(err))
-		return nil, fmt.Errorf("failed to get total products by filters: %w", err)
-	}
-
-	// get the paginated products by filters with specified sorting order
-	paginatedProducts, err := utils.Paginate(
-		s.config,
-		count,
-		page,
-		pageSize,
-		func(offset int32, limit int32) ([]*model.Product, error) {
-			var filteredProducts []*model.Product
-			switch sortOrder {
-			case "price_asc":
-				filteredProducts, err = s.productRepo.GetAllProductsByFiltersPriceAsc(ctx, database.GetAllProductsByFiltersPriceAscParams{
-					Column1:    categoryNames,
-					Column4:    sizes,
-					Column5:    colorNames,
-					Column8:    processorNames,
-					Column9:    storageNames,
-					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-					Limit:      limit,
-					Offset:     offset,
-				})
-			case "price_desc":
-				filteredProducts, err = s.productRepo.GetAllProductsByFiltersPriceDesc(ctx, database.GetAllProductsByFiltersPriceDescParams{
-					Column1:    categoryNames,
-					Column4:    sizes,
-					Column5:    colorNames,
-					Column8:    processorNames,
-					Column9:    storageNames,
-					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-					Limit:      limit,
-					Offset:     offset,
-				})
-			case "name_asc":
-				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNameAsc(ctx, database.GetAllProductsByFiltersNameAscParams{
-					Column1:    categoryNames,
-					Column4:    sizes,
-					Column5:    colorNames,
-					Column8:    processorNames,
-					Column9:    storageNames,
-					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-					Limit:      limit,
-					Offset:     offset,
-				})
-			case "name_desc":
-				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNameDesc(ctx, database.GetAllProductsByFiltersNameDescParams{
-					Column1:    categoryNames,
-					Column4:    sizes,
-					Column5:    colorNames,
-					Column8:    processorNames,
-					Column9:    storageNames,
-					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-					Limit:      limit,
-					Offset:     offset,
-				})
-			case "newest":
-				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNewest(ctx, database.GetAllProductsByFiltersNewestParams{
-					Column1:    categoryNames,
-					Column4:    sizes,
-					Column5:    colorNames,
-					Column8:    processorNames,
-					Column9:    storageNames,
-					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-					Limit:      limit,
-					Offset:     offset,
-				})
-			case "oldest":
-				filteredProducts, err = s.productRepo.GetAllProductsByFiltersOldest(ctx, database.GetAllProductsByFiltersOldestParams{
-					Column1:    categoryNames,
-					Column4:    sizes,
-					Column5:    colorNames,
-					Column8:    processorNames,
-					Column9:    storageNames,
-					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-					Limit:      limit,
-					Offset:     offset,
-				})
-			default:
-				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNewest(ctx, database.GetAllProductsByFiltersNewestParams{
-					Column1:    categoryNames,
-					Column4:    sizes,
-					Column5:    colorNames,
-					Column8:    processorNames,
-					Column9:    storageNames,
-					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
-					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
-					Limit:      limit,
-					Offset:     offset,
-				})
-			}
-
-			if err != nil {
-				s.logger.Error("failed to get products by filters", zap.Error(err))
-				return nil, fmt.Errorf("failed to get products by filters: %w", err)
-			}
-
-			for _, product := range filteredProducts {
-				productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
-				if err != nil {
-					s.logger.Error("failed to get product images", zap.Error(err))
-					return nil, fmt.Errorf("failed to get product images: %w", err)
-				}
-
-				discountPercentage, err := s.getProductDiscountPercentage(ctx, product.ID)
-				if err != nil {
-					return nil, err
-				}
-
-				if len(productImages) > 0 {
-					product.ImageURL = s.constructS3URL(productImages[0].ImageUrl)
-				}
-
-				product.DiscountPercent = discountPercentage
-			}
-
-			return filteredProducts, nil
-		},
-	)
-	if err != nil {
-		s.logger.Error("failed to paginate products", zap.Error(err))
-		return nil, fmt.Errorf("failed to paginate products: %w", err)
-	}
-
-	return paginatedProducts, nil
-}
+//// GetAllProductsByFilters retrieves all products by filters with specified sorting order
+//func (s *ProductService) GetAllProductsByFilters(
+//	ctx context.Context,
+//	categoryNames, colorNames, processorNames, storageNames, sizes []string,
+//	priceFrom, priceTo float64,
+//	page, pageSize int32,
+//	sortOrder string,
+//) (*model.PaginationResult[[]*model.Product], error) {
+//	// get the total number of products
+//	count, err := s.productRepo.GetTotalProductsByFilters(ctx, database.GetTotalProductsByFiltersParams{
+//		Column1:    categoryNames,
+//		Column4:    sizes,
+//		Column5:    colorNames,
+//		Column6:    processorNames,
+//		Column7:    storageNames,
+//		UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//		UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//	})
+//	if err != nil {
+//		s.logger.Error("failed to get total products by filters", zap.Error(err))
+//		return nil, fmt.Errorf("failed to get total products by filters: %w", err)
+//	}
+//
+//	// get the paginated products by filters with specified sorting order
+//	paginatedProducts, err := utils.Paginate(
+//		s.config,
+//		count,
+//		page,
+//		pageSize,
+//		func(offset int32, limit int32) ([]*model.Product, error) {
+//			var filteredProducts []*model.Product
+//			switch sortOrder {
+//			case "price_asc":
+//				filteredProducts, err = s.productRepo.GetAllProductsByFiltersPriceAsc(ctx, database.GetAllProductsByFiltersPriceAscParams{
+//					Column1:    categoryNames,
+//					Column4:    sizes,
+//					Column5:    colorNames,
+//					Column8:    processorNames,
+//					Column9:    storageNames,
+//					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//					Limit:      limit,
+//					Offset:     offset,
+//				})
+//			case "price_desc":
+//				filteredProducts, err = s.productRepo.GetAllProductsByFiltersPriceDesc(ctx, database.GetAllProductsByFiltersPriceDescParams{
+//					Column1:    categoryNames,
+//					Column4:    sizes,
+//					Column5:    colorNames,
+//					Column8:    processorNames,
+//					Column9:    storageNames,
+//					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//					Limit:      limit,
+//					Offset:     offset,
+//				})
+//			case "name_asc":
+//				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNameAsc(ctx, database.GetAllProductsByFiltersNameAscParams{
+//					Column1:    categoryNames,
+//					Column4:    sizes,
+//					Column5:    colorNames,
+//					Column8:    processorNames,
+//					Column9:    storageNames,
+//					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//					Limit:      limit,
+//					Offset:     offset,
+//				})
+//			case "name_desc":
+//				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNameDesc(ctx, database.GetAllProductsByFiltersNameDescParams{
+//					Column1:    categoryNames,
+//					Column4:    sizes,
+//					Column5:    colorNames,
+//					Column8:    processorNames,
+//					Column9:    storageNames,
+//					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//					Limit:      limit,
+//					Offset:     offset,
+//				})
+//			case "newest":
+//				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNewest(ctx, database.GetAllProductsByFiltersNewestParams{
+//					Column1:    categoryNames,
+//					Column4:    sizes,
+//					Column5:    colorNames,
+//					Column8:    processorNames,
+//					Column9:    storageNames,
+//					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//					Limit:      limit,
+//					Offset:     offset,
+//				})
+//			case "oldest":
+//				filteredProducts, err = s.productRepo.GetAllProductsByFiltersOldest(ctx, database.GetAllProductsByFiltersOldestParams{
+//					Column1:    categoryNames,
+//					Column4:    sizes,
+//					Column5:    colorNames,
+//					Column8:    processorNames,
+//					Column9:    storageNames,
+//					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//					Limit:      limit,
+//					Offset:     offset,
+//				})
+//			default:
+//				filteredProducts, err = s.productRepo.GetAllProductsByFiltersNewest(ctx, database.GetAllProductsByFiltersNewestParams{
+//					Column1:    categoryNames,
+//					Column4:    sizes,
+//					Column5:    colorNames,
+//					Column8:    processorNames,
+//					Column9:    storageNames,
+//					UsdPrice:   strconv.FormatFloat(priceFrom, 'f', -1, 64),
+//					UsdPrice_2: strconv.FormatFloat(priceTo, 'f', -1, 64),
+//					Limit:      limit,
+//					Offset:     offset,
+//				})
+//			}
+//
+//			if err != nil {
+//				s.logger.Error("failed to get products by filters", zap.Error(err))
+//				return nil, fmt.Errorf("failed to get products by filters: %w", err)
+//			}
+//
+//			for _, product := range filteredProducts {
+//				productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: product.ID, Valid: true})
+//				if err != nil {
+//					s.logger.Error("failed to get product images", zap.Error(err))
+//					return nil, fmt.Errorf("failed to get product images: %w", err)
+//				}
+//
+//				discountPercentage, err := s.getProductDiscountPercentage(ctx, product.ID)
+//				if err != nil {
+//					return nil, err
+//				}
+//
+//				if len(productImages) > 0 {
+//					product.ImageURL = s.constructS3URL(productImages[0].ImageUrl)
+//				}
+//
+//				product.DiscountPercent = discountPercentage
+//			}
+//
+//			return filteredProducts, nil
+//		},
+//	)
+//	if err != nil {
+//		s.logger.Error("failed to paginate products", zap.Error(err))
+//		return nil, fmt.Errorf("failed to paginate products: %w", err)
+//	}
+//
+//	return paginatedProducts, nil
+//}
 
 // GetAllProductSitemap retrieves all products for sitemap
 func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.ProductSitemap, error) {

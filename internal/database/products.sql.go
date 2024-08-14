@@ -57,76 +57,6 @@ func (q *Queries) ArchiveProductsBySlugs(ctx context.Context, arg ArchiveProduct
 	return err
 }
 
-const countFilteredProducts = `-- name: CountFilteredProducts :one
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               filtered_products AS (
-                   SELECT
-                       p.id
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                   WHERE
-                       p.category_id IN (SELECT id FROM category_hierarchy)
-                     -- Size filter
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     -- Color filter
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     -- Price range filter
-                     AND p.usd_price BETWEEN $2 AND $3
-                     -- Status filter
-                     AND p.status = 'active'
-               )
-SELECT COUNT(*) AS total_count FROM filtered_products
-`
-
-type CountFilteredProductsParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-}
-
-func (q *Queries) CountFilteredProducts(ctx context.Context, arg CountFilteredProductsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countFilteredProducts,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-	)
-	var total_count int64
-	err := row.Scan(&total_count)
-	return total_count, err
-}
-
 const countProducts = `-- name: CountProducts :one
 SELECT COUNT(*) AS count
 FROM products WHERE status = 'active'
@@ -302,1206 +232,6 @@ type DraftProductsBySlugsParams struct {
 func (q *Queries) DraftProductsBySlugs(ctx context.Context, arg DraftProductsBySlugsParams) error {
 	_, err := q.db.ExecContext(ctx, draftProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
 	return err
-}
-
-const getAllProductsByFiltersNameAsc = `-- name: GetAllProductsByFiltersNameAsc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               rate AS (
-                   SELECT COALESCE(
-                                  (SELECT rate_to_kes
-                                   FROM exchange_rates
-                                   WHERE currency_code = 'USD'
-                                     AND (valid_to IS NULL OR valid_to >= NOW())
-                                     AND valid_from <= NOW()
-                                   ORDER BY valid_from DESC
-                                   LIMIT 1),
-                                  135) AS rate_to_kes
-               ),
-               filtered_products AS (
-                   SELECT
-                       p.id,
-                       p.name,
-                       p.description,
-                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-                       p.stock,
-                       p.category_id,
-                       p.created_at,
-                       p.updated_at,
-                       p.status,
-                       p.created_by,
-                       p.updated_by,
-                       p.featured,
-                       p.slug,
-                       s.size,
-                       c.color_name,
-                       pr.name AS processor_name,
-                       so.name AS storage_name
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                           LEFT JOIN
-                       product_processors pp ON p.id = pp.product_id
-                           LEFT JOIN
-                       processors pr ON pp.processor_id = pr.id
-                           LEFT JOIN
-                       product_storage_options pso ON p.id = pso.product_id
-                           LEFT JOIN
-                       storage_options so ON pso.storage_option_id = so.id
-                   WHERE
-                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
-                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
-                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
-                     AND p.status = 'active'
-               )
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price_in_kes,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.status,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.slug,
-    fp.size,
-    fp.color_name,
-    fp.processor_name,
-    fp.storage_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.name
-LIMIT
-    $6 OFFSET $7
-`
-
-type GetAllProductsByFiltersNameAscParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-	Limit      int32
-	Offset     int32
-	Column8    []string
-	Column9    []string
-}
-
-type GetAllProductsByFiltersNameAscRow struct {
-	ID            uuid.UUID
-	Name          string
-	Description   sql.NullString
-	PriceInKes    string
-	Stock         sql.NullInt32
-	CategoryID    uuid.UUID
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
-	Status        string
-	CreatedBy     uuid.NullUUID
-	UpdatedBy     uuid.NullUUID
-	Featured      sql.NullBool
-	Slug          string
-	Size          sql.NullString
-	ColorName     sql.NullString
-	ProcessorName sql.NullString
-	StorageName   sql.NullString
-}
-
-func (q *Queries) GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAllProductsByFiltersNameAscParams) ([]GetAllProductsByFiltersNameAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNameAsc,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-		pq.Array(arg.Column8),
-		pq.Array(arg.Column9),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProductsByFiltersNameAscRow
-	for rows.Next() {
-		var i GetAllProductsByFiltersNameAscRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-			&i.Size,
-			&i.ColorName,
-			&i.ProcessorName,
-			&i.StorageName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllProductsByFiltersNameDesc = `-- name: GetAllProductsByFiltersNameDesc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               rate AS (
-                   SELECT COALESCE(
-                                  (SELECT rate_to_kes
-                                   FROM exchange_rates
-                                   WHERE currency_code = 'USD'
-                                     AND (valid_to IS NULL OR valid_to >= NOW())
-                                     AND valid_from <= NOW()
-                                   ORDER BY valid_from DESC
-                                   LIMIT 1),
-                                  135) AS rate_to_kes
-               ),
-               filtered_products AS (
-                   SELECT
-                       p.id,
-                       p.name,
-                       p.description,
-                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-                       p.stock,
-                       p.category_id,
-                       p.created_at,
-                       p.updated_at,
-                       p.status,
-                       p.created_by,
-                       p.updated_by,
-                       p.featured,
-                       p.slug,
-                       s.size,
-                       c.color_name,
-                       pr.name AS processor_name,
-                       so.name AS storage_name
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                           LEFT JOIN
-                       product_processors pp ON p.id = pp.product_id
-                           LEFT JOIN
-                       processors pr ON pp.processor_id = pr.id
-                           LEFT JOIN
-                       product_storage_options pso ON p.id = pso.product_id
-                           LEFT JOIN
-                       storage_options so ON pso.storage_option_id = so.id
-                   WHERE
-                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
-                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
-                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
-                     AND p.status = 'active'
-               )
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price_in_kes,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.status,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.slug,
-    fp.size,
-    fp.color_name,
-    fp.processor_name,
-    fp.storage_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.name DESC
-LIMIT
-    $6 OFFSET $7
-`
-
-type GetAllProductsByFiltersNameDescParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-	Limit      int32
-	Offset     int32
-	Column8    []string
-	Column9    []string
-}
-
-type GetAllProductsByFiltersNameDescRow struct {
-	ID            uuid.UUID
-	Name          string
-	Description   sql.NullString
-	PriceInKes    string
-	Stock         sql.NullInt32
-	CategoryID    uuid.UUID
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
-	Status        string
-	CreatedBy     uuid.NullUUID
-	UpdatedBy     uuid.NullUUID
-	Featured      sql.NullBool
-	Slug          string
-	Size          sql.NullString
-	ColorName     sql.NullString
-	ProcessorName sql.NullString
-	StorageName   sql.NullString
-}
-
-func (q *Queries) GetAllProductsByFiltersNameDesc(ctx context.Context, arg GetAllProductsByFiltersNameDescParams) ([]GetAllProductsByFiltersNameDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNameDesc,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-		pq.Array(arg.Column8),
-		pq.Array(arg.Column9),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProductsByFiltersNameDescRow
-	for rows.Next() {
-		var i GetAllProductsByFiltersNameDescRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-			&i.Size,
-			&i.ColorName,
-			&i.ProcessorName,
-			&i.StorageName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllProductsByFiltersNewest = `-- name: GetAllProductsByFiltersNewest :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               rate AS (
-                   SELECT COALESCE(
-                                  (SELECT rate_to_kes
-                                   FROM exchange_rates
-                                   WHERE currency_code = 'USD'
-                                     AND (valid_to IS NULL OR valid_to >= NOW())
-                                     AND valid_from <= NOW()
-                                   ORDER BY valid_from DESC
-                                   LIMIT 1),
-                                  135) AS rate_to_kes
-               ),
-               filtered_products AS (
-                   SELECT
-                       p.id,
-                       p.name,
-                       p.description,
-                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-                       p.stock,
-                       p.category_id,
-                       p.created_at,
-                       p.updated_at,
-                       p.status,
-                       p.created_by,
-                       p.updated_by,
-                       p.featured,
-                       p.slug,
-                       s.size,
-                       c.color_name,
-                       pr.name AS processor_name,
-                       so.name AS storage_name
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                           LEFT JOIN
-                       product_processors pp ON p.id = pp.product_id
-                           LEFT JOIN
-                       processors pr ON pp.processor_id = pr.id
-                           LEFT JOIN
-                       product_storage_options pso ON p.id = pso.product_id
-                           LEFT JOIN
-                       storage_options so ON pso.storage_option_id = so.id
-                   WHERE
-                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
-                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
-                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
-                     AND p.status = 'active'
-               )
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price_in_kes,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.status,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.slug,
-    fp.size,
-    fp.color_name,
-    fp.processor_name,
-    fp.storage_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.created_at DESC
-LIMIT
-    $6 OFFSET $7
-`
-
-type GetAllProductsByFiltersNewestParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-	Limit      int32
-	Offset     int32
-	Column8    []string
-	Column9    []string
-}
-
-type GetAllProductsByFiltersNewestRow struct {
-	ID            uuid.UUID
-	Name          string
-	Description   sql.NullString
-	PriceInKes    string
-	Stock         sql.NullInt32
-	CategoryID    uuid.UUID
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
-	Status        string
-	CreatedBy     uuid.NullUUID
-	UpdatedBy     uuid.NullUUID
-	Featured      sql.NullBool
-	Slug          string
-	Size          sql.NullString
-	ColorName     sql.NullString
-	ProcessorName sql.NullString
-	StorageName   sql.NullString
-}
-
-func (q *Queries) GetAllProductsByFiltersNewest(ctx context.Context, arg GetAllProductsByFiltersNewestParams) ([]GetAllProductsByFiltersNewestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNewest,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-		pq.Array(arg.Column8),
-		pq.Array(arg.Column9),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProductsByFiltersNewestRow
-	for rows.Next() {
-		var i GetAllProductsByFiltersNewestRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-			&i.Size,
-			&i.ColorName,
-			&i.ProcessorName,
-			&i.StorageName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllProductsByFiltersOldest = `-- name: GetAllProductsByFiltersOldest :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               rate AS (
-                   SELECT COALESCE(
-                                  (SELECT rate_to_kes
-                                   FROM exchange_rates
-                                   WHERE currency_code = 'USD'
-                                     AND (valid_to IS NULL OR valid_to >= NOW())
-                                     AND valid_from <= NOW()
-                                   ORDER BY valid_from DESC
-                                   LIMIT 1),
-                                  135) AS rate_to_kes
-               ),
-               filtered_products AS (
-                   SELECT
-                       p.id,
-                       p.name,
-                       p.description,
-                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-                       p.stock,
-                       p.category_id,
-                       p.created_at,
-                       p.updated_at,
-                       p.status,
-                       p.created_by,
-                       p.updated_by,
-                       p.featured,
-                       p.slug,
-                       s.size,
-                       c.color_name,
-                       pr.name AS processor_name,
-                       so.name AS storage_name
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                           LEFT JOIN
-                       product_processors pp ON p.id = pp.product_id
-                           LEFT JOIN
-                       processors pr ON pp.processor_id = pr.id
-                           LEFT JOIN
-                       product_storage_options pso ON p.id = pso.product_id
-                           LEFT JOIN
-                       storage_options so ON pso.storage_option_id = so.id
-                   WHERE
-                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
-                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
-                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
-                     AND p.status = 'active'
-               )
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price_in_kes,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.status,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.slug,
-    fp.size,
-    fp.color_name,
-    fp.processor_name,
-    fp.storage_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.created_at
-LIMIT
-    $6 OFFSET $7
-`
-
-type GetAllProductsByFiltersOldestParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-	Limit      int32
-	Offset     int32
-	Column8    []string
-	Column9    []string
-}
-
-type GetAllProductsByFiltersOldestRow struct {
-	ID            uuid.UUID
-	Name          string
-	Description   sql.NullString
-	PriceInKes    string
-	Stock         sql.NullInt32
-	CategoryID    uuid.UUID
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
-	Status        string
-	CreatedBy     uuid.NullUUID
-	UpdatedBy     uuid.NullUUID
-	Featured      sql.NullBool
-	Slug          string
-	Size          sql.NullString
-	ColorName     sql.NullString
-	ProcessorName sql.NullString
-	StorageName   sql.NullString
-}
-
-func (q *Queries) GetAllProductsByFiltersOldest(ctx context.Context, arg GetAllProductsByFiltersOldestParams) ([]GetAllProductsByFiltersOldestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersOldest,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-		pq.Array(arg.Column8),
-		pq.Array(arg.Column9),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProductsByFiltersOldestRow
-	for rows.Next() {
-		var i GetAllProductsByFiltersOldestRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-			&i.Size,
-			&i.ColorName,
-			&i.ProcessorName,
-			&i.StorageName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllProductsByFiltersPriceAsc = `-- name: GetAllProductsByFiltersPriceAsc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               rate AS (
-                   SELECT COALESCE(
-                                  (SELECT rate_to_kes
-                                   FROM exchange_rates
-                                   WHERE currency_code = 'USD'
-                                     AND (valid_to IS NULL OR valid_to >= NOW())
-                                     AND valid_from <= NOW()
-                                   ORDER BY valid_from DESC
-                                   LIMIT 1),
-                                  135) AS rate_to_kes
-               ),
-               filtered_products AS (
-                   SELECT
-                       p.id,
-                       p.name,
-                       p.description,
-                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-                       p.stock,
-                       p.category_id,
-                       p.created_at,
-                       p.updated_at,
-                       p.status,
-                       p.created_by,
-                       p.updated_by,
-                       p.featured,
-                       p.slug,
-                       s.size,
-                       c.color_name,
-                       pr.name AS processor_name,
-                       so.name AS storage_name
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                           LEFT JOIN
-                       product_processors pp ON p.id = pp.product_id
-                           LEFT JOIN
-                       processors pr ON pp.processor_id = pr.id
-                           LEFT JOIN
-                       product_storage_options pso ON p.id = pso.product_id
-                           LEFT JOIN
-                       storage_options so ON pso.storage_option_id = so.id
-                   WHERE
-                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
-                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
-                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
-                     AND p.status = 'active'
-               )
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price_in_kes,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.status,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.slug,
-    fp.size,
-    fp.color_name,
-    fp.processor_name,
-    fp.storage_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.price_in_kes ASC
-LIMIT
-    $6 OFFSET $7
-`
-
-type GetAllProductsByFiltersPriceAscParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-	Limit      int32
-	Offset     int32
-	Column8    []string
-	Column9    []string
-}
-
-type GetAllProductsByFiltersPriceAscRow struct {
-	ID            uuid.UUID
-	Name          string
-	Description   sql.NullString
-	PriceInKes    string
-	Stock         sql.NullInt32
-	CategoryID    uuid.UUID
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
-	Status        string
-	CreatedBy     uuid.NullUUID
-	UpdatedBy     uuid.NullUUID
-	Featured      sql.NullBool
-	Slug          string
-	Size          sql.NullString
-	ColorName     sql.NullString
-	ProcessorName sql.NullString
-	StorageName   sql.NullString
-}
-
-func (q *Queries) GetAllProductsByFiltersPriceAsc(ctx context.Context, arg GetAllProductsByFiltersPriceAscParams) ([]GetAllProductsByFiltersPriceAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersPriceAsc,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-		pq.Array(arg.Column8),
-		pq.Array(arg.Column9),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProductsByFiltersPriceAscRow
-	for rows.Next() {
-		var i GetAllProductsByFiltersPriceAscRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-			&i.Size,
-			&i.ColorName,
-			&i.ProcessorName,
-			&i.StorageName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllProductsByFiltersPriceDesc = `-- name: GetAllProductsByFiltersPriceDesc :many
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               rate AS (
-                   SELECT COALESCE(
-                                  (SELECT rate_to_kes
-                                   FROM exchange_rates
-                                   WHERE currency_code = 'USD'
-                                     AND (valid_to IS NULL OR valid_to >= NOW())
-                                     AND valid_from <= NOW()
-                                   ORDER BY valid_from DESC
-                                   LIMIT 1),
-                                  135) AS rate_to_kes
-               ),
-               filtered_products AS (
-                   SELECT
-                       p.id,
-                       p.name,
-                       p.description,
-                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-                       p.stock,
-                       p.category_id,
-                       p.created_at,
-                       p.updated_at,
-                       p.status,
-                       p.created_by,
-                       p.updated_by,
-                       p.featured,
-                       p.slug,
-                       s.size,
-                       c.color_name,
-                       pr.name AS processor_name,
-                       so.name AS storage_name
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                           LEFT JOIN
-                       product_processors pp ON p.id = pp.product_id
-                           LEFT JOIN
-                       processors pr ON pp.processor_id = pr.id
-                           LEFT JOIN
-                       product_storage_options pso ON p.id = pso.product_id
-                           LEFT JOIN
-                       storage_options so ON pso.storage_option_id = so.id
-                   WHERE
-                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
-                     AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
-                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
-                     AND p.status = 'active'
-               )
-SELECT
-    fp.id,
-    fp.name,
-    fp.description,
-    fp.price_in_kes,
-    fp.stock,
-    fp.category_id,
-    fp.created_at,
-    fp.updated_at,
-    fp.status,
-    fp.created_by,
-    fp.updated_by,
-    fp.featured,
-    fp.slug,
-    fp.size,
-    fp.color_name,
-    fp.processor_name,
-    fp.storage_name
-FROM
-    filtered_products fp
-ORDER BY
-    fp.price_in_kes DESC
-LIMIT
-    $6 OFFSET $7
-`
-
-type GetAllProductsByFiltersPriceDescParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-	Limit      int32
-	Offset     int32
-	Column8    []string
-	Column9    []string
-}
-
-type GetAllProductsByFiltersPriceDescRow struct {
-	ID            uuid.UUID
-	Name          string
-	Description   sql.NullString
-	PriceInKes    string
-	Stock         sql.NullInt32
-	CategoryID    uuid.UUID
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
-	Status        string
-	CreatedBy     uuid.NullUUID
-	UpdatedBy     uuid.NullUUID
-	Featured      sql.NullBool
-	Slug          string
-	Size          sql.NullString
-	ColorName     sql.NullString
-	ProcessorName sql.NullString
-	StorageName   sql.NullString
-}
-
-func (q *Queries) GetAllProductsByFiltersPriceDesc(ctx context.Context, arg GetAllProductsByFiltersPriceDescParams) ([]GetAllProductsByFiltersPriceDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersPriceDesc,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		arg.Limit,
-		arg.Offset,
-		pq.Array(arg.Column8),
-		pq.Array(arg.Column9),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProductsByFiltersPriceDescRow
-	for rows.Next() {
-		var i GetAllProductsByFiltersPriceDescRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-			&i.Size,
-			&i.ColorName,
-			&i.ProcessorName,
-			&i.StorageName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFilterOptions = `-- name: GetFilterOptions :many
-SELECT DISTINCT
-    col.color_name AS filter_option, 'color' AS filter_type
-FROM
-    colors col
-        JOIN product_colors pc ON col.id = pc.color_id
-        JOIN products p ON pc.product_id = p.id
-WHERE
-    p.status = 'active'
-
-UNION
-
-SELECT DISTINCT
-    sz.size AS filter_option, 'size' AS filter_type
-FROM
-    sizes sz
-        JOIN product_sizes ps ON sz.id = ps.size_id
-        JOIN products p ON ps.product_id = p.id
-WHERE
-    p.status = 'active'
-
-UNION
-
-SELECT DISTINCT
-    pr.name AS filter_option, 'processor' AS filter_type
-FROM
-    processors pr
-        JOIN product_processors pp ON pr.id = pp.processor_id
-        JOIN products p ON pp.product_id = p.id
-WHERE
-    p.status = 'active'
-
-UNION
-
-SELECT DISTINCT
-    so.name AS filter_option, 'storage' AS filter_type
-FROM
-    storage_options so
-        JOIN product_storage_options pso ON so.id = pso.storage_option_id
-        JOIN products p ON pso.product_id = p.id
-WHERE
-    p.status = 'active'
-`
-
-type GetFilterOptionsRow struct {
-	FilterOption string
-	FilterType   string
-}
-
-func (q *Queries) GetFilterOptions(ctx context.Context) ([]GetFilterOptionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFilterOptions)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFilterOptionsRow
-	for rows.Next() {
-		var i GetFilterOptionsRow
-		if err := rows.Scan(&i.FilterOption, &i.FilterType); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getProductByID = `-- name: GetProductByID :one
@@ -1779,895 +509,6 @@ func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.U
 	return items, nil
 }
 
-const getProductsByFiltersDefault = `-- name: GetProductsByFiltersDefault :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-    p.stock,
-    p.category_id,
-    p.created_at,
-    p.updated_at,
-    p.status,
-    p.created_by,
-    p.updated_by,
-    p.featured,
-    p.slug
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-         LEFT JOIN colors c ON pc.color_id = c.id
-         LEFT JOIN product_processors pp ON p.id = pp.product_id
-         LEFT JOIN processors pr ON pp.processor_id = pr.id
-         LEFT JOIN product_storage_options pso ON p.id = pso.product_id
-         LEFT JOIN storage_options so ON pso.storage_option_id = so.id
-         LEFT JOIN product_sizes psz ON p.id = psz.product_id
-         LEFT JOIN sizes s ON psz.size_id = s.id
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
-  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
-  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
-  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
-  AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
-  AND p.status = 'active'
-ORDER BY p.created_at DESC
-`
-
-type GetProductsByFiltersDefaultParams struct {
-	ID         uuid.UUID
-	Column2    []string
-	Column3    []string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	UsdPrice   string
-	UsdPrice_2 string
-}
-
-type GetProductsByFiltersDefaultRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	PriceInKes  string
-	Stock       sql.NullInt32
-	CategoryID  uuid.UUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	Status      string
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Slug        string
-}
-
-func (q *Queries) GetProductsByFiltersDefault(ctx context.Context, arg GetProductsByFiltersDefaultParams) ([]GetProductsByFiltersDefaultRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByFiltersDefault,
-		arg.ID,
-		pq.Array(arg.Column2),
-		pq.Array(arg.Column3),
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetProductsByFiltersDefaultRow
-	for rows.Next() {
-		var i GetProductsByFiltersDefaultRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProductsByFiltersNameAsc = `-- name: GetProductsByFiltersNameAsc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-    p.stock,
-    p.category_id,
-    p.created_at,
-    p.updated_at,
-    p.status,
-    p.created_by,
-    p.updated_by,
-    p.featured,
-    p.slug
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-         LEFT JOIN colors c ON pc.color_id = c.id
-         LEFT JOIN product_processors pp ON p.id = pp.product_id
-         LEFT JOIN processors pr ON pp.processor_id = pr.id
-         LEFT JOIN product_storage_options pso ON p.id = pso.product_id
-         LEFT JOIN storage_options so ON pso.storage_option_id = so.id
-         LEFT JOIN product_sizes psz ON p.id = psz.product_id
-         LEFT JOIN sizes s ON psz.size_id = s.id
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
-  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
-  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
-  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
-  AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
-  AND p.status = 'active'
-ORDER BY p.name ASC
-`
-
-type GetProductsByFiltersNameAscParams struct {
-	ID         uuid.UUID
-	Column2    []string
-	Column3    []string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	UsdPrice   string
-	UsdPrice_2 string
-}
-
-type GetProductsByFiltersNameAscRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	PriceInKes  string
-	Stock       sql.NullInt32
-	CategoryID  uuid.UUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	Status      string
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Slug        string
-}
-
-func (q *Queries) GetProductsByFiltersNameAsc(ctx context.Context, arg GetProductsByFiltersNameAscParams) ([]GetProductsByFiltersNameAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByFiltersNameAsc,
-		arg.ID,
-		pq.Array(arg.Column2),
-		pq.Array(arg.Column3),
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetProductsByFiltersNameAscRow
-	for rows.Next() {
-		var i GetProductsByFiltersNameAscRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProductsByFiltersNameDesc = `-- name: GetProductsByFiltersNameDesc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-    p.stock,
-    p.category_id,
-    p.created_at,
-    p.updated_at,
-    p.status,
-    p.created_by,
-    p.updated_by,
-    p.featured,
-    p.slug
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-         LEFT JOIN colors c ON pc.color_id = c.id
-         LEFT JOIN product_processors pp ON p.id = pp.product_id
-         LEFT JOIN processors pr ON pp.processor_id = pr.id
-         LEFT JOIN product_storage_options pso ON p.id = pso.product_id
-         LEFT JOIN storage_options so ON pso.storage_option_id = so.id
-         LEFT JOIN product_sizes psz ON p.id = psz.product_id
-         LEFT JOIN sizes s ON psz.size_id = s.id
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
-  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
-  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
-  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
-  AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
-  AND p.status = 'active'
-ORDER BY p.name DESC
-`
-
-type GetProductsByFiltersNameDescParams struct {
-	ID         uuid.UUID
-	Column2    []string
-	Column3    []string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	UsdPrice   string
-	UsdPrice_2 string
-}
-
-type GetProductsByFiltersNameDescRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	PriceInKes  string
-	Stock       sql.NullInt32
-	CategoryID  uuid.UUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	Status      string
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Slug        string
-}
-
-func (q *Queries) GetProductsByFiltersNameDesc(ctx context.Context, arg GetProductsByFiltersNameDescParams) ([]GetProductsByFiltersNameDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByFiltersNameDesc,
-		arg.ID,
-		pq.Array(arg.Column2),
-		pq.Array(arg.Column3),
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetProductsByFiltersNameDescRow
-	for rows.Next() {
-		var i GetProductsByFiltersNameDescRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProductsByFiltersNewest = `-- name: GetProductsByFiltersNewest :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-    p.stock,
-    p.category_id,
-    p.created_at,
-    p.updated_at,
-    p.status,
-    p.created_by,
-    p.updated_by,
-    p.featured,
-    p.slug
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-         LEFT JOIN colors c ON pc.color_id = c.id
-         LEFT JOIN product_processors pp ON p.id = pp.product_id
-         LEFT JOIN processors pr ON pp.processor_id = pr.id
-         LEFT JOIN product_storage_options pso ON p.id = pso.product_id
-         LEFT JOIN storage_options so ON pso.storage_option_id = so.id
-         LEFT JOIN product_sizes psz ON p.id = psz.product_id
-         LEFT JOIN sizes s ON psz.size_id = s.id
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
-  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
-  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
-  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
-  AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
-  AND p.status = 'active'
-ORDER BY p.created_at DESC
-`
-
-type GetProductsByFiltersNewestParams struct {
-	ID         uuid.UUID
-	Column2    []string
-	Column3    []string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	UsdPrice   string
-	UsdPrice_2 string
-}
-
-type GetProductsByFiltersNewestRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	PriceInKes  string
-	Stock       sql.NullInt32
-	CategoryID  uuid.UUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	Status      string
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Slug        string
-}
-
-func (q *Queries) GetProductsByFiltersNewest(ctx context.Context, arg GetProductsByFiltersNewestParams) ([]GetProductsByFiltersNewestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByFiltersNewest,
-		arg.ID,
-		pq.Array(arg.Column2),
-		pq.Array(arg.Column3),
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetProductsByFiltersNewestRow
-	for rows.Next() {
-		var i GetProductsByFiltersNewestRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProductsByFiltersOldest = `-- name: GetProductsByFiltersOldest :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-    p.stock,
-    p.category_id,
-    p.created_at,
-    p.updated_at,
-    p.status,
-    p.created_by,
-    p.updated_by,
-    p.featured,
-    p.slug
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-         LEFT JOIN colors c ON pc.color_id = c.id
-         LEFT JOIN product_processors pp ON p.id = pp.product_id
-         LEFT JOIN processors pr ON pp.processor_id = pr.id
-         LEFT JOIN product_storage_options pso ON p.id = pso.product_id
-         LEFT JOIN storage_options so ON pso.storage_option_id = so.id
-         LEFT JOIN product_sizes psz ON p.id = psz.product_id
-         LEFT JOIN sizes s ON psz.size_id = s.id
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
-  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
-  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
-  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
-  AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
-  AND p.status = 'active'
-ORDER BY p.created_at ASC
-`
-
-type GetProductsByFiltersOldestParams struct {
-	ID         uuid.UUID
-	Column2    []string
-	Column3    []string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	UsdPrice   string
-	UsdPrice_2 string
-}
-
-type GetProductsByFiltersOldestRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	PriceInKes  string
-	Stock       sql.NullInt32
-	CategoryID  uuid.UUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	Status      string
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Slug        string
-}
-
-func (q *Queries) GetProductsByFiltersOldest(ctx context.Context, arg GetProductsByFiltersOldestParams) ([]GetProductsByFiltersOldestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByFiltersOldest,
-		arg.ID,
-		pq.Array(arg.Column2),
-		pq.Array(arg.Column3),
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetProductsByFiltersOldestRow
-	for rows.Next() {
-		var i GetProductsByFiltersOldestRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProductsByFiltersPriceAsc = `-- name: GetProductsByFiltersPriceAsc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-    p.stock,
-    p.category_id,
-    p.created_at,
-    p.updated_at,
-    p.status,
-    p.created_by,
-    p.updated_by,
-    p.featured,
-    p.slug
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-         LEFT JOIN colors c ON pc.color_id = c.id
-         LEFT JOIN product_processors pp ON p.id = pp.product_id
-         LEFT JOIN processors pr ON pp.processor_id = pr.id
-         LEFT JOIN product_storage_options pso ON p.id = pso.product_id
-         LEFT JOIN storage_options so ON pso.storage_option_id = so.id
-         LEFT JOIN product_sizes psz ON p.id = psz.product_id
-         LEFT JOIN sizes s ON psz.size_id = s.id
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
-  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
-  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
-  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
-  AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
-  AND p.status = 'active'
-ORDER BY p.usd_price ASC
-`
-
-type GetProductsByFiltersPriceAscParams struct {
-	ID         uuid.UUID
-	Column2    []string
-	Column3    []string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	UsdPrice   string
-	UsdPrice_2 string
-}
-
-type GetProductsByFiltersPriceAscRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	PriceInKes  string
-	Stock       sql.NullInt32
-	CategoryID  uuid.UUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	Status      string
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Slug        string
-}
-
-func (q *Queries) GetProductsByFiltersPriceAsc(ctx context.Context, arg GetProductsByFiltersPriceAscParams) ([]GetProductsByFiltersPriceAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByFiltersPriceAsc,
-		arg.ID,
-		pq.Array(arg.Column2),
-		pq.Array(arg.Column3),
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetProductsByFiltersPriceAscRow
-	for rows.Next() {
-		var i GetProductsByFiltersPriceAscRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getProductsByFiltersPriceDesc = `-- name: GetProductsByFiltersPriceDesc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
-    UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
-    p.stock,
-    p.category_id,
-    p.created_at,
-    p.updated_at,
-    p.status,
-    p.created_by,
-    p.updated_by,
-    p.featured,
-    p.slug
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_colors pc ON p.id = pc.product_id
-         LEFT JOIN colors c ON pc.color_id = c.id
-         LEFT JOIN product_processors pp ON p.id = pp.product_id
-         LEFT JOIN processors pr ON pp.processor_id = pr.id
-         LEFT JOIN product_storage_options pso ON p.id = pso.product_id
-         LEFT JOIN storage_options so ON pso.storage_option_id = so.id
-         LEFT JOIN product_sizes psz ON p.id = psz.product_id
-         LEFT JOIN sizes s ON psz.size_id = s.id
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
-  AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
-  AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
-  AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
-  AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
-  AND p.status = 'active'
-ORDER BY p.usd_price DESC
-`
-
-type GetProductsByFiltersPriceDescParams struct {
-	ID         uuid.UUID
-	Column2    []string
-	Column3    []string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	UsdPrice   string
-	UsdPrice_2 string
-}
-
-type GetProductsByFiltersPriceDescRow struct {
-	ID          uuid.UUID
-	Name        string
-	Description sql.NullString
-	PriceInKes  string
-	Stock       sql.NullInt32
-	CategoryID  uuid.UUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-	Status      string
-	CreatedBy   uuid.NullUUID
-	UpdatedBy   uuid.NullUUID
-	Featured    sql.NullBool
-	Slug        string
-}
-
-func (q *Queries) GetProductsByFiltersPriceDesc(ctx context.Context, arg GetProductsByFiltersPriceDescParams) ([]GetProductsByFiltersPriceDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByFiltersPriceDesc,
-		arg.ID,
-		pq.Array(arg.Column2),
-		pq.Array(arg.Column3),
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetProductsByFiltersPriceDescRow
-	for rows.Next() {
-		var i GetProductsByFiltersPriceDescRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.PriceInKes,
-			&i.Stock,
-			&i.CategoryID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Status,
-			&i.CreatedBy,
-			&i.UpdatedBy,
-			&i.Featured,
-			&i.Slug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getProductsByParentCategoryID = `-- name: GetProductsByParentCategoryID :many
 WITH RECURSIVE category_hierarchy AS (
     SELECT
@@ -2756,100 +597,6 @@ func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, arg GetProd
 		return nil, err
 	}
 	return items, nil
-}
-
-const getTotalProductsByFilters = `-- name: GetTotalProductsByFilters :one
-WITH RECURSIVE category_hierarchy AS (
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-    WHERE
-        c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON c.parent_id = ch.id
-),
-               rate AS (
-                   SELECT COALESCE(
-                                  (SELECT rate_to_kes
-                                   FROM exchange_rates
-                                   WHERE currency_code = 'USD'
-                                     AND (valid_to IS NULL OR valid_to >= NOW())
-                                     AND valid_from <= NOW()
-                                   ORDER BY valid_from DESC
-                                   LIMIT 1),
-                                  135) AS rate_to_kes
-               ),
-               filtered_products AS (
-                   SELECT
-                       p.id
-                   FROM
-                       products p
-                           LEFT JOIN
-                       product_sizes ps ON p.id = ps.product_id
-                           LEFT JOIN
-                       sizes s ON ps.size_id = s.id
-                           LEFT JOIN
-                       product_colors pc ON p.id = pc.product_id
-                           LEFT JOIN
-                       colors c ON pc.color_id = c.id
-                           LEFT JOIN
-                       product_processors pp ON p.id = pp.product_id
-                           LEFT JOIN
-                       processors pr ON pp.processor_id = pr.id
-                           LEFT JOIN
-                       product_storage_options pso ON p.id = pso.product_id
-                           LEFT JOIN
-                       storage_options so ON pso.storage_option_id = so.id
-                   WHERE
-                       (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
-                     AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
-                     AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
-                     AND (pr.name = ANY($6::VARCHAR[]) OR $6 IS NULL)
-                     AND (so.name = ANY($7::VARCHAR[]) OR $7 IS NULL)
-                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
-                     AND p.status = 'active'
-               )
-SELECT
-    COUNT(*) AS total_products
-FROM
-    filtered_products
-`
-
-type GetTotalProductsByFiltersParams struct {
-	Column1    []string
-	UsdPrice   string
-	UsdPrice_2 string
-	Column4    []string
-	Column5    []string
-	Column6    []string
-	Column7    []string
-}
-
-func (q *Queries) GetTotalProductsByFilters(ctx context.Context, arg GetTotalProductsByFiltersParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getTotalProductsByFilters,
-		pq.Array(arg.Column1),
-		arg.UsdPrice,
-		arg.UsdPrice_2,
-		pq.Array(arg.Column4),
-		pq.Array(arg.Column5),
-		pq.Array(arg.Column6),
-		pq.Array(arg.Column7),
-	)
-	var total_products int64
-	err := row.Scan(&total_products)
-	return total_products, err
 }
 
 const getV2ProductDetailBySlug = `-- name: GetV2ProductDetailBySlug :one
@@ -2954,6 +701,7 @@ func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug string) (Ge
 }
 
 const getV2Products = `-- name: GetV2Products :many
+
 WITH first_image AS (
     SELECT DISTINCT ON (product_id) product_id, image_url
     FROM product_images
@@ -3014,6 +762,1326 @@ type GetV2ProductsRow struct {
 	Categoryname sql.NullString
 }
 
+// -- name: CountFilteredProducts :one
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	filtered_products AS (
+//	    SELECT
+//	        p.id
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	    WHERE
+//	        p.category_id IN (SELECT id FROM category_hierarchy)
+//	      -- Size filter
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      -- Color filter
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      -- Price range filter
+//	      AND p.usd_price BETWEEN $2 AND $3
+//	      -- Status filter
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT COUNT(*) AS total_count FROM filtered_products;
+//
+// -- name: GetProductsByFiltersPriceAsc :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.id = $1
+//	UNION ALL
+//	SELECT c.id, c.name
+//	FROM categories c
+//	         INNER JOIN category_tree ct ON ct.id = c.parent_id
+//
+// ), rate AS (
+//
+//	SELECT COALESCE(
+//	               (SELECT rate_to_kes
+//	                FROM exchange_rates
+//	                WHERE currency_code = 'USD'
+//	                  AND (valid_to IS NULL OR valid_to >= NOW())
+//	                  AND valid_from <= NOW()
+//	                ORDER BY valid_from DESC
+//	                LIMIT 1),
+//	               135) AS rate_to_kes
+//
+// )
+// SELECT DISTINCT
+//
+//	p.id,
+//	p.name,
+//	p.description,
+//	(p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	p.stock,
+//	p.category_id,
+//	p.created_at,
+//	p.updated_at,
+//	p.status,
+//	p.created_by,
+//	p.updated_by,
+//	p.featured,
+//	p.slug
+//
+// FROM products p
+//
+//	JOIN category_tree ct ON p.category_id = ct.id
+//	LEFT JOIN product_colors pc ON p.id = pc.product_id
+//	LEFT JOIN colors c ON pc.color_id = c.id
+//	LEFT JOIN product_processors pp ON p.id = pp.product_id
+//	LEFT JOIN processors pr ON pp.processor_id = pr.id
+//	LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+//	LEFT JOIN product_sizes psz ON p.id = psz.product_id
+//	LEFT JOIN sizes s ON psz.size_id = s.id
+//
+// WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+//
+//	AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+//	AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+//	AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+//	AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+//	AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
+//	AND p.status = 'active'
+//
+// ORDER BY p.usd_price ASC;
+//
+// -- name: GetProductsByFiltersPriceDesc :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.id = $1
+//	UNION ALL
+//	SELECT c.id, c.name
+//	FROM categories c
+//	         INNER JOIN category_tree ct ON ct.id = c.parent_id
+//
+// ), rate AS (
+//
+//	SELECT COALESCE(
+//	               (SELECT rate_to_kes
+//	                FROM exchange_rates
+//	                WHERE currency_code = 'USD'
+//	                  AND (valid_to IS NULL OR valid_to >= NOW())
+//	                  AND valid_from <= NOW()
+//	                ORDER BY valid_from DESC
+//	                LIMIT 1),
+//	               135) AS rate_to_kes
+//
+// )
+// SELECT DISTINCT
+//
+//	p.id,
+//	p.name,
+//	p.description,
+//	(p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	p.stock,
+//	p.category_id,
+//	p.created_at,
+//	p.updated_at,
+//	p.status,
+//	p.created_by,
+//	p.updated_by,
+//	p.featured,
+//	p.slug
+//
+// FROM products p
+//
+//	JOIN category_tree ct ON p.category_id = ct.id
+//	LEFT JOIN product_colors pc ON p.id = pc.product_id
+//	LEFT JOIN colors c ON pc.color_id = c.id
+//	LEFT JOIN product_processors pp ON p.id = pp.product_id
+//	LEFT JOIN processors pr ON pp.processor_id = pr.id
+//	LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+//	LEFT JOIN product_sizes psz ON p.id = psz.product_id
+//	LEFT JOIN sizes s ON psz.size_id = s.id
+//
+// WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+//
+//	AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+//	AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+//	AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+//	AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+//	AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
+//	AND p.status = 'active'
+//
+// ORDER BY p.usd_price DESC;
+//
+// -- name: GetProductsByFiltersNameAsc :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.id = $1
+//	UNION ALL
+//	SELECT c.id, c.name
+//	FROM categories c
+//	         INNER JOIN category_tree ct ON ct.id = c.parent_id
+//
+// ), rate AS (
+//
+//	SELECT COALESCE(
+//	               (SELECT rate_to_kes
+//	                FROM exchange_rates
+//	                WHERE currency_code = 'USD'
+//	                  AND (valid_to IS NULL OR valid_to >= NOW())
+//	                  AND valid_from <= NOW()
+//	                ORDER BY valid_from DESC
+//	                LIMIT 1),
+//	               135) AS rate_to_kes
+//
+// )
+// SELECT DISTINCT
+//
+//	p.id,
+//	p.name,
+//	p.description,
+//	(p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	p.stock,
+//	p.category_id,
+//	p.created_at,
+//	p.updated_at,
+//	p.status,
+//	p.created_by,
+//	p.updated_by,
+//	p.featured,
+//	p.slug
+//
+// FROM products p
+//
+//	JOIN category_tree ct ON p.category_id = ct.id
+//	LEFT JOIN product_colors pc ON p.id = pc.product_id
+//	LEFT JOIN colors c ON pc.color_id = c.id
+//	LEFT JOIN product_processors pp ON p.id = pp.product_id
+//	LEFT JOIN processors pr ON pp.processor_id = pr.id
+//	LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+//	LEFT JOIN product_sizes psz ON p.id = psz.product_id
+//	LEFT JOIN sizes s ON psz.size_id = s.id
+//
+// WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+//
+//	AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+//	AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+//	AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+//	AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+//	AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
+//	AND p.status = 'active'
+//
+// ORDER BY p.name ASC;
+//
+// -- name: GetProductsByFiltersNameDesc :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.id = $1
+//	UNION ALL
+//	SELECT c.id, c.name
+//	FROM categories c
+//	         INNER JOIN category_tree ct ON ct.id = c.parent_id
+//
+// ), rate AS (
+//
+//	SELECT COALESCE(
+//	               (SELECT rate_to_kes
+//	                FROM exchange_rates
+//	                WHERE currency_code = 'USD'
+//	                  AND (valid_to IS NULL OR valid_to >= NOW())
+//	                  AND valid_from <= NOW()
+//	                ORDER BY valid_from DESC
+//	                LIMIT 1),
+//	               135) AS rate_to_kes
+//
+// )
+// SELECT DISTINCT
+//
+//	p.id,
+//	p.name,
+//	p.description,
+//	(p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	p.stock,
+//	p.category_id,
+//	p.created_at,
+//	p.updated_at,
+//	p.status,
+//	p.created_by,
+//	p.updated_by,
+//	p.featured,
+//	p.slug
+//
+// FROM products p
+//
+//	JOIN category_tree ct ON p.category_id = ct.id
+//	LEFT JOIN product_colors pc ON p.id = pc.product_id
+//	LEFT JOIN colors c ON pc.color_id = c.id
+//	LEFT JOIN product_processors pp ON p.id = pp.product_id
+//	LEFT JOIN processors pr ON pp.processor_id = pr.id
+//	LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+//	LEFT JOIN product_sizes psz ON p.id = psz.product_id
+//	LEFT JOIN sizes s ON psz.size_id = s.id
+//
+// WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+//
+//	AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+//	AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+//	AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+//	AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+//	AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
+//	AND p.status = 'active'
+//
+// ORDER BY p.name DESC;
+//
+// -- name: GetProductsByFiltersDefault :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.id = $1
+//	UNION ALL
+//	SELECT c.id, c.name
+//	FROM categories c
+//	         INNER JOIN category_tree ct ON ct.id = c.parent_id
+//
+// ), rate AS (
+//
+//	SELECT COALESCE(
+//	               (SELECT rate_to_kes
+//	                FROM exchange_rates
+//	                WHERE currency_code = 'USD'
+//	                  AND (valid_to IS NULL OR valid_to >= NOW())
+//	                  AND valid_from <= NOW()
+//	                ORDER BY valid_from DESC
+//	                LIMIT 1),
+//	               135) AS rate_to_kes
+//
+// )
+// SELECT DISTINCT
+//
+//	p.id,
+//	p.name,
+//	p.description,
+//	(p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	p.stock,
+//	p.category_id,
+//	p.created_at,
+//	p.updated_at,
+//	p.status,
+//	p.created_by,
+//	p.updated_by,
+//	p.featured,
+//	p.slug
+//
+// FROM products p
+//
+//	JOIN category_tree ct ON p.category_id = ct.id
+//	LEFT JOIN product_colors pc ON p.id = pc.product_id
+//	LEFT JOIN colors c ON pc.color_id = c.id
+//	LEFT JOIN product_processors pp ON p.id = pp.product_id
+//	LEFT JOIN processors pr ON pp.processor_id = pr.id
+//	LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+//	LEFT JOIN product_sizes psz ON p.id = psz.product_id
+//	LEFT JOIN sizes s ON psz.size_id = s.id
+//
+// WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+//
+//	AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+//	AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+//	AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+//	AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+//	AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
+//	AND p.status = 'active'
+//
+// ORDER BY p.created_at DESC;
+//
+// -- name: GetProductsByFiltersNewest :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.id = $1
+//	UNION ALL
+//	SELECT c.id, c.name
+//	FROM categories c
+//	         INNER JOIN category_tree ct ON ct.id = c.parent_id
+//
+// ), rate AS (
+//
+//	SELECT COALESCE(
+//	               (SELECT rate_to_kes
+//	                FROM exchange_rates
+//	                WHERE currency_code = 'USD'
+//	                  AND (valid_to IS NULL OR valid_to >= NOW())
+//	                  AND valid_from <= NOW()
+//	                ORDER BY valid_from DESC
+//	                LIMIT 1),
+//	               135) AS rate_to_kes
+//
+// )
+// SELECT DISTINCT
+//
+//	p.id,
+//	p.name,
+//	p.description,
+//	(p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	p.stock,
+//	p.category_id,
+//	p.created_at,
+//	p.updated_at,
+//	p.status,
+//	p.created_by,
+//	p.updated_by,
+//	p.featured,
+//	p.slug
+//
+// FROM products p
+//
+//	JOIN category_tree ct ON p.category_id = ct.id
+//	LEFT JOIN product_colors pc ON p.id = pc.product_id
+//	LEFT JOIN colors c ON pc.color_id = c.id
+//	LEFT JOIN product_processors pp ON p.id = pp.product_id
+//	LEFT JOIN processors pr ON pp.processor_id = pr.id
+//	LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+//	LEFT JOIN product_sizes psz ON p.id = psz.product_id
+//	LEFT JOIN sizes s ON psz.size_id = s.id
+//
+// WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+//
+//	AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+//	AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+//	AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+//	AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+//	AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
+//	AND p.status = 'active'
+//
+// ORDER BY p.created_at DESC;
+//
+// -- name: GetProductsByFiltersOldest :many
+// WITH RECURSIVE category_tree AS (
+//
+//	SELECT c.id, c.name
+//	FROM categories c
+//	WHERE c.id = $1
+//	UNION ALL
+//	SELECT c.id, c.name
+//	FROM categories c
+//	         INNER JOIN category_tree ct ON ct.id = c.parent_id
+//
+// ), rate AS (
+//
+//	SELECT COALESCE(
+//	               (SELECT rate_to_kes
+//	                FROM exchange_rates
+//	                WHERE currency_code = 'USD'
+//	                  AND (valid_to IS NULL OR valid_to >= NOW())
+//	                  AND valid_from <= NOW()
+//	                ORDER BY valid_from DESC
+//	                LIMIT 1),
+//	               135) AS rate_to_kes
+//
+// )
+// SELECT DISTINCT
+//
+//	p.id,
+//	p.name,
+//	p.description,
+//	(p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	p.stock,
+//	p.category_id,
+//	p.created_at,
+//	p.updated_at,
+//	p.status,
+//	p.created_by,
+//	p.updated_by,
+//	p.featured,
+//	p.slug
+//
+// FROM products p
+//
+//	JOIN category_tree ct ON p.category_id = ct.id
+//	LEFT JOIN product_colors pc ON p.id = pc.product_id
+//	LEFT JOIN colors c ON pc.color_id = c.id
+//	LEFT JOIN product_processors pp ON p.id = pp.product_id
+//	LEFT JOIN processors pr ON pp.processor_id = pr.id
+//	LEFT JOIN product_storage_options pso ON p.id = pso.product_id
+//	LEFT JOIN storage_options so ON pso.storage_option_id = so.id
+//	LEFT JOIN product_sizes psz ON p.id = psz.product_id
+//	LEFT JOIN sizes s ON psz.size_id = s.id
+//
+// WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
+//
+//	AND (array_length($3::text[], 1) IS NULL OR c.color_name = ANY($3))
+//	AND (array_length($4::text[], 1) IS NULL OR pr.name = ANY($4))
+//	AND (array_length($5::text[], 1) IS NULL OR so.name = ANY($5))
+//	AND (array_length($6::text[], 1) IS NULL OR s.size = ANY($6))
+//	AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $7 AND $8
+//	AND p.status = 'active'
+//
+// ORDER BY p.created_at ASC;
+//
+// -- name: GetFilterOptions :many
+// SELECT DISTINCT
+//
+//	col.color_name AS filter_option, 'color' AS filter_type
+//
+// FROM
+//
+//	colors col
+//	    JOIN product_colors pc ON col.id = pc.color_id
+//	    JOIN products p ON pc.product_id = p.id
+//
+// WHERE
+//
+//	p.status = 'active'
+//
+// # UNION
+//
+// SELECT DISTINCT
+//
+//	sz.size AS filter_option, 'size' AS filter_type
+//
+// FROM
+//
+//	sizes sz
+//	    JOIN product_sizes ps ON sz.id = ps.size_id
+//	    JOIN products p ON ps.product_id = p.id
+//
+// WHERE
+//
+//	p.status = 'active'
+//
+// # UNION
+//
+// SELECT DISTINCT
+//
+//	pr.name AS filter_option, 'processor' AS filter_type
+//
+// FROM
+//
+//	processors pr
+//	    JOIN product_processors pp ON pr.id = pp.processor_id
+//	    JOIN products p ON pp.product_id = p.id
+//
+// WHERE
+//
+//	p.status = 'active'
+//
+// # UNION
+//
+// SELECT DISTINCT
+//
+//	so.name AS filter_option, 'storage' AS filter_type
+//
+// FROM
+//
+//	storage_options so
+//	    JOIN product_storage_options pso ON so.id = pso.storage_option_id
+//	    JOIN products p ON pso.product_id = p.id
+//
+// WHERE
+//
+//	p.status = 'active';
+//
+// -- name: GetAllProductsByFiltersPriceAsc :many
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	rate AS (
+//	    SELECT COALESCE(
+//	                   (SELECT rate_to_kes
+//	                    FROM exchange_rates
+//	                    WHERE currency_code = 'USD'
+//	                      AND (valid_to IS NULL OR valid_to >= NOW())
+//	                      AND valid_from <= NOW()
+//	                    ORDER BY valid_from DESC
+//	                    LIMIT 1),
+//	                   135) AS rate_to_kes
+//	),
+//	filtered_products AS (
+//	    SELECT
+//	        p.id,
+//	        p.name,
+//	        p.description,
+//	        (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	        p.stock,
+//	        p.category_id,
+//	        p.created_at,
+//	        p.updated_at,
+//	        p.status,
+//	        p.created_by,
+//	        p.updated_by,
+//	        p.featured,
+//	        p.slug,
+//	        s.size,
+//	        c.color_name,
+//	        pr.name AS processor_name,
+//	        so.name AS storage_name
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	            LEFT JOIN
+//	        product_processors pp ON p.id = pp.product_id
+//	            LEFT JOIN
+//	        processors pr ON pp.processor_id = pr.id
+//	            LEFT JOIN
+//	        product_storage_options pso ON p.id = pso.product_id
+//	            LEFT JOIN
+//	        storage_options so ON pso.storage_option_id = so.id
+//	    WHERE
+//	        (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+//	      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+//	      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT
+//
+//	fp.id,
+//	fp.name,
+//	fp.description,
+//	fp.price_in_kes,
+//	fp.stock,
+//	fp.category_id,
+//	fp.created_at,
+//	fp.updated_at,
+//	fp.status,
+//	fp.created_by,
+//	fp.updated_by,
+//	fp.featured,
+//	fp.slug,
+//	fp.size,
+//	fp.color_name,
+//	fp.processor_name,
+//	fp.storage_name
+//
+// FROM
+//
+//	filtered_products fp
+//
+// ORDER BY
+//
+//	fp.price_in_kes ASC
+//
+// LIMIT
+//
+//	$6 OFFSET $7;
+//
+// -- name: GetAllProductsByFiltersPriceDesc :many
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	rate AS (
+//	    SELECT COALESCE(
+//	                   (SELECT rate_to_kes
+//	                    FROM exchange_rates
+//	                    WHERE currency_code = 'USD'
+//	                      AND (valid_to IS NULL OR valid_to >= NOW())
+//	                      AND valid_from <= NOW()
+//	                    ORDER BY valid_from DESC
+//	                    LIMIT 1),
+//	                   135) AS rate_to_kes
+//	),
+//	filtered_products AS (
+//	    SELECT
+//	        p.id,
+//	        p.name,
+//	        p.description,
+//	        (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	        p.stock,
+//	        p.category_id,
+//	        p.created_at,
+//	        p.updated_at,
+//	        p.status,
+//	        p.created_by,
+//	        p.updated_by,
+//	        p.featured,
+//	        p.slug,
+//	        s.size,
+//	        c.color_name,
+//	        pr.name AS processor_name,
+//	        so.name AS storage_name
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	            LEFT JOIN
+//	        product_processors pp ON p.id = pp.product_id
+//	            LEFT JOIN
+//	        processors pr ON pp.processor_id = pr.id
+//	            LEFT JOIN
+//	        product_storage_options pso ON p.id = pso.product_id
+//	            LEFT JOIN
+//	        storage_options so ON pso.storage_option_id = so.id
+//	    WHERE
+//	        (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+//	      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+//	      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT
+//
+//	fp.id,
+//	fp.name,
+//	fp.description,
+//	fp.price_in_kes,
+//	fp.stock,
+//	fp.category_id,
+//	fp.created_at,
+//	fp.updated_at,
+//	fp.status,
+//	fp.created_by,
+//	fp.updated_by,
+//	fp.featured,
+//	fp.slug,
+//	fp.size,
+//	fp.color_name,
+//	fp.processor_name,
+//	fp.storage_name
+//
+// FROM
+//
+//	filtered_products fp
+//
+// ORDER BY
+//
+//	fp.price_in_kes DESC
+//
+// LIMIT
+//
+//	$6 OFFSET $7;
+//
+// -- name: GetAllProductsByFiltersNameAsc :many
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	rate AS (
+//	    SELECT COALESCE(
+//	                   (SELECT rate_to_kes
+//	                    FROM exchange_rates
+//	                    WHERE currency_code = 'USD'
+//	                      AND (valid_to IS NULL OR valid_to >= NOW())
+//	                      AND valid_from <= NOW()
+//	                    ORDER BY valid_from DESC
+//	                    LIMIT 1),
+//	                   135) AS rate_to_kes
+//	),
+//	filtered_products AS (
+//	    SELECT
+//	        p.id,
+//	        p.name,
+//	        p.description,
+//	        (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	        p.stock,
+//	        p.category_id,
+//	        p.created_at,
+//	        p.updated_at,
+//	        p.status,
+//	        p.created_by,
+//	        p.updated_by,
+//	        p.featured,
+//	        p.slug,
+//	        s.size,
+//	        c.color_name,
+//	        pr.name AS processor_name,
+//	        so.name AS storage_name
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	            LEFT JOIN
+//	        product_processors pp ON p.id = pp.product_id
+//	            LEFT JOIN
+//	        processors pr ON pp.processor_id = pr.id
+//	            LEFT JOIN
+//	        product_storage_options pso ON p.id = pso.product_id
+//	            LEFT JOIN
+//	        storage_options so ON pso.storage_option_id = so.id
+//	    WHERE
+//	        (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+//	      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+//	      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT
+//
+//	fp.id,
+//	fp.name,
+//	fp.description,
+//	fp.price_in_kes,
+//	fp.stock,
+//	fp.category_id,
+//	fp.created_at,
+//	fp.updated_at,
+//	fp.status,
+//	fp.created_by,
+//	fp.updated_by,
+//	fp.featured,
+//	fp.slug,
+//	fp.size,
+//	fp.color_name,
+//	fp.processor_name,
+//	fp.storage_name
+//
+// FROM
+//
+//	filtered_products fp
+//
+// ORDER BY
+//
+//	fp.name
+//
+// LIMIT
+//
+//	$6 OFFSET $7;
+//
+// -- name: GetAllProductsByFiltersNameDesc :many
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	rate AS (
+//	    SELECT COALESCE(
+//	                   (SELECT rate_to_kes
+//	                    FROM exchange_rates
+//	                    WHERE currency_code = 'USD'
+//	                      AND (valid_to IS NULL OR valid_to >= NOW())
+//	                      AND valid_from <= NOW()
+//	                    ORDER BY valid_from DESC
+//	                    LIMIT 1),
+//	                   135) AS rate_to_kes
+//	),
+//	filtered_products AS (
+//	    SELECT
+//	        p.id,
+//	        p.name,
+//	        p.description,
+//	        (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	        p.stock,
+//	        p.category_id,
+//	        p.created_at,
+//	        p.updated_at,
+//	        p.status,
+//	        p.created_by,
+//	        p.updated_by,
+//	        p.featured,
+//	        p.slug,
+//	        s.size,
+//	        c.color_name,
+//	        pr.name AS processor_name,
+//	        so.name AS storage_name
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	            LEFT JOIN
+//	        product_processors pp ON p.id = pp.product_id
+//	            LEFT JOIN
+//	        processors pr ON pp.processor_id = pr.id
+//	            LEFT JOIN
+//	        product_storage_options pso ON p.id = pso.product_id
+//	            LEFT JOIN
+//	        storage_options so ON pso.storage_option_id = so.id
+//	    WHERE
+//	        (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+//	      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+//	      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT
+//
+//	fp.id,
+//	fp.name,
+//	fp.description,
+//	fp.price_in_kes,
+//	fp.stock,
+//	fp.category_id,
+//	fp.created_at,
+//	fp.updated_at,
+//	fp.status,
+//	fp.created_by,
+//	fp.updated_by,
+//	fp.featured,
+//	fp.slug,
+//	fp.size,
+//	fp.color_name,
+//	fp.processor_name,
+//	fp.storage_name
+//
+// FROM
+//
+//	filtered_products fp
+//
+// ORDER BY
+//
+//	fp.name DESC
+//
+// LIMIT
+//
+//	$6 OFFSET $7;
+//
+// -- name: GetAllProductsByFiltersNewest :many
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	rate AS (
+//	    SELECT COALESCE(
+//	                   (SELECT rate_to_kes
+//	                    FROM exchange_rates
+//	                    WHERE currency_code = 'USD'
+//	                      AND (valid_to IS NULL OR valid_to >= NOW())
+//	                      AND valid_from <= NOW()
+//	                    ORDER BY valid_from DESC
+//	                    LIMIT 1),
+//	                   135) AS rate_to_kes
+//	),
+//	filtered_products AS (
+//	    SELECT
+//	        p.id,
+//	        p.name,
+//	        p.description,
+//	        (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	        p.stock,
+//	        p.category_id,
+//	        p.created_at,
+//	        p.updated_at,
+//	        p.status,
+//	        p.created_by,
+//	        p.updated_by,
+//	        p.featured,
+//	        p.slug,
+//	        s.size,
+//	        c.color_name,
+//	        pr.name AS processor_name,
+//	        so.name AS storage_name
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	            LEFT JOIN
+//	        product_processors pp ON p.id = pp.product_id
+//	            LEFT JOIN
+//	        processors pr ON pp.processor_id = pr.id
+//	            LEFT JOIN
+//	        product_storage_options pso ON p.id = pso.product_id
+//	            LEFT JOIN
+//	        storage_options so ON pso.storage_option_id = so.id
+//	    WHERE
+//	        (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+//	      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+//	      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT
+//
+//	fp.id,
+//	fp.name,
+//	fp.description,
+//	fp.price_in_kes,
+//	fp.stock,
+//	fp.category_id,
+//	fp.created_at,
+//	fp.updated_at,
+//	fp.status,
+//	fp.created_by,
+//	fp.updated_by,
+//	fp.featured,
+//	fp.slug,
+//	fp.size,
+//	fp.color_name,
+//	fp.processor_name,
+//	fp.storage_name
+//
+// FROM
+//
+//	filtered_products fp
+//
+// ORDER BY
+//
+//	fp.created_at DESC
+//
+// LIMIT
+//
+//	$6 OFFSET $7;
+//
+// -- name: GetAllProductsByFiltersOldest :many
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	rate AS (
+//	    SELECT COALESCE(
+//	                   (SELECT rate_to_kes
+//	                    FROM exchange_rates
+//	                    WHERE currency_code = 'USD'
+//	                      AND (valid_to IS NULL OR valid_to >= NOW())
+//	                      AND valid_from <= NOW()
+//	                    ORDER BY valid_from DESC
+//	                    LIMIT 1),
+//	                   135) AS rate_to_kes
+//	),
+//	filtered_products AS (
+//	    SELECT
+//	        p.id,
+//	        p.name,
+//	        p.description,
+//	        (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+//	        p.stock,
+//	        p.category_id,
+//	        p.created_at,
+//	        p.updated_at,
+//	        p.status,
+//	        p.created_by,
+//	        p.updated_by,
+//	        p.featured,
+//	        p.slug,
+//	        s.size,
+//	        c.color_name,
+//	        pr.name AS processor_name,
+//	        so.name AS storage_name
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	            LEFT JOIN
+//	        product_processors pp ON p.id = pp.product_id
+//	            LEFT JOIN
+//	        processors pr ON pp.processor_id = pr.id
+//	            LEFT JOIN
+//	        product_storage_options pso ON p.id = pso.product_id
+//	            LEFT JOIN
+//	        storage_options so ON pso.storage_option_id = so.id
+//	    WHERE
+//	        (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      AND (pr.name = ANY($8::VARCHAR[]) OR $8 IS NULL)
+//	      AND (so.name = ANY($9::VARCHAR[]) OR $9 IS NULL)
+//	      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT
+//
+//	fp.id,
+//	fp.name,
+//	fp.description,
+//	fp.price_in_kes,
+//	fp.stock,
+//	fp.category_id,
+//	fp.created_at,
+//	fp.updated_at,
+//	fp.status,
+//	fp.created_by,
+//	fp.updated_by,
+//	fp.featured,
+//	fp.slug,
+//	fp.size,
+//	fp.color_name,
+//	fp.processor_name,
+//	fp.storage_name
+//
+// FROM
+//
+//	filtered_products fp
+//
+// ORDER BY
+//
+//	fp.created_at
+//
+// LIMIT
+//
+//	$6 OFFSET $7;
+//
+// -- name: GetTotalProductsByFilters :one
+// WITH RECURSIVE category_hierarchy AS (
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	WHERE
+//	    c.name = ANY($1::VARCHAR[]) OR $1 IS NULL
+//
+//	UNION ALL
+//
+//	SELECT
+//	    c.id,
+//	    c.name,
+//	    c.parent_id
+//	FROM
+//	    categories c
+//	        INNER JOIN
+//	    category_hierarchy ch ON c.parent_id = ch.id
+//
+// ),
+//
+//	rate AS (
+//	    SELECT COALESCE(
+//	                   (SELECT rate_to_kes
+//	                    FROM exchange_rates
+//	                    WHERE currency_code = 'USD'
+//	                      AND (valid_to IS NULL OR valid_to >= NOW())
+//	                      AND valid_from <= NOW()
+//	                    ORDER BY valid_from DESC
+//	                    LIMIT 1),
+//	                   135) AS rate_to_kes
+//	),
+//	filtered_products AS (
+//	    SELECT
+//	        p.id
+//	    FROM
+//	        products p
+//	            LEFT JOIN
+//	        product_sizes ps ON p.id = ps.product_id
+//	            LEFT JOIN
+//	        sizes s ON ps.size_id = s.id
+//	            LEFT JOIN
+//	        product_colors pc ON p.id = pc.product_id
+//	            LEFT JOIN
+//	        colors c ON pc.color_id = c.id
+//	            LEFT JOIN
+//	        product_processors pp ON p.id = pp.product_id
+//	            LEFT JOIN
+//	        processors pr ON pp.processor_id = pr.id
+//	            LEFT JOIN
+//	        product_storage_options pso ON p.id = pso.product_id
+//	            LEFT JOIN
+//	        storage_options so ON pso.storage_option_id = so.id
+//	    WHERE
+//	        (p.category_id IN (SELECT id FROM category_hierarchy) OR $1 IS NULL)
+//	      AND (s.size = ANY($4::VARCHAR[]) OR $4 IS NULL)
+//	      AND (c.color_name = ANY($5::VARCHAR[]) OR $5 IS NULL)
+//	      AND (pr.name = ANY($6::VARCHAR[]) OR $6 IS NULL)
+//	      AND (so.name = ANY($7::VARCHAR[]) OR $7 IS NULL)
+//	      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+//	      AND p.status = 'active'
+//	)
+//
+// SELECT
+//
+//	COUNT(*) AS total_products
+//
+// FROM
+//
+//	filtered_products;
 func (q *Queries) GetV2Products(ctx context.Context) ([]GetV2ProductsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getV2Products)
 	if err != nil {

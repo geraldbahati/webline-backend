@@ -6,11 +6,57 @@ package database
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type AttributeTypeEnum string
+
+const (
+	AttributeTypeEnumSize    AttributeTypeEnum = "size"
+	AttributeTypeEnumColor   AttributeTypeEnum = "color"
+	AttributeTypeEnumRAM     AttributeTypeEnum = "RAM"
+	AttributeTypeEnumStorage AttributeTypeEnum = "storage"
+)
+
+func (e *AttributeTypeEnum) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AttributeTypeEnum(s)
+	case string:
+		*e = AttributeTypeEnum(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AttributeTypeEnum: %T", src)
+	}
+	return nil
+}
+
+type NullAttributeTypeEnum struct {
+	AttributeTypeEnum AttributeTypeEnum
+	Valid             bool // Valid is true if AttributeTypeEnum is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAttributeTypeEnum) Scan(value interface{}) error {
+	if value == nil {
+		ns.AttributeTypeEnum, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AttributeTypeEnum.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAttributeTypeEnum) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AttributeTypeEnum), nil
+}
 
 type AdminApprovalToken struct {
 	ID        uuid.UUID
@@ -48,14 +94,6 @@ type Category struct {
 	IsActive  bool
 	Position  int32
 	ImageUrl  sql.NullString
-}
-
-type Color struct {
-	ID         uuid.UUID
-	ColorName  string
-	CreatedAt  sql.NullTime
-	UpdatedAt  sql.NullTime
-	ColorValue sql.NullString
 }
 
 type Discount struct {
@@ -168,13 +206,6 @@ type PaymentStatus struct {
 	Status string
 }
 
-type Processor struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
-}
-
 type Product struct {
 	ID              uuid.UUID
 	Name            string
@@ -196,12 +227,22 @@ type Product struct {
 	UsdPrice        string
 }
 
-type ProductColor struct {
-	ID        uuid.UUID
-	ProductID uuid.NullUUID
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
-	ColorID   uuid.NullUUID
+type ProductAttribute struct {
+	ID            uuid.UUID
+	Name          string
+	AttributeType AttributeTypeEnum
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+}
+
+type ProductAttributeValue struct {
+	ID          uuid.UUID
+	AttributeID uuid.NullUUID
+	Value       string
+	CategoryID  uuid.NullUUID
+	HexValue    sql.NullString
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
 }
 
 type ProductImage struct {
@@ -238,14 +279,6 @@ type ProductOptionValue struct {
 	UpdatedAt       sql.NullTime
 }
 
-type ProductProcessor struct {
-	ID          uuid.UUID
-	ProductID   uuid.NullUUID
-	ProcessorID uuid.NullUUID
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
-}
-
 type ProductReview struct {
 	ID        uuid.UUID
 	ProductID uuid.NullUUID
@@ -254,15 +287,6 @@ type ProductReview struct {
 	Comment   sql.NullString
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
-}
-
-type ProductSize struct {
-	ID              uuid.UUID
-	ProductID       uuid.NullUUID
-	AdditionalPrice sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
-	SizeID          uuid.NullUUID
 }
 
 type ProductSpecification struct {
@@ -274,13 +298,12 @@ type ProductSpecification struct {
 	UpdatedAt sql.NullTime
 }
 
-type ProductStorageOption struct {
-	ID              uuid.UUID
-	ProductID       uuid.NullUUID
-	StorageOptionID uuid.NullUUID
-	AdditionalPrice sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
+type ProductToAttributeValue struct {
+	ID               uuid.UUID
+	ProductID        uuid.NullUUID
+	AttributeValueID uuid.NullUUID
+	CreatedAt        sql.NullTime
+	UpdatedAt        sql.NullTime
 }
 
 type ProductVariant struct {
@@ -361,20 +384,6 @@ type ShoppingCart struct {
 	TotalPrice string
 	CreatedAt  sql.NullTime
 	UpdatedAt  sql.NullTime
-}
-
-type Size struct {
-	ID        uuid.UUID
-	Size      string
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
-}
-
-type StorageOption struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
 }
 
 type User struct {

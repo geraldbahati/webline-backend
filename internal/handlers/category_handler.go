@@ -218,18 +218,18 @@ func (h *CategoryHandler) GetCategoryByNameHandler(w http.ResponseWriter, r *htt
 	RespondWithJSON(w, http.StatusOK, category)
 }
 
-// GetCategoryHierarchyHandler retrieves the category hierarchy
-func (h *CategoryHandler) GetCategoryHierarchyHandler(w http.ResponseWriter, r *http.Request) {
-	// get category hierarchy
-	hierarchy, err := h.categoryService.GetCategoryHierarchyService(r.Context())
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to get category hierarchy")
-		return
-	}
-
-	// respond with category hierarchy
-	RespondWithJSON(w, http.StatusOK, hierarchy)
-}
+//// GetCategoryHierarchyHandler retrieves the category hierarchy
+//func (h *CategoryHandler) GetCategoryHierarchyHandler(w http.ResponseWriter, r *http.Request) {
+//	// get category hierarchy
+//	hierarchy, err := h.categoryService.GetCategoryHierarchyService(r.Context())
+//	if err != nil {
+//		RespondWithError(w, http.StatusInternalServerError, "Failed to get category hierarchy")
+//		return
+//	}
+//
+//	// respond with category hierarchy
+//	RespondWithJSON(w, http.StatusOK, hierarchy)
+//}
 
 // UploadCategoryImageHandler uploads a category image
 func (h *CategoryHandler) UploadCategoryImageHandler(w http.ResponseWriter, r *http.Request) {
