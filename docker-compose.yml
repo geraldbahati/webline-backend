@@ -12,12 +12,13 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - webline-backend-network
+      - webline-network
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: webline-backend
+    container_name: backend
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -30,10 +31,13 @@ services:
       - db
     networks:
       - webline-backend-network
+      - webline-network
 
 networks:
-  webline-backend-network:
-    driver: bridge
+    webline-backend-network:
+        external: true
+    webline-network:
+        external: true
 
 volumes:
   postgres-data:
