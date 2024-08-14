@@ -39,6 +39,20 @@ func UploadFileToS3(ctx context.Context, r *http.Request, s3Client *s3.Client, b
 	return filePath, nil
 }
 
+// UploadCustomFileToS3 uploads a single file to S3
+func UploadCustomFileToS3(ctx context.Context, file multipart.File, fileHeader *multipart.FileHeader, s3Client *s3.Client, bucketName, uploadDir string) (string, error) {
+	filePath, err := generateFilePath(uploadDir, fileHeader.Filename)
+	if err != nil {
+		return "", err
+	}
+
+	if err := uploadToS3(ctx, s3Client, bucketName, filePath, file); err != nil {
+		return "", err
+	}
+
+	return filePath, nil
+}
+
 // UploadMultipleFilesToS3 uploads multiple files to S3
 func UploadMultipleFilesToS3(ctx context.Context, files []*multipart.FileHeader, s3Client *s3.Client, bucketName, uploadDir string) ([]string, error) {
 	var wg sync.WaitGroup

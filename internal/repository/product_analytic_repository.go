@@ -62,7 +62,7 @@ func (r *ProductAnalyticRepository) GetBestSellerProducts(ctx context.Context, l
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 			Slug:        row.Slug,
 		})
 	}
@@ -85,7 +85,7 @@ func (r *ProductAnalyticRepository) GetFeaturedProducts(ctx context.Context, lim
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 			Slug:        row.Slug,
 		})
 	}
@@ -108,7 +108,7 @@ func (r *ProductAnalyticRepository) GetNewArrivalProducts(ctx context.Context, l
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 			Slug:        row.Slug,
 		})
 	}
@@ -142,7 +142,7 @@ func (r *ProductAnalyticRepository) GetDailyDealsProducts(ctx context.Context) (
 			ID:              row.ID,
 			Name:            row.Name,
 			Description:     row.Description.String,
-			Price:           row.Price,
+			Price:           row.PriceInKes,
 			ImageURL:        imageUrl,
 			DiscountPercent: discount,
 			Slug:            row.Slug,

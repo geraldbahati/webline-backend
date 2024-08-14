@@ -173,7 +173,9 @@ func (s *ProductAnalyticService) GetNewArrivalProducts(ctx context.Context, limi
 		}
 
 		// update product with images and discount percentage
-		product.ImageURL = productImages[0].S3URL
+		if len(productImages) > 0 {
+			product.ImageURL = productImages[0].S3URL
+		}
 		product.DiscountPercent = discountPercent
 	}
 	return products, nil

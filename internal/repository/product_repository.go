@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"log"
 	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
-
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 type ProductRepository struct {
@@ -73,7 +73,7 @@ func (r *ProductRepository) CreateProduct(
 			ID:          product.ID,
 			Name:        product.Name,
 			Description: product.Description.String,
-			Price:       product.Price,
+			USD:         product.UsdPrice,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
 			Status:      product.Status,
@@ -105,7 +105,7 @@ func (r *ProductRepository) GetProductByID(
 		ID:          product.ID,
 		Name:        product.Name,
 		Description: product.Description.String,
-		Price:       product.Price,
+		USD:         product.UsdPrice,
 		Stock:       product.Stock.Int32,
 		CategoryID:  product.CategoryID,
 		Status:      product.Status,
@@ -118,18 +118,18 @@ func (r *ProductRepository) GetProductByID(
 func (r *ProductRepository) GetProductBySlug(
 	ctx context.Context,
 	slug string,
-) (model.ProductSchema, error) {
+) (*model.ProductSchema, error) {
 	product, err := r.Queries.GetProductBySlug(ctx, slug)
 	if err != nil {
 		r.logger.Error("failed to get product by slug", zap.Error(err))
-		return model.ProductSchema{}, fmt.Errorf("failed to get product by slug: %w", err)
+		return nil, fmt.Errorf("failed to get product by slug: %w", err)
 	}
 
-	return model.ProductSchema{
+	return &model.ProductSchema{
 		ID:           product.ID,
 		Name:         product.Name,
 		Description:  product.Description.String,
-		Price:        product.Price,
+		USD:          product.UsdPrice,
 		Stock:        product.Stock.Int32,
 		CategoryName: product.CategoryName,
 		Status:       product.Status,
@@ -145,9 +145,9 @@ func (r *ProductRepository) CountFilteredProducts(
 	priceFrom, priceTo string,
 ) (int64, error) {
 	count, err := r.Queries.CountFilteredProducts(ctx, database.CountFilteredProductsParams{
-		Column1: categories,
-		Price:   priceFrom,
-		Price_2: priceTo,
+		Column1:    categories,
+		UsdPrice:   priceFrom,
+		UsdPrice_2: priceTo,
 	})
 	if err != nil {
 		r.logger.Error("failed to count products", zap.Error(err))
@@ -161,34 +161,22 @@ func (r *ProductRepository) CountFilteredProducts(
 func (r *ProductRepository) UpdateProduct(
 	ctx context.Context,
 	params database.UpdateProductParams,
-) (model.ProductSchema, error) {
-	var updatedProduct model.ProductSchema
+) error {
+
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
-		product, err := q.UpdateProduct(ctx, params)
+		err = q.UpdateProduct(ctx, params)
 		if err != nil {
 			return fmt.Errorf("failed to update product: %w", err)
-		}
-
-		updatedProduct = model.ProductSchema{
-			ID:          product.ID,
-			Name:        product.Name,
-			Description: product.Description.String,
-			Price:       product.Price,
-			Stock:       product.Stock.Int32,
-			CategoryID:  product.CategoryID,
-			Status:      product.Status,
-			Featured:    product.Featured.Bool,
-			Slug:        product.Slug,
 		}
 
 		return nil
 	})
 	if err != nil {
 		r.logger.Error("failed to update product", zap.Error(err))
-		return model.ProductSchema{}, fmt.Errorf("failed to update product: %w", err)
+		return fmt.Errorf("failed to update product: %w", err)
 	}
-	return updatedProduct, nil
+	return nil
 }
 
 // SoftDeleteProduct marks a product as inactive in the database
@@ -232,7 +220,7 @@ func (r *ProductRepository) GetProductsByCategoryID(
 			ID:           product.ID,
 			Name:         product.Name,
 			Description:  product.Description.String,
-			Price:        product.Price,
+			USD:          product.UsdPrice,
 			Stock:        product.Stock.Int32,
 			CategoryName: product.CategoryName,
 			Status:       product.Status,
@@ -255,6 +243,8 @@ func (r *ProductRepository) CountProductsByParentCategoryID(
 		return 0, fmt.Errorf("failed to count products by category ID: %w", err)
 	}
 
+	log.Println("count", count)
+
 	return count, nil
 }
 
@@ -275,7 +265,7 @@ func (r *ProductRepository) SearchProducts(
 			ID:          product.ID,
 			Name:        product.Name,
 			Description: product.Description.String,
-			Price:       product.Price,
+			USD:         product.UsdPrice,
 			Stock:       product.Stock.Int32,
 			CategoryID:  product.CategoryID,
 			Status:      product.Status,
@@ -319,7 +309,7 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 			ID:           product.ID,
 			Name:         product.Name,
 			Description:  product.Description.String,
-			Price:        product.Price,
+			USD:          product.UsdPrice,
 			Stock:        product.Stock.Int32,
 			CategoryName: product.CategoryName,
 			Status:       product.Status,
@@ -330,32 +320,271 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 
 	return productSchemas, nil
 }
-func (r *ProductRepository) GetProductsByFiltersPriceAsc(ctx context.Context, params database.GetProductsByFiltersPriceAscParams) ([]database.GetProductsByFiltersPriceAscRow, error) {
-	return r.Queries.GetProductsByFiltersPriceAsc(ctx, params)
+
+// GetProductsByFilters retrieves products by filters and sort order.
+func (r *ProductRepository) GetProductsByFilters(ctx context.Context, params model.UnifiedParams) ([]model.FilterProduct, error) {
+	r.logger.Info("Starting GetProductsByFilters", zap.String("sortOrder", params.SortOrder))
+
+	var filterRow interface{}
+	var err error
+
+	switch params.SortOrder {
+	case "price_asc":
+		r.logger.Debug("Fetching products by price ascending", zap.Any("params", params))
+		filterRow, err = r.Queries.GetProductsByFiltersPriceAsc(ctx, database.GetProductsByFiltersPriceAscParams{
+			ID:         params.ID,
+			Column2:    params.CategoryNames,
+			Column3:    params.ColorNames,
+			Column4:    params.ProcessorNames,
+			Column5:    params.StorageNames,
+			Column6:    params.Sizes,
+			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
+			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
+		})
+	case "price_desc":
+		r.logger.Debug("Fetching products by price descending", zap.Any("params", params))
+		filterRow, err = r.Queries.GetProductsByFiltersPriceDesc(ctx, database.GetProductsByFiltersPriceDescParams{
+			ID:         params.ID,
+			Column2:    params.CategoryNames,
+			Column3:    params.ColorNames,
+			Column4:    params.ProcessorNames,
+			Column5:    params.StorageNames,
+			Column6:    params.Sizes,
+			UsdPrice:   strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
+			UsdPrice_2: strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
+		})
+	case "name_asc":
+		r.logger.Debug("Fetching products by name ascending", zap.Any("params", params))
+		filterRow, err = r.Queries.GetProductsByFiltersNameAsc(ctx, database.GetProductsByFiltersNameAscParams{
+			ID:         params.ID,
+			Column2:    params.CategoryNames,
+			Column3:    params.ColorNames,
+			Column4:    params.ProcessorNames,
+			Column5:    params.StorageNames,
+			Column6:    params.Sizes,
+			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
+			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
+		})
+	case "name_desc":
+		r.logger.Debug("Fetching products by name descending", zap.Any("params", params))
+		filterRow, err = r.Queries.GetProductsByFiltersNameDesc(ctx, database.GetProductsByFiltersNameDescParams{
+			ID:         params.ID,
+			Column2:    params.CategoryNames,
+			Column3:    params.ColorNames,
+			Column4:    params.ProcessorNames,
+			Column5:    params.StorageNames,
+			Column6:    params.Sizes,
+			UsdPrice:   strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
+			UsdPrice_2: strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
+		})
+	case "newest":
+		r.logger.Debug("Fetching products by newest", zap.Any("params", params))
+		filterRow, err = r.Queries.GetProductsByFiltersNewest(ctx, database.GetProductsByFiltersNewestParams{
+			ID:         params.ID,
+			Column2:    params.CategoryNames,
+			Column3:    params.ColorNames,
+			Column4:    params.ProcessorNames,
+			Column5:    params.StorageNames,
+			Column6:    params.Sizes,
+			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
+			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
+		})
+	case "oldest":
+		r.logger.Debug("Fetching products by oldest", zap.Any("params", params))
+		filterRow, err = r.Queries.GetProductsByFiltersOldest(ctx, database.GetProductsByFiltersOldestParams{
+			ID:         params.ID,
+			Column2:    params.CategoryNames,
+			Column3:    params.ColorNames,
+			Column4:    params.ProcessorNames,
+			Column5:    params.StorageNames,
+			Column6:    params.Sizes,
+			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
+			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
+		})
+	default:
+		r.logger.Debug("Fetching products by default sorting", zap.Any("params", params))
+		filterRow, err = r.Queries.GetProductsByFiltersDefault(ctx, database.GetProductsByFiltersDefaultParams{
+			ID:         params.ID,
+			Column2:    params.CategoryNames,
+			Column3:    params.ColorNames,
+			Column4:    params.ProcessorNames,
+			Column5:    params.StorageNames,
+			Column6:    params.Sizes,
+			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
+			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
+		})
+	}
+
+	if err != nil {
+		r.logger.Error("Error fetching products by filters", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by filters: %w", err)
+	}
+
+	r.logger.Debug("Fetched products", zap.Any("filterRow", filterRow))
+
+	products, err := r.convertToFilterProducts(filterRow)
+	if err != nil {
+		r.logger.Error("Error converting filterRow to FilterProduct", zap.Error(err))
+		return nil, err
+	}
+
+	r.logger.Info("Successfully retrieved products by filters", zap.Int("productCount", len(products)))
+
+	return products, nil
 }
 
-func (r *ProductRepository) GetProductsByFiltersPriceDesc(ctx context.Context, params database.GetProductsByFiltersPriceDescParams) ([]database.GetProductsByFiltersPriceDescRow, error) {
-	return r.Queries.GetProductsByFiltersPriceDesc(ctx, params)
+// convertToFilterProducts converts the various database query results to a unified []model.FilterProduct slice.
+func (r *ProductRepository) convertToFilterProducts(filterRow interface{}) ([]model.FilterProduct, error) {
+	r.logger.Debug("Converting filterRow to FilterProduct slice")
+
+	var products []model.FilterProduct
+
+	switch rows := filterRow.(type) {
+	case []database.GetProductsByFiltersPriceAscRow:
+		r.logger.Debug("Mapping GetProductsByFiltersPriceAscRow to FilterProduct")
+		products = r.mapToFilterProducts(rows)
+	case []database.GetProductsByFiltersPriceDescRow:
+		r.logger.Debug("Mapping GetProductsByFiltersPriceDescRow to FilterProduct")
+		products = r.mapToFilterProducts(rows)
+	case []database.GetProductsByFiltersNameAscRow:
+		r.logger.Debug("Mapping GetProductsByFiltersNameAscRow to FilterProduct")
+		products = r.mapToFilterProducts(rows)
+	case []database.GetProductsByFiltersNameDescRow:
+		r.logger.Debug("Mapping GetProductsByFiltersNameDescRow to FilterProduct")
+		products = r.mapToFilterProducts(rows)
+	case []database.GetProductsByFiltersNewestRow:
+		r.logger.Debug("Mapping GetProductsByFiltersNewestRow to FilterProduct")
+		products = r.mapToFilterProducts(rows)
+	case []database.GetProductsByFiltersOldestRow:
+		r.logger.Debug("Mapping GetProductsByFiltersOldestRow to FilterProduct")
+		products = r.mapToFilterProducts(rows)
+	case []database.GetProductsByFiltersDefaultRow:
+		r.logger.Debug("Mapping GetProductsByFiltersDefaultRow to FilterProduct")
+		products = r.mapToFilterProducts(rows)
+	default:
+		err := fmt.Errorf("unexpected row type: %T", filterRow)
+		r.logger.Error("Error in convertToFilterProducts", zap.Error(err))
+		return nil, err
+	}
+
+	r.logger.Info("Completed conversion to FilterProduct slice", zap.Int("productCount", len(products)))
+
+	return products, nil
 }
 
-func (r *ProductRepository) GetProductsByFiltersNameAsc(ctx context.Context, params database.GetProductsByFiltersNameAscParams) ([]database.GetProductsByFiltersNameAscRow, error) {
-	return r.Queries.GetProductsByFiltersNameAsc(ctx, params)
-}
+// mapToFilterProducts maps database rows to a slice of FilterProduct.
+func (r *ProductRepository) mapToFilterProducts(rows interface{}) []model.FilterProduct {
+	r.logger.Debug("Mapping database rows to FilterProduct")
+	var products []model.FilterProduct
 
-func (r *ProductRepository) GetProductsByFiltersNameDesc(ctx context.Context, params database.GetProductsByFiltersNameDescParams) ([]database.GetProductsByFiltersNameDescRow, error) {
-	return r.Queries.GetProductsByFiltersNameDesc(ctx, params)
-}
+	switch rows := rows.(type) {
+	case []database.GetProductsByFiltersPriceAscRow:
+		for _, row := range rows {
+			products = append(products, model.FilterProduct{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description.String,
+				Price:       row.PriceInKes,
+				Stock:       row.Stock.Int32,
+				CategoryID:  row.CategoryID,
+				IsActive:    row.Status == "active",
+				Featured:    row.Featured.Bool,
+				Slug:        row.Slug,
+			})
+		}
+	case []database.GetProductsByFiltersPriceDescRow:
+		for _, row := range rows {
+			products = append(products, model.FilterProduct{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description.String,
+				Price:       row.PriceInKes,
+				Stock:       row.Stock.Int32,
+				CategoryID:  row.CategoryID,
+				IsActive:    row.Status == "active",
+				Featured:    row.Featured.Bool,
+				Slug:        row.Slug,
+			})
+		}
 
-func (r *ProductRepository) GetProductsByFiltersDefault(ctx context.Context, params database.GetProductsByFiltersDefaultParams) ([]database.GetProductsByFiltersDefaultRow, error) {
-	return r.Queries.GetProductsByFiltersDefault(ctx, params)
-}
+	case []database.GetProductsByFiltersNameAscRow:
+		for _, row := range rows {
+			products = append(products, model.FilterProduct{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description.String,
+				Price:       row.PriceInKes,
+				Stock:       row.Stock.Int32,
+				CategoryID:  row.CategoryID,
+				IsActive:    row.Status == "active",
+				Featured:    row.Featured.Bool,
+				Slug:        row.Slug,
+			})
+		}
+	case []database.GetProductsByFiltersNameDescRow:
+		for _, row := range rows {
+			products = append(products, model.FilterProduct{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description.String,
+				Price:       row.PriceInKes,
+				Stock:       row.Stock.Int32,
+				CategoryID:  row.CategoryID,
+				IsActive:    row.Status == "active",
+				Featured:    row.Featured.Bool,
+				Slug:        row.Slug,
+			})
+		}
+	case []database.GetProductsByFiltersNewestRow:
+		for _, row := range rows {
+			products = append(products, model.FilterProduct{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description.String,
+				Price:       row.PriceInKes,
+				Stock:       row.Stock.Int32,
+				CategoryID:  row.CategoryID,
+				IsActive:    row.Status == "active",
+				Featured:    row.Featured.Bool,
+				Slug:        row.Slug,
+			})
+		}
+	case []database.GetProductsByFiltersOldestRow:
+		for _, row := range rows {
+			products = append(products, model.FilterProduct{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description.String,
+				Price:       row.PriceInKes,
+				Stock:       row.Stock.Int32,
+				CategoryID:  row.CategoryID,
+				IsActive:    row.Status == "active",
+				Featured:    row.Featured.Bool,
+				Slug:        row.Slug,
+			})
+		}
+	case []database.GetProductsByFiltersDefaultRow:
+		for _, row := range rows {
+			products = append(products, model.FilterProduct{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description.String,
+				Price:       row.PriceInKes,
+				Stock:       row.Stock.Int32,
+				CategoryID:  row.CategoryID,
+				IsActive:    row.Status == "active",
+				Featured:    row.Featured.Bool,
+				Slug:        row.Slug,
+			})
+		}
+	default:
+		r.logger.Warn("Unknown row type", zap.Any("rows", rows))
+		return nil
+	}
 
-func (r *ProductRepository) GetProductsByFiltersNewest(ctx context.Context, params database.GetProductsByFiltersNewestParams) ([]database.GetProductsByFiltersNewestRow, error) {
-	return r.Queries.GetProductsByFiltersNewest(ctx, params)
-}
+	r.logger.Info("Mapped database rows to FilterProduct slice", zap.Int("productCount", len(products)))
 
-func (r *ProductRepository) GetProductsByFiltersOldest(ctx context.Context, params database.GetProductsByFiltersOldestParams) ([]database.GetProductsByFiltersOldestRow, error) {
-	return r.Queries.GetProductsByFiltersOldest(ctx, params)
+	return products
 }
 
 func (r *ProductRepository) GetFilterOptions(ctx context.Context) ([]database.GetFilterOptionsRow, error) {
@@ -375,7 +604,7 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceAsc(ctx context.Context,
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 
 			Slug: row.Slug,
 		})
@@ -397,7 +626,7 @@ func (r *ProductRepository) GetAllProductsByFiltersPriceDesc(ctx context.Context
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 
 			Slug: row.Slug,
 		})
@@ -419,7 +648,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNameAsc(ctx context.Context, 
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 
 			Slug: row.Slug,
 		})
@@ -441,7 +670,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNameDesc(ctx context.Context,
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 
 			Slug: row.Slug,
 		})
@@ -463,7 +692,7 @@ func (r *ProductRepository) GetAllProductsByFiltersNewest(ctx context.Context, p
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 
 			Slug: row.Slug,
 		})
@@ -485,7 +714,7 @@ func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, p
 			ID:          row.ID,
 			Name:        row.Name,
 			Description: row.Description.String,
-			Price:       row.Price,
+			Price:       row.PriceInKes,
 
 			Slug: row.Slug,
 		})
@@ -544,7 +773,7 @@ func (r *ProductRepository) GetProductSEO(
 		Title:       metaTitle,
 		Description: metaDescription,
 		Keywords:    metaKeywords,
-		Price:       seo.Price,
+		Price:       seo.UsdPrice,
 		Brand:       seo.BrandName,
 		ImageUrl:    seo.ImageUrl,
 	}, nil
@@ -560,11 +789,6 @@ func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Produ
 
 	var products []*model.V2Product
 	for _, row := range rows {
-		price, err := strconv.ParseFloat(row.Price, 64)
-		if err != nil {
-			r.logger.Error("failed to parse price", zap.Error(err))
-			price = 0
-		}
 		discount, err := strconv.ParseFloat(row.Discount, 64)
 		if err != nil {
 			r.logger.Error("failed to parse discount", zap.Error(err))
@@ -572,16 +796,17 @@ func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Produ
 		}
 
 		products = append(products, &model.V2Product{
-			Name:        row.Name,
-			Price:       price,
-			Status:      row.Status,
-			ImageURL:    row.Imageurl,
-			Discount:    discount,
-			Slug:        row.Slug,
-			CreatedAt:   row.Createdat.Time,
-			InPromotion: row.Inpromotion,
-			TotalSales:  row.Totalsales,
-			PartNumber:  row.Partnumber,
+			Name:         row.Name,
+			Price:        row.PriceInKes,
+			Status:       row.Status,
+			ImageURL:     row.Imageurl,
+			Discount:     discount,
+			Slug:         row.Slug,
+			CreatedAt:    row.Createdat.Time,
+			InPromotion:  row.Inpromotion,
+			TotalSales:   row.Totalsales,
+			PartNumber:   row.Partnumber,
+			CategoryName: row.Categoryname.String,
 		})
 	}
 
@@ -602,7 +827,7 @@ func (r *ProductRepository) GetV2ProductDetailBySlug(
 	return &model.V2ProductDetail{
 		Name:           product.Name,
 		Description:    product.Description.String,
-		Price:          product.Price,
+		Price:          product.PriceInKes,
 		Stock:          product.Stock,
 		Slug:           product.Slug,
 		CategoryID:     product.CategoryID,
@@ -729,12 +954,6 @@ func (r *ProductRepository) GetProductPricingByProductID(
 		return nil, fmt.Errorf("failed to get product pricing by ID: %w", err)
 	}
 
-	price, err := strconv.ParseFloat(pricing.Price, 64)
-	if err != nil {
-		r.logger.Error("failed to parse price", zap.Error(err))
-		price = 0
-	}
-
 	discount, err := strconv.ParseFloat(pricing.DiscountPercent, 64)
 	if err != nil {
 		r.logger.Error("failed to parse discount", zap.Error(err))
@@ -745,7 +964,7 @@ func (r *ProductRepository) GetProductPricingByProductID(
 		ID:              pricing.ID,
 		Name:            pricing.Name,
 		Description:     pricing.Description.String,
-		Price:           price,
+		Price:           pricing.PriceInKes,
 		DiscountPercent: discount,
 		ImageUrl:        pricing.Imageurl,
 	}, nil
@@ -777,4 +996,15 @@ func (r *ProductRepository) GetProductSpecsByID(
 	}
 
 	return productSpecs, nil
+}
+
+// GetProductIDsBySlugs retrieves the IDs of products by their slugs
+func (r *ProductRepository) GetProductIDsBySlugs(ctx context.Context, slugs []string) ([]uuid.UUID, error) {
+	ids, err := r.Queries.GetProductIDsBySlugs(ctx, slugs)
+	if err != nil {
+		r.logger.Error("failed to get product IDs by slugs", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product IDs by slugs: %w", err)
+	}
+
+	return ids, nil
 }

@@ -24,10 +24,11 @@ type OrderService struct {
 	paymentRepository   *repository.PaymentRepository
 	userRepo            *repository.UserRepository
 	productRepo         *repository.ProductRepository
+	exchangeRateRepo    repository.ExchangeRateRepository
 	cfg                 *appconfig.Config
 }
 
-func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository, productRepo *repository.ProductRepository, cfg *appconfig.Config) *OrderService {
+func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository, productRepo *repository.ProductRepository, exchangeRateRepo repository.ExchangeRateRepository, cfg *appconfig.Config) *OrderService {
 	return &OrderService{
 		logger:              logger,
 		guestCheckoutRepo:   guestCheckoutRepo,
@@ -36,6 +37,7 @@ func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestChec
 		paymentRepository:   paymentRepository,
 		userRepo:            userRepo,
 		productRepo:         productRepo,
+		exchangeRateRepo:    exchangeRateRepo,
 		cfg:                 cfg,
 	}
 }
@@ -111,16 +113,17 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 			return nil, fmt.Errorf("failed to get product: %w", err)
 		}
 
-		price, err := strconv.ParseFloat(product.Price, 64)
+		// convert price to kes
+		convertedPrice, err := s.convertPriceToKES(ctx, product.USD)
 		if err != nil {
-			s.logger.Error("failed to parse price", zap.Error(err))
-			return nil, fmt.Errorf("failed to parse price: %w", err)
+			s.logger.Error("failed to convert price to KES", zap.Error(err))
+			return nil, fmt.Errorf("failed to convert price to KES: %w", err)
 		}
 
 		orderItems = append(orderItems, utils.OrderItem{
 			ProductName: product.Name,
 			Quantity:    item.Quantity,
-			Price:       price,
+			Price:       convertedPrice,
 		})
 	}
 
@@ -131,6 +134,27 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 	}
 
 	return &OrderResponse{OrderID: orderPayment.OrderID, PayingNow: payingNow}, nil
+}
+
+func (s *OrderService) convertPriceToKES(ctx context.Context, price string) (float64, error) {
+	// Parse the price
+	p, err := strconv.ParseFloat(price, 64)
+	if err != nil {
+		s.logger.Error("failed to parse product price", zap.Error(err))
+		return 0, fmt.Errorf("failed to parse product price: %w", err)
+	}
+
+	// Get the exchange rate
+	exchangeRate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, "USD")
+	if err != nil {
+		s.logger.Error("failed to get exchange rate by currency", zap.Error(err))
+		return 0, fmt.Errorf("failed to get exchange rate by currency: %w", err)
+	}
+
+	// Calculate the price in KES
+	priceToKES := p * exchangeRate
+
+	return priceToKES, nil
 }
 
 func (s *OrderService) getUserUUID(ctx context.Context, userID uuid.UUID) (uuid.NullUUID, error) {
