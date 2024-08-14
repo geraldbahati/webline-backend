@@ -246,6 +246,81 @@ JOIN
 JOIN
     category_tree ct ON p.category_id = ct.id;
 
+-- name: GetFilterOptionsByCategoryID :many
+WITH RECURSIVE category_tree AS (
+    SELECT c.id
+    FROM categories c
+    WHERE c.id = $1
+
+    UNION ALL
+
+    SELECT c2.id
+    FROM categories c2
+             INNER JOIN category_tree ct ON c2.parent_id = ct.id
+)
+SELECT
+    col.id AS color_id, col.color_name, col.color_value,
+    NULL::uuid AS processor_id, NULL::text AS processor_name,
+    NULL::uuid AS size_id, NULL::text AS size_name,
+    NULL::uuid AS storage_id, NULL::text AS storage_name
+FROM
+    colors col
+        JOIN
+    product_colors pc ON col.id = pc.color_id
+        JOIN
+    products p ON pc.product_id = p.id
+        JOIN
+    category_tree ct ON p.category_id = ct.id
+
+UNION
+
+SELECT
+    NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
+    pr.id AS processor_id, pr.name AS processor_name,
+    NULL::uuid AS size_id, NULL::text AS size_name,
+    NULL::uuid AS storage_id, NULL::text AS storage_name
+FROM
+    processors pr
+        JOIN
+    product_processors pp ON pr.id = pp.processor_id
+        JOIN
+    products p ON pp.product_id = p.id
+        JOIN
+    category_tree ct ON p.category_id = ct.id
+
+UNION
+
+SELECT
+    NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
+    NULL::uuid AS processor_id, NULL::text AS processor_name,
+    sz.id AS size_id, sz.size AS size_name,
+    NULL::uuid AS storage_id, NULL::text AS storage_name
+FROM
+    sizes sz
+        JOIN
+    product_sizes ps ON sz.id = ps.size_id
+        JOIN
+    products p ON ps.product_id = p.id
+        JOIN
+    category_tree ct ON p.category_id = ct.id
+
+UNION
+
+SELECT
+    NULL::uuid AS color_id, NULL::text AS color_name, NULL::text AS color_value,
+    NULL::uuid AS processor_id, NULL::text AS processor_name,
+    NULL::uuid AS size_id, NULL::text AS size_name,
+    so.id AS storage_id, so.name AS storage_name
+FROM
+    storage_options so
+        JOIN
+    product_storage_options pso ON so.id = pso.storage_option_id
+        JOIN
+    products p ON pso.product_id = p.id
+        JOIN
+    category_tree ct ON p.category_id = ct.id;
+
+
 
 -- name: GetV2CategoryHierarchy :many
 WITH RECURSIVE category_hierarchy AS (

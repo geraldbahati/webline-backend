@@ -3,7 +3,7 @@ SELECT
     r.product_id,
     p.name,
     p.description,
-    p.price,
+    p.usd_price,
     r.score
 FROM
     recommendations r

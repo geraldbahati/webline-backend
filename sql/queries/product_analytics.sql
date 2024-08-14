@@ -1,9 +1,20 @@
 -- name: GetBestSellerProducts :many
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
 SELECT
     p.id,
     p.name,
     p.description,
-    p.price,
+    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     p.stock,
     p.category_id,
     p.created_at,
@@ -23,12 +34,24 @@ ORDER BY
     total_sold DESC
 LIMIT $1;
 
+
 -- name: GetFeaturedProducts :many
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
 SELECT
     id,
     name,
     description,
-    price,
+    (usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     stock,
     category_id,
     created_at,
@@ -45,11 +68,22 @@ ORDER BY
 LIMIT $1;
 
 -- name: GetNewArrivalProducts :many
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
 SELECT
     id,
     name,
     description,
-    price,
+    (usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     stock,
     category_id,
     created_at,
@@ -61,23 +95,34 @@ FROM
     products
 WHERE
     status = 'active'
-  AND created_at >= NOW() - INTERVAL '100 days'
+  AND created_at >= NOW() - INTERVAL '135 days'
 ORDER BY
     created_at DESC
 LIMIT $1;
 
 
 -- name: GetDailyDeals :many
-WITH first_images AS (
-    SELECT DISTINCT ON (product_id) product_id, image_url
-    FROM product_images
-    ORDER BY product_id, created_at
-)
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+),
+     first_images AS (
+         SELECT DISTINCT ON (product_id) product_id, image_url
+         FROM product_images
+         ORDER BY product_id, created_at
+     )
 SELECT
     p.id,
     p.name,
     p.description,
-    p.price,
+    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     p.stock,
     p.category_id,
     p.created_at,
