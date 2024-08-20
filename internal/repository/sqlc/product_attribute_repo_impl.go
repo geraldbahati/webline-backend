@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"weblineBackend/internal/database"
+	"weblineBackend/internal/model"
 )
 
 type ProductAttributeRepoImpl struct {
@@ -58,8 +59,8 @@ func (r *ProductAttributeRepoImpl) CreateProductAttribute(ctx context.Context, n
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
 		id, err = q.CreateProductAttribute(ctx, database.CreateProductAttributeParams{
-			Name:          name,
-			AttributeType: database.AttributeTypeEnum(attributeType),
+			Name:   name,
+			Name_2: attributeType,
 		})
 
 		r.logger.Debug("created product attribute", zap.String("name", name), zap.String("attributeType", attributeType))
@@ -92,7 +93,7 @@ func (r *ProductAttributeRepoImpl) CreateProductAttributeValue(ctx context.Conte
 			},
 		})
 
-		r.logger.Debug("created product attribute value", zap.String("value", value), zap.String("hexaValue", hexaValue))
+		r.logger.Debug("created product attribute value", zap.String("value", value), zap.String("hexaValue", hexValue))
 		return err
 	})
 	if err != nil {
@@ -100,7 +101,7 @@ func (r *ProductAttributeRepoImpl) CreateProductAttributeValue(ctx context.Conte
 		return nil, err
 	}
 
-	r.logger.Info("product attribute value created", zap.String("value", value), zap.String("hexaValue", hexaValue))
+	r.logger.Info("product attribute value created", zap.String("value", value), zap.String("hexaValue", hexValue))
 	return &id, err
 }
 
@@ -128,4 +129,30 @@ func (r *ProductAttributeRepoImpl) CreateProductToAttributeValue(ctx context.Con
 
 	r.logger.Info("product to attribute value created", zap.String("productID", productID.String()), zap.String("attributeValueID", attributeValueID.String()))
 	return err
+}
+
+// GetProductAttributesWithValues retrieves product attributes with their associated values, grouped by attribute type
+func (r *ProductAttributeRepoImpl) GetProductAttributesWithValues(ctx context.Context, categoryID uuid.UUID) (map[string][]model.Attribute, error) {
+	attributes, err := r.Queries.GetProductAttributesWithValues(ctx, uuid.NullUUID{
+		UUID:  categoryID,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("failed to get product attributes with values", zap.Error(err))
+		return nil, err
+	}
+
+	groupedAttributes := make(map[string][]model.Attribute)
+
+	for _, attribute := range attributes {
+		attr := model.Attribute{
+			ID:    attribute.AttributeID.String(),
+			Name:  attribute.AttributeName,
+			Value: attribute.AttributeValue,
+		}
+		groupedAttributes[attribute.AttributeName] = append(groupedAttributes[attribute.AttributeName], attr)
+	}
+
+	r.logger.Info("retrieved and grouped product attributes", zap.Any("attributes", groupedAttributes))
+	return groupedAttributes, nil
 }

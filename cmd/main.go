@@ -116,6 +116,9 @@ func main() {
 	passwordResetRepoImpl := sqlc.NewPasswordResetRepositoryImpl(conn, logger)
 	adminRequestRepoImpl := sqlc.NewAdminRequestRepositoryImpl(conn, logger)
 	exchangeRateRepoImpl := sqlc.NewExchangeRateRepositoryImpl(conn, logger)
+	filterCategoryProductRepoImpl := sqlc.NewFilterCategoryProductRepoImpl(conn, logger)
+	filterProductRepoImpl := sqlc.NewFilterProductRepoImpl(conn, logger)
+	productAttributeRepoImpl := sqlc.NewProductAttributeRepoImpl(conn, logger)
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, verificationTokenRepoImpl, passwordResetRepoImpl, tokenRepo, &cfg, logger)
@@ -146,11 +149,13 @@ func main() {
 	discountService := services.NewDiscountService(logger, discountRepo, productRepo)
 	adminRequestService := services.NewAdminRequestService(adminRequestRepoImpl, userRepo, logger, &cfg)
 	roleService := services.NewRoleService(roleRepo, logger)
+	filterService := services.NewFilterService(logger, filterCategoryProductRepoImpl, filterProductRepoImpl, categoryRepo, &cfg)
+	productAttributeService := services.NewProductAttributeService(productAttributeRepoImpl, logger)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userService, adminRequestService, &cfg)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
-	productHandler := handlers.NewProductHandler(productService, productSEOService)
+	productHandler := handlers.NewProductHandler(productService, productSEOService, filterService, productAttributeService)
 	productVariantHandler := handlers.NewProductVariantHandler(productService)
 	productImageHandler := handlers.NewProductImageHandler(productService)
 	productSpecificationHandler := handlers.NewProductSpecificationHandler(productService)
@@ -278,20 +283,20 @@ func setupRouter(
 	productRouter.HandleFunc("/{slug}/images", productHandler.GetProductImagesBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/pricing", productHandler.GetProductPricingBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/specs", productHandler.GetProductSpecsBySlugHandler).Methods(http.MethodGet)
-	//productRouter.HandleFunc("", productHandler.GetAllProductsHandler).Methods(http.MethodGet)
+	productRouter.HandleFunc("", productHandler.GetAllProductsHandler).Methods(http.MethodPost)
 	productRouter.HandleFunc("/{slug}/seo", productHandler.GetProductSEOHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/all/sitemap", productHandler.GetAllProductSitemapHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/actions/search", productHandler.SearchProductsHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/category/{id}", productHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
-	//productRouter.HandleFunc("/filter/{category_id}", productHandler.GetProductsByFiltersHandler).Methods(http.MethodGet)
-	//productRouter.HandleFunc("/filter/all/options", productHandler.GetProductsByFilterOptionsHandler).Methods(http.MethodGet)
-	//productRouter.HandleFunc("/filter/options/{name}", productHandler.GetFilterOptionsByCategoryNameHandler).Methods(http.MethodGet)
+	productRouter.HandleFunc("/filter/{category_id}", productHandler.GetFilteredCategoryProducts).Methods(http.MethodPost)
+	productRouter.HandleFunc("/filter/all/options", productHandler.GetAllProductFilterOptionsHandler).Methods(http.MethodGet)
+	productRouter.HandleFunc("/filter/options/{name}", productHandler.GetFilterOptionsByCategoryNameHandler).Methods(http.MethodGet)
 
 	// admin product routes
 	adminProductRouter := r.PathPrefix("/api/v2/products").Subrouter()
 	adminProductRouter.HandleFunc("", productHandler.GetProductsHandler).Methods(http.MethodGet)
 	adminProductRouter.HandleFunc("/{slug}/detail", productHandler.GetProductDetailHandler).Methods(http.MethodGet)
-	//adminProductRouter.HandleFunc("/meta-fields/{categoryID}", productHandler.GetProductMetaFieldsByCategoryIDHandler).Methods(http.MethodGet)
+	adminProductRouter.HandleFunc("/meta-fields/{categoryID}", productHandler.GetProductMetaFieldsByCategoryIDHandler).Methods(http.MethodGet)
 
 	protectedAdminProductRouter := adminProductRouter.PathPrefix("").Subrouter()
 	protectedAdminProductRouter.Use(middleware.Auth)

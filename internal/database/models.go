@@ -6,57 +6,11 @@ package database
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-type AttributeTypeEnum string
-
-const (
-	AttributeTypeEnumSize    AttributeTypeEnum = "size"
-	AttributeTypeEnumColor   AttributeTypeEnum = "color"
-	AttributeTypeEnumRAM     AttributeTypeEnum = "RAM"
-	AttributeTypeEnumStorage AttributeTypeEnum = "storage"
-)
-
-func (e *AttributeTypeEnum) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = AttributeTypeEnum(s)
-	case string:
-		*e = AttributeTypeEnum(s)
-	default:
-		return fmt.Errorf("unsupported scan type for AttributeTypeEnum: %T", src)
-	}
-	return nil
-}
-
-type NullAttributeTypeEnum struct {
-	AttributeTypeEnum AttributeTypeEnum
-	Valid             bool // Valid is true if AttributeTypeEnum is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullAttributeTypeEnum) Scan(value interface{}) error {
-	if value == nil {
-		ns.AttributeTypeEnum, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.AttributeTypeEnum.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullAttributeTypeEnum) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.AttributeTypeEnum), nil
-}
 
 type AdminApprovalToken struct {
 	ID        uuid.UUID
@@ -73,6 +27,11 @@ type AdminRequest struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type AttributeType struct {
+	ID   int32
+	Name string
 }
 
 type CartItem struct {
@@ -94,6 +53,13 @@ type Category struct {
 	IsActive  bool
 	Position  int32
 	ImageUrl  sql.NullString
+}
+
+type CategoryHierarchyMv struct {
+	ID       uuid.UUID
+	Name     string
+	ParentID uuid.NullUUID
+	Position int32
 }
 
 type Discount struct {
@@ -228,11 +194,11 @@ type Product struct {
 }
 
 type ProductAttribute struct {
-	ID            uuid.UUID
-	Name          string
-	AttributeType AttributeTypeEnum
-	CreatedAt     sql.NullTime
-	UpdatedAt     sql.NullTime
+	ID              uuid.UUID
+	Name            string
+	AttributeTypeID int32
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
 }
 
 type ProductAttributeValue struct {
@@ -335,6 +301,10 @@ type PromotionProduct struct {
 	ProductID   uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
+}
+
+type RateMv struct {
+	RateToKes interface{}
 }
 
 type Recommendation struct {

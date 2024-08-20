@@ -11,71 +11,105 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 const getCategoryProductsByFiltersNameAsc = `-- name: GetCategoryProductsByFiltersNameAsc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.id = $1
+      AND c.is_active = true
     UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * rate.rate_to_kes)::numeric AS price,
-    p.slug,
-    COALESCE(
-            (SELECT MAX(d.discount_percentage)
-             FROM discounts d
-             WHERE d.product_id = p.id
-               AND d.start_date <= NOW()
-               AND (d.end_date IS NULL OR d.end_date >= NOW())
-            ), 0)::numeric AS discountPercent,
-    (SELECT pi.image_url
-     FROM product_images pi
-     WHERE pi.product_id = p.id
-     ORDER BY pi.position ASC
-     LIMIT 1) AS imageURL
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-         LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-         LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-     rate
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (
-      jsonb_typeof($5::jsonb) IS NULL 
-      OR jsonb_each_text($5::jsonb) ->> pa.name IS NOT NULL 
-      AND pav.value = (jsonb_each_text($5::jsonb) ->> pa.name)
-  )
-  AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $3 AND $4
-  AND p.status = 'active'
-ORDER BY p.name ASC
-LIMIT $6 OFFSET $7
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+    WHERE c.is_active = true
+),
+               filtered_categories AS (
+                   SELECT
+                       c.id
+                   FROM
+                       categories c
+                   WHERE
+                       c.id IN (SELECT id FROM category_hierarchy)
+                     AND (
+                       ($4::jsonb IS NULL OR $4 = '{}'::jsonb)
+                           OR LOWER(TRIM(c.name)) IN (
+                           SELECT LOWER(TRIM(value::text))
+                           FROM jsonb_array_elements_text($4::jsonb->'Brand') AS value
+                       )
+                       )
+               ),
+               rate AS (
+                   SELECT COALESCE(
+                                  (SELECT rate_to_kes
+                                   FROM exchange_rates
+                                   WHERE currency_code = 'USD'
+                                     AND (valid_to IS NULL OR valid_to >= NOW())
+                                     AND valid_from <= NOW()
+                                   ORDER BY valid_from DESC
+                                   LIMIT 1),
+                                  135) AS rate_to_kes
+               ),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+                       p.created_at,
+                       p.slug,
+                       COALESCE(
+                               (SELECT MAX(d.discount_percentage)
+                                FROM discounts d
+                                WHERE d.product_id = p.id
+                                  AND d.start_date <= NOW()
+                                  AND (d.end_date IS NULL OR d.end_date >= NOW())
+                               ), 0)::numeric AS discount_percent,
+                       COALESCE(
+                               (SELECT pi.image_url
+                                FROM product_images pi
+                                WHERE pi.product_id = p.id
+                                ORDER BY pi.position ASC
+                                LIMIT 1), '')::text AS image_url
+                   FROM
+                       products p
+                   WHERE
+                       p.category_id IN (SELECT id FROM filtered_categories)
+                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+                     AND p.status = 'active'
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price_in_kes AS price,
+    fp.image_url AS imageURL,
+    fp.discount_percent AS discountPercent,
+    fp.slug,
+    fp.created_at
+FROM
+    filtered_products fp
+ORDER BY
+    fp.name ASC
+LIMIT
+    $5 OFFSET $6
 `
 
 type GetCategoryProductsByFiltersNameAscParams struct {
 	ID         uuid.UUID
-	Column2    []string
 	UsdPrice   string
 	UsdPrice_2 string
-	Column5    json.RawMessage
+	Column4    json.RawMessage
 	Limit      int32
 	Offset     int32
 }
@@ -85,25 +119,24 @@ type GetCategoryProductsByFiltersNameAscRow struct {
 	Name            string
 	Description     sql.NullString
 	Price           string
-	Slug            string
-	Discountpercent string
 	Imageurl        string
+	Discountpercent string
+	Slug            string
+	CreatedAt       sql.NullTime
 }
 
 // $1: category_id (UUID)
-// $2: selected_category_names (VARCHAR[])
-// $3: min_price_kes (NUMERIC)
-// $4: max_price_kes (NUMERIC)
-// $5: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
-// $6: limit (INTEGER)
-// $7: offset (INTEGER)
+// $2: min_price_kes (NUMERIC)
+// $3: max_price_kes (NUMERIC)
+// $4: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
+// $5: limit (INTEGER)
+// $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersNameAsc(ctx context.Context, arg GetCategoryProductsByFiltersNameAscParams) ([]GetCategoryProductsByFiltersNameAscRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersNameAsc,
 		arg.ID,
-		pq.Array(arg.Column2),
 		arg.UsdPrice,
 		arg.UsdPrice_2,
-		arg.Column5,
+		arg.Column4,
 		arg.Limit,
 		arg.Offset,
 	)
@@ -119,9 +152,10 @@ func (q *Queries) GetCategoryProductsByFiltersNameAsc(ctx context.Context, arg G
 			&i.Name,
 			&i.Description,
 			&i.Price,
-			&i.Slug,
-			&i.Discountpercent,
 			&i.Imageurl,
+			&i.Discountpercent,
+			&i.Slug,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -137,67 +171,102 @@ func (q *Queries) GetCategoryProductsByFiltersNameAsc(ctx context.Context, arg G
 }
 
 const getCategoryProductsByFiltersNameDesc = `-- name: GetCategoryProductsByFiltersNameDesc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.id = $1
+      AND c.is_active = true
     UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * rate.rate_to_kes)::numeric AS price,
-    p.slug,
-    COALESCE(
-            (SELECT MAX(d.discount_percentage)
-             FROM discounts d
-             WHERE d.product_id = p.id
-               AND d.start_date <= NOW()
-               AND (d.end_date IS NULL OR d.end_date >= NOW())
-            ), 0)::numeric AS discountPercent,
-    (SELECT pi.image_url
-     FROM product_images pi
-     WHERE pi.product_id = p.id
-     ORDER BY pi.position ASC
-     LIMIT 1) AS imageURL
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-         LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-         LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-     rate
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (
-      jsonb_typeof($5::jsonb) IS NULL 
-      OR jsonb_each_text($5::jsonb) ->> pa.name IS NOT NULL 
-      AND pav.value = (jsonb_each_text($5::jsonb) ->> pa.name)
-  )
-  AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $3 AND $4
-  AND p.status = 'active'
-ORDER BY p.name DESC
-LIMIT $6 OFFSET $7
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+    WHERE c.is_active = true
+),
+               filtered_categories AS (
+                   SELECT
+                       c.id
+                   FROM
+                       categories c
+                   WHERE
+                       c.id IN (SELECT id FROM category_hierarchy)
+                     AND (
+                       ($4::jsonb IS NULL OR $4 = '{}'::jsonb)
+                           OR LOWER(TRIM(c.name)) IN (
+                           SELECT LOWER(TRIM(value::text))
+                           FROM jsonb_array_elements_text($4::jsonb->'Brand') AS value
+                       )
+                       )
+               ),
+               rate AS (
+                   SELECT COALESCE(
+                                  (SELECT rate_to_kes
+                                   FROM exchange_rates
+                                   WHERE currency_code = 'USD'
+                                     AND (valid_to IS NULL OR valid_to >= NOW())
+                                     AND valid_from <= NOW()
+                                   ORDER BY valid_from DESC
+                                   LIMIT 1),
+                                  135) AS rate_to_kes
+               ),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+                       p.created_at,
+                       p.slug,
+                       COALESCE(
+                               (SELECT MAX(d.discount_percentage)
+                                FROM discounts d
+                                WHERE d.product_id = p.id
+                                  AND d.start_date <= NOW()
+                                  AND (d.end_date IS NULL OR d.end_date >= NOW())
+                               ), 0)::numeric AS discount_percent,
+                       COALESCE(
+                               (SELECT pi.image_url
+                                FROM product_images pi
+                                WHERE pi.product_id = p.id
+                                ORDER BY pi.position ASC
+                                LIMIT 1), '')::text AS image_url
+                   FROM
+                       products p
+                   WHERE
+                       p.category_id IN (SELECT id FROM filtered_categories)
+                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+                     AND p.status = 'active'
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price_in_kes AS price,
+    fp.image_url AS imageURL,
+    fp.discount_percent AS discountPercent,
+    fp.slug,
+    fp.created_at
+FROM
+    filtered_products fp
+ORDER BY
+    fp.name DESC
+LIMIT
+    $5 OFFSET $6
 `
 
 type GetCategoryProductsByFiltersNameDescParams struct {
 	ID         uuid.UUID
-	Column2    []string
 	UsdPrice   string
 	UsdPrice_2 string
-	Column5    json.RawMessage
+	Column4    json.RawMessage
 	Limit      int32
 	Offset     int32
 }
@@ -207,25 +276,24 @@ type GetCategoryProductsByFiltersNameDescRow struct {
 	Name            string
 	Description     sql.NullString
 	Price           string
-	Slug            string
-	Discountpercent string
 	Imageurl        string
+	Discountpercent string
+	Slug            string
+	CreatedAt       sql.NullTime
 }
 
 // $1: category_id (UUID)
-// $2: selected_category_names (VARCHAR[])
-// $3: min_price_kes (NUMERIC)
-// $4: max_price_kes (NUMERIC)
-// $5: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
-// $6: limit (INTEGER)
-// $7: offset (INTEGER)
+// $2: min_price_kes (NUMERIC)
+// $3: max_price_kes (NUMERIC)
+// $4: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
+// $5: limit (INTEGER)
+// $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersNameDesc(ctx context.Context, arg GetCategoryProductsByFiltersNameDescParams) ([]GetCategoryProductsByFiltersNameDescRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersNameDesc,
 		arg.ID,
-		pq.Array(arg.Column2),
 		arg.UsdPrice,
 		arg.UsdPrice_2,
-		arg.Column5,
+		arg.Column4,
 		arg.Limit,
 		arg.Offset,
 	)
@@ -241,9 +309,10 @@ func (q *Queries) GetCategoryProductsByFiltersNameDesc(ctx context.Context, arg 
 			&i.Name,
 			&i.Description,
 			&i.Price,
-			&i.Slug,
-			&i.Discountpercent,
 			&i.Imageurl,
+			&i.Discountpercent,
+			&i.Slug,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -259,67 +328,102 @@ func (q *Queries) GetCategoryProductsByFiltersNameDesc(ctx context.Context, arg 
 }
 
 const getCategoryProductsByFiltersNewest = `-- name: GetCategoryProductsByFiltersNewest :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.id = $1
+      AND c.is_active = true
     UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * rate.rate_to_kes)::numeric AS price,
-    p.slug,
-    COALESCE(
-            (SELECT MAX(d.discount_percentage)
-             FROM discounts d
-             WHERE d.product_id = p.id
-               AND d.start_date <= NOW()
-               AND (d.end_date IS NULL OR d.end_date >= NOW())
-            ), 0)::numeric AS discountPercent,
-    (SELECT pi.image_url
-     FROM product_images pi
-     WHERE pi.product_id = p.id
-     ORDER BY pi.position ASC
-     LIMIT 1) AS imageURL
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-         LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-         LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-     rate
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (
-      jsonb_typeof($5::jsonb) IS NULL 
-      OR jsonb_each_text($5::jsonb) ->> pa.name IS NOT NULL 
-      AND pav.value = (jsonb_each_text($5::jsonb) ->> pa.name)
-  )
-  AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $3 AND $4
-  AND p.status = 'active'
-ORDER BY p.created_at DESC
-LIMIT $6 OFFSET $7
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+    WHERE c.is_active = true
+),
+               filtered_categories AS (
+                   SELECT
+                       c.id
+                   FROM
+                       categories c
+                   WHERE
+                       c.id IN (SELECT id FROM category_hierarchy)
+                     AND (
+                       ($4::jsonb IS NULL OR $4 = '{}'::jsonb)
+                           OR LOWER(TRIM(c.name)) IN (
+                           SELECT LOWER(TRIM(value::text))
+                           FROM jsonb_array_elements_text($4::jsonb->'Brand') AS value
+                       )
+                       )
+               ),
+               rate AS (
+                   SELECT COALESCE(
+                                  (SELECT rate_to_kes
+                                   FROM exchange_rates
+                                   WHERE currency_code = 'USD'
+                                     AND (valid_to IS NULL OR valid_to >= NOW())
+                                     AND valid_from <= NOW()
+                                   ORDER BY valid_from DESC
+                                   LIMIT 1),
+                                  135) AS rate_to_kes
+               ),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+                       p.created_at,
+                       p.slug,
+                       COALESCE(
+                               (SELECT MAX(d.discount_percentage)
+                                FROM discounts d
+                                WHERE d.product_id = p.id
+                                  AND d.start_date <= NOW()
+                                  AND (d.end_date IS NULL OR d.end_date >= NOW())
+                               ), 0)::numeric AS discount_percent,
+                       COALESCE(
+                               (SELECT pi.image_url
+                                FROM product_images pi
+                                WHERE pi.product_id = p.id
+                                ORDER BY pi.position ASC
+                                LIMIT 1), '')::text AS image_url
+                   FROM
+                       products p
+                   WHERE
+                       p.category_id IN (SELECT id FROM filtered_categories)
+                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+                     AND p.status = 'active'
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price_in_kes AS price,
+    fp.image_url AS imageURL,
+    fp.discount_percent AS discountPercent,
+    fp.slug,
+    fp.created_at
+FROM
+    filtered_products fp
+ORDER BY
+    fp.created_at DESC
+LIMIT
+    $5 OFFSET $6
 `
 
 type GetCategoryProductsByFiltersNewestParams struct {
 	ID         uuid.UUID
-	Column2    []string
 	UsdPrice   string
 	UsdPrice_2 string
-	Column5    json.RawMessage
+	Column4    json.RawMessage
 	Limit      int32
 	Offset     int32
 }
@@ -329,25 +433,18 @@ type GetCategoryProductsByFiltersNewestRow struct {
 	Name            string
 	Description     sql.NullString
 	Price           string
-	Slug            string
-	Discountpercent string
 	Imageurl        string
+	Discountpercent string
+	Slug            string
+	CreatedAt       sql.NullTime
 }
 
-// $1: category_id (UUID)
-// $2: selected_category_names (VARCHAR[])
-// $3: min_price_kes (NUMERIC)
-// $4: max_price_kes (NUMERIC)
-// $5: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
-// $6: limit (INTEGER)
-// $7: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersNewest(ctx context.Context, arg GetCategoryProductsByFiltersNewestParams) ([]GetCategoryProductsByFiltersNewestRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersNewest,
 		arg.ID,
-		pq.Array(arg.Column2),
 		arg.UsdPrice,
 		arg.UsdPrice_2,
-		arg.Column5,
+		arg.Column4,
 		arg.Limit,
 		arg.Offset,
 	)
@@ -363,9 +460,10 @@ func (q *Queries) GetCategoryProductsByFiltersNewest(ctx context.Context, arg Ge
 			&i.Name,
 			&i.Description,
 			&i.Price,
-			&i.Slug,
-			&i.Discountpercent,
 			&i.Imageurl,
+			&i.Discountpercent,
+			&i.Slug,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -381,67 +479,102 @@ func (q *Queries) GetCategoryProductsByFiltersNewest(ctx context.Context, arg Ge
 }
 
 const getCategoryProductsByFiltersOldest = `-- name: GetCategoryProductsByFiltersOldest :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.id = $1
+      AND c.is_active = true
     UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * rate.rate_to_kes)::numeric AS price,
-    p.slug,
-    COALESCE(
-            (SELECT MAX(d.discount_percentage)
-             FROM discounts d
-             WHERE d.product_id = p.id
-               AND d.start_date <= NOW()
-               AND (d.end_date IS NULL OR d.end_date >= NOW())
-            ), 0)::numeric AS discountPercent,
-    (SELECT pi.image_url
-     FROM product_images pi
-     WHERE pi.product_id = p.id
-     ORDER BY pi.position ASC
-     LIMIT 1) AS imageURL
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-         LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-         LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-     rate
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (
-      jsonb_typeof($5::jsonb) IS NULL 
-      OR jsonb_each_text($5::jsonb) ->> pa.name IS NOT NULL 
-      AND pav.value = (jsonb_each_text($5::jsonb) ->> pa.name)
-  )
-  AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $3 AND $4
-  AND p.status = 'active'
-ORDER BY p.created_at ASC
-LIMIT $6 OFFSET $7
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+    WHERE c.is_active = true
+),
+               filtered_categories AS (
+                   SELECT
+                       c.id
+                   FROM
+                       categories c
+                   WHERE
+                       c.id IN (SELECT id FROM category_hierarchy)
+                     AND (
+                       ($4::jsonb IS NULL OR $4 = '{}'::jsonb)
+                           OR LOWER(TRIM(c.name)) IN (
+                           SELECT LOWER(TRIM(value::text))
+                           FROM jsonb_array_elements_text($4::jsonb->'Brand') AS value
+                       )
+                       )
+               ),
+               rate AS (
+                   SELECT COALESCE(
+                                  (SELECT rate_to_kes
+                                   FROM exchange_rates
+                                   WHERE currency_code = 'USD'
+                                     AND (valid_to IS NULL OR valid_to >= NOW())
+                                     AND valid_from <= NOW()
+                                   ORDER BY valid_from DESC
+                                   LIMIT 1),
+                                  135) AS rate_to_kes
+               ),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+                       p.created_at,
+                       p.slug,
+                       COALESCE(
+                               (SELECT MAX(d.discount_percentage)
+                                FROM discounts d
+                                WHERE d.product_id = p.id
+                                  AND d.start_date <= NOW()
+                                  AND (d.end_date IS NULL OR d.end_date >= NOW())
+                               ), 0)::numeric AS discount_percent,
+                       COALESCE(
+                               (SELECT pi.image_url
+                                FROM product_images pi
+                                WHERE pi.product_id = p.id
+                                ORDER BY pi.position ASC
+                                LIMIT 1), '')::text AS image_url
+                   FROM
+                       products p
+                   WHERE
+                       p.category_id IN (SELECT id FROM filtered_categories)
+                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+                     AND p.status = 'active'
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price_in_kes AS price,
+    fp.image_url AS imageURL,
+    fp.discount_percent AS discountPercent,
+    fp.slug,
+    fp.created_at
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price_in_kes DESC
+LIMIT
+    $5 OFFSET $6
 `
 
 type GetCategoryProductsByFiltersOldestParams struct {
 	ID         uuid.UUID
-	Column2    []string
 	UsdPrice   string
 	UsdPrice_2 string
-	Column5    json.RawMessage
+	Column4    json.RawMessage
 	Limit      int32
 	Offset     int32
 }
@@ -451,25 +584,24 @@ type GetCategoryProductsByFiltersOldestRow struct {
 	Name            string
 	Description     sql.NullString
 	Price           string
-	Slug            string
-	Discountpercent string
 	Imageurl        string
+	Discountpercent string
+	Slug            string
+	CreatedAt       sql.NullTime
 }
 
 // $1: category_id (UUID)
-// $2: selected_category_names (VARCHAR[])
-// $3: min_price_kes (NUMERIC)
-// $4: max_price_kes (NUMERIC)
-// $5: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
-// $6: limit (INTEGER)
-// $7: offset (INTEGER)
+// $2: min_price_kes (NUMERIC)
+// $3: max_price_kes (NUMERIC)
+// $4: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
+// $5: limit (INTEGER)
+// $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersOldest(ctx context.Context, arg GetCategoryProductsByFiltersOldestParams) ([]GetCategoryProductsByFiltersOldestRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersOldest,
 		arg.ID,
-		pq.Array(arg.Column2),
 		arg.UsdPrice,
 		arg.UsdPrice_2,
-		arg.Column5,
+		arg.Column4,
 		arg.Limit,
 		arg.Offset,
 	)
@@ -485,9 +617,10 @@ func (q *Queries) GetCategoryProductsByFiltersOldest(ctx context.Context, arg Ge
 			&i.Name,
 			&i.Description,
 			&i.Price,
-			&i.Slug,
-			&i.Discountpercent,
 			&i.Imageurl,
+			&i.Discountpercent,
+			&i.Slug,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -503,67 +636,102 @@ func (q *Queries) GetCategoryProductsByFiltersOldest(ctx context.Context, arg Ge
 }
 
 const getCategoryProductsByFiltersPriceAsc = `-- name: GetCategoryProductsByFiltersPriceAsc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.id = $1
+      AND c.is_active = true
     UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * rate.rate_to_kes)::numeric AS price,
-    p.slug,
-    COALESCE(
-            (SELECT MAX(d.discount_percentage)
-             FROM discounts d
-             WHERE d.product_id = p.id
-               AND d.start_date <= NOW()
-               AND (d.end_date IS NULL OR d.end_date >= NOW())
-            ), 0)::numeric AS discountPercent,
-    (SELECT pi.image_url
-     FROM product_images pi
-     WHERE pi.product_id = p.id
-     ORDER BY pi.position ASC
-     LIMIT 1) AS imageURL
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-         LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-         LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-     rate
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (
-      jsonb_typeof($5::jsonb) IS NULL 
-      OR jsonb_each_text($5::jsonb) ->> pa.name IS NOT NULL 
-      AND pav.value = (jsonb_each_text($5::jsonb) ->> pa.name)
-  )
-  AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $3 AND $4
-  AND p.status = 'active'
-ORDER BY p.usd_price ASC
-LIMIT $6 OFFSET $7
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+    WHERE c.is_active = true
+),
+               filtered_categories AS (
+                   SELECT
+                       c.id
+                   FROM
+                       categories c
+                   WHERE
+                       c.id IN (SELECT id FROM category_hierarchy)
+                     AND (
+                       ($4::jsonb IS NULL OR $4 = '{}'::jsonb)
+                           OR LOWER(TRIM(c.name)) IN (
+                           SELECT LOWER(TRIM(value::text))
+                           FROM jsonb_array_elements_text($4::jsonb->'Brand') AS value
+                       )
+                       )
+               ),
+               rate AS (
+                   SELECT COALESCE(
+                                  (SELECT rate_to_kes
+                                   FROM exchange_rates
+                                   WHERE currency_code = 'USD'
+                                     AND (valid_to IS NULL OR valid_to >= NOW())
+                                     AND valid_from <= NOW()
+                                   ORDER BY valid_from DESC
+                                   LIMIT 1),
+                                  135) AS rate_to_kes
+               ),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+                       p.created_at,
+                       p.slug,
+                       COALESCE(
+                               (SELECT MAX(d.discount_percentage)
+                                FROM discounts d
+                                WHERE d.product_id = p.id
+                                  AND d.start_date <= NOW()
+                                  AND (d.end_date IS NULL OR d.end_date >= NOW())
+                               ), 0)::numeric AS discount_percent,
+                       COALESCE(
+                               (SELECT pi.image_url
+                                FROM product_images pi
+                                WHERE pi.product_id = p.id
+                                ORDER BY pi.position ASC
+                                LIMIT 1), '')::text AS image_url
+                   FROM
+                       products p
+                   WHERE
+                       p.category_id IN (SELECT id FROM filtered_categories)
+                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+                     AND p.status = 'active'
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price_in_kes AS price,
+    fp.image_url AS imageURL,
+    fp.discount_percent AS discountPercent,
+    fp.slug,
+    fp.created_at
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price_in_kes ASC
+LIMIT
+    $5 OFFSET $6
 `
 
 type GetCategoryProductsByFiltersPriceAscParams struct {
 	ID         uuid.UUID
-	Column2    []string
 	UsdPrice   string
 	UsdPrice_2 string
-	Column5    json.RawMessage
+	Column4    json.RawMessage
 	Limit      int32
 	Offset     int32
 }
@@ -573,25 +741,24 @@ type GetCategoryProductsByFiltersPriceAscRow struct {
 	Name            string
 	Description     sql.NullString
 	Price           string
-	Slug            string
-	Discountpercent string
 	Imageurl        string
+	Discountpercent string
+	Slug            string
+	CreatedAt       sql.NullTime
 }
 
 // $1: category_id (UUID)
-// $2: selected_category_names (VARCHAR[])
-// $3: min_price_kes (NUMERIC)
-// $4: max_price_kes (NUMERIC)
-// $5: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
-// $6: limit (INTEGER)
-// $7: offset (INTEGER)
+// $2: min_price_kes (NUMERIC)
+// $3: max_price_kes (NUMERIC)
+// $4: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
+// $5: limit (INTEGER)
+// $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersPriceAsc(ctx context.Context, arg GetCategoryProductsByFiltersPriceAscParams) ([]GetCategoryProductsByFiltersPriceAscRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersPriceAsc,
 		arg.ID,
-		pq.Array(arg.Column2),
 		arg.UsdPrice,
 		arg.UsdPrice_2,
-		arg.Column5,
+		arg.Column4,
 		arg.Limit,
 		arg.Offset,
 	)
@@ -607,9 +774,10 @@ func (q *Queries) GetCategoryProductsByFiltersPriceAsc(ctx context.Context, arg 
 			&i.Name,
 			&i.Description,
 			&i.Price,
-			&i.Slug,
-			&i.Discountpercent,
 			&i.Imageurl,
+			&i.Discountpercent,
+			&i.Slug,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -625,67 +793,102 @@ func (q *Queries) GetCategoryProductsByFiltersPriceAsc(ctx context.Context, arg 
 }
 
 const getCategoryProductsByFiltersPriceDesc = `-- name: GetCategoryProductsByFiltersPriceDesc :many
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.id = $1
+      AND c.is_active = true
     UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT DISTINCT
-    p.id,
-    p.name,
-    p.description,
-    (p.usd_price * rate.rate_to_kes)::numeric AS price,
-    p.slug,
-    COALESCE(
-            (SELECT MAX(d.discount_percentage)
-             FROM discounts d
-             WHERE d.product_id = p.id
-               AND d.start_date <= NOW()
-               AND (d.end_date IS NULL OR d.end_date >= NOW())
-            ), 0)::numeric AS discountPercent,
-    (SELECT pi.image_url
-     FROM product_images pi
-     WHERE pi.product_id = p.id
-     ORDER BY pi.position ASC
-     LIMIT 1) AS imageURL
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-         LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-         LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-     rate
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (
-      jsonb_typeof($5::jsonb) IS NULL 
-      OR jsonb_each_text($5::jsonb) ->> pa.name IS NOT NULL 
-      AND pav.value = (jsonb_each_text($5::jsonb) ->> pa.name)
-  )
-  AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $3 AND $4
-  AND p.status = 'active'
-ORDER BY p.usd_price DESC
-LIMIT $6 OFFSET $7
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+    WHERE c.is_active = true
+),
+               filtered_categories AS (
+                   SELECT
+                       c.id
+                   FROM
+                       categories c
+                   WHERE
+                       c.id IN (SELECT id FROM category_hierarchy)
+                     AND (
+                       ($4::jsonb IS NULL OR $4 = '{}'::jsonb)
+                           OR LOWER(TRIM(c.name)) IN (
+                           SELECT LOWER(TRIM(value::text))
+                           FROM jsonb_array_elements_text($4::jsonb->'Brand') AS value
+                       )
+                       )
+               ),
+               rate AS (
+                   SELECT COALESCE(
+                                  (SELECT rate_to_kes
+                                   FROM exchange_rates
+                                   WHERE currency_code = 'USD'
+                                     AND (valid_to IS NULL OR valid_to >= NOW())
+                                     AND valid_from <= NOW()
+                                   ORDER BY valid_from DESC
+                                   LIMIT 1),
+                                  135) AS rate_to_kes
+               ),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       p.name,
+                       p.description,
+                       (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+                       p.created_at,
+                       p.slug,
+                       COALESCE(
+                               (SELECT MAX(d.discount_percentage)
+                                FROM discounts d
+                                WHERE d.product_id = p.id
+                                  AND d.start_date <= NOW()
+                                  AND (d.end_date IS NULL OR d.end_date >= NOW())
+                               ), 0)::numeric AS discount_percent,
+                       COALESCE(
+                               (SELECT pi.image_url
+                                FROM product_images pi
+                                WHERE pi.product_id = p.id
+                                ORDER BY pi.position ASC
+                                LIMIT 1), '')::text AS image_url
+                   FROM
+                       products p
+                   WHERE
+                       p.category_id IN (SELECT id FROM filtered_categories)
+                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+                     AND p.status = 'active'
+               )
+SELECT
+    fp.id,
+    fp.name,
+    fp.description,
+    fp.price_in_kes AS price,
+    fp.image_url AS imageURL,
+    fp.discount_percent AS discountPercent,
+    fp.slug,
+    fp.created_at
+FROM
+    filtered_products fp
+ORDER BY
+    fp.price_in_kes DESC
+LIMIT
+    $5 OFFSET $6
 `
 
 type GetCategoryProductsByFiltersPriceDescParams struct {
 	ID         uuid.UUID
-	Column2    []string
 	UsdPrice   string
 	UsdPrice_2 string
-	Column5    json.RawMessage
+	Column4    json.RawMessage
 	Limit      int32
 	Offset     int32
 }
@@ -695,25 +898,24 @@ type GetCategoryProductsByFiltersPriceDescRow struct {
 	Name            string
 	Description     sql.NullString
 	Price           string
-	Slug            string
-	Discountpercent string
 	Imageurl        string
+	Discountpercent string
+	Slug            string
+	CreatedAt       sql.NullTime
 }
 
 // $1: category_id (UUID)
-// $2: selected_category_names (VARCHAR[])
-// $3: min_price_kes (NUMERIC)
-// $4: max_price_kes (NUMERIC)
-// $5: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
-// $6: limit (INTEGER)
-// $7: offset (INTEGER)
+// $2: min_price_kes (NUMERIC)
+// $3: max_price_kes (NUMERIC)
+// $4: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
+// $5: limit (INTEGER)
+// $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersPriceDesc(ctx context.Context, arg GetCategoryProductsByFiltersPriceDescParams) ([]GetCategoryProductsByFiltersPriceDescRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersPriceDesc,
 		arg.ID,
-		pq.Array(arg.Column2),
 		arg.UsdPrice,
 		arg.UsdPrice_2,
-		arg.Column5,
+		arg.Column4,
 		arg.Limit,
 		arg.Offset,
 	)
@@ -729,9 +931,10 @@ func (q *Queries) GetCategoryProductsByFiltersPriceDesc(ctx context.Context, arg
 			&i.Name,
 			&i.Description,
 			&i.Price,
-			&i.Slug,
-			&i.Discountpercent,
 			&i.Imageurl,
+			&i.Discountpercent,
+			&i.Slug,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -747,35 +950,70 @@ func (q *Queries) GetCategoryProductsByFiltersPriceDesc(ctx context.Context, arg
 }
 
 const getProductAttributesByCategoryID = `-- name: GetProductAttributesByCategoryID :one
-WITH category_products AS (
-    SELECT p.id
-    FROM products p
-    WHERE p.category_id = $1 AND p.status = 'active'
+WITH RECURSIVE category_tree AS (
+    -- Recursive CTE to get all descendants of the parent category
+    SELECT c.id, c.name, c.parent_id, c.position
+    FROM categories c
+    WHERE c.id = $1  -- Parent category ID
+    UNION
+    SELECT c.id, c.name, c.parent_id, c.position
+    FROM categories c
+             INNER JOIN category_tree ct ON c.parent_id = ct.id
 ),
-     attribute_values AS (
-         SELECT
-             pa.name AS attribute_name,
-             pav.value AS attribute_value
-         FROM
-             product_to_attribute_values ptav
-                 JOIN
-             product_attribute_values pav ON ptav.attribute_value_id = pav.id
-                 JOIN
-             product_attributes pa ON pav.attribute_id = pa.id
-         WHERE
-             ptav.product_id IN (SELECT id FROM category_products)
-     )
+               category_products AS (
+                   -- Get all products that belong to the descendant categories
+                   SELECT p.id
+                   FROM products p
+                   WHERE p.category_id IN (SELECT ct.id FROM category_tree ct) AND p.status = 'active'
+               ),
+               attribute_values AS (
+                   -- Get the product attribute values
+                   SELECT
+                       pa.name AS attribute_name,
+                       pav.value AS attribute_value,
+                       c.position AS attribute_position
+                   FROM
+                       product_to_attribute_values ptav
+                           JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
+                           JOIN product_attributes pa ON pav.attribute_id = pa.id
+                           LEFT JOIN categories c ON c.name = pav.value  -- Assuming attribute values are tied to categories for position
+                   WHERE
+                       ptav.product_id IN (SELECT cp.id FROM category_products cp)
+                   UNION ALL
+                   -- Include brand as an attribute
+                   SELECT
+                       'Brand' AS attribute_name,
+                       c.name AS attribute_value,
+                       c.position AS attribute_position
+                   FROM
+                       category_tree ct
+                           JOIN categories c ON c.parent_id = ct.id
+               ),
+               aggregated_attributes AS (
+                   -- Aggregate attribute values
+                   SELECT
+                       av.attribute_name,
+                       jsonb_agg(av.attribute_value ORDER BY av.attribute_position, av.attribute_value) AS aggregated_values
+                   FROM
+                       attribute_values av
+                   GROUP BY
+                       av.attribute_name
+               )
 SELECT
-    jsonb_agg(
-            jsonb_build_object(
-                    attribute_name, jsonb_agg(DISTINCT attribute_value)
-            )
-    ) AS attributes,
-    (SELECT COUNT(*) FROM category_products) AS total_products
-FROM
-    attribute_values
-GROUP BY
-    attribute_name
+    jsonb_object_agg(aa.attribute_name, aa.aggregated_values) AS attributes,
+    (SELECT COUNT(*) FROM category_products cp) AS total_products
+FROM (
+         SELECT
+             attribute_name,
+             aggregated_values
+         FROM
+             aggregated_attributes
+         UNION ALL
+         -- Ensure the "Brand" attribute is included without depending on the join with categories
+         SELECT
+             'Brand' AS attribute_name,
+             (SELECT aggregated_values FROM aggregated_attributes WHERE attribute_name = 'Brand') AS aggregated_values
+     ) AS aa
 `
 
 type GetProductAttributesByCategoryIDRow struct {
@@ -783,141 +1021,204 @@ type GetProductAttributesByCategoryIDRow struct {
 	TotalProducts int64
 }
 
-func (q *Queries) GetProductAttributesByCategoryID(ctx context.Context, categoryID uuid.UUID) (GetProductAttributesByCategoryIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductAttributesByCategoryID, categoryID)
+func (q *Queries) GetProductAttributesByCategoryID(ctx context.Context, id uuid.UUID) (GetProductAttributesByCategoryIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getProductAttributesByCategoryID, id)
 	var i GetProductAttributesByCategoryIDRow
+	err := row.Scan(&i.Attributes, &i.TotalProducts)
+	return i, err
+}
+
+const getProductAttributesByCategoryName = `-- name: GetProductAttributesByCategoryName :one
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.name = $1
+
+    UNION ALL
+
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+),
+               category_products AS (
+                   SELECT p.id
+                   FROM products p
+                   WHERE p.category_id IN (SELECT id FROM category_hierarchy) AND p.status = 'active'
+               ),
+               brand_attributes AS (
+                   SELECT
+                       'brand' AS attribute_name,
+                       c.name AS attribute_value,
+                       c.position
+                   FROM
+                       categories c
+                   WHERE
+                       c.parent_id = (SELECT id FROM category_hierarchy LIMIT 1) -- Get the immediate children of the main category
+               ),
+               attribute_values AS (
+                   SELECT
+                       pa.name AS attribute_name,
+                       pav.value AS attribute_value
+                   FROM
+                       product_to_attribute_values ptav
+                           JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
+                           JOIN product_attributes pa ON pav.attribute_id = pa.id
+                   WHERE
+                       ptav.product_id IN (SELECT id FROM category_products)
+                   UNION ALL
+                   SELECT
+                       ba.attribute_name,
+                       ba.attribute_value
+                   FROM
+                       brand_attributes ba
+               ),
+               ordered_attributes AS (
+                   SELECT
+                       av.attribute_name,
+                       av.attribute_value,
+                       ba.position
+                   FROM
+                       attribute_values av
+                           LEFT JOIN
+                       brand_attributes ba ON av.attribute_value = ba.attribute_value AND av.attribute_name = 'brand'
+                   ORDER BY
+                       av.attribute_name, ba.position
+               ),
+               aggregated_attributes AS (
+                   SELECT
+                       attribute_name,
+                       jsonb_agg(attribute_value) AS aggregated_values
+                   FROM
+                       ordered_attributes
+                   GROUP BY
+                       attribute_name
+               )
+SELECT
+    jsonb_object_agg(
+            attribute_name, aggregated_values
+    ) AS attributes,
+    (SELECT COUNT(*) FROM category_products) AS total_products
+FROM
+    aggregated_attributes
+`
+
+type GetProductAttributesByCategoryNameRow struct {
+	Attributes    json.RawMessage
+	TotalProducts int64
+}
+
+func (q *Queries) GetProductAttributesByCategoryName(ctx context.Context, name string) (GetProductAttributesByCategoryNameRow, error) {
+	row := q.db.QueryRowContext(ctx, getProductAttributesByCategoryName, name)
+	var i GetProductAttributesByCategoryNameRow
 	err := row.Scan(&i.Attributes, &i.TotalProducts)
 	return i, err
 }
 
 const getTotalCategoryProductsByFilters = `-- name: GetTotalCategoryProductsByFilters :one
 
-
-WITH RECURSIVE category_tree AS (
-    SELECT c.id, c.name
-    FROM categories c
-    WHERE c.id = $1
+WITH RECURSIVE category_hierarchy AS (
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+    WHERE
+        c.id = $1
+      AND c.is_active = true
     UNION ALL
-    SELECT c.id, c.name
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-), rate AS (
-    SELECT COALESCE(
-                   (SELECT rate_to_kes
-                    FROM exchange_rates
-                    WHERE currency_code = 'USD'
-                      AND (valid_to IS NULL OR valid_to >= NOW())
-                      AND valid_from <= NOW()
-                    ORDER BY valid_from DESC
-                    LIMIT 1),
-                   135) AS rate_to_kes
-)
-SELECT COUNT(DISTINCT p.id) AS total_count
-FROM products p
-         JOIN category_tree ct ON p.category_id = ct.id
-         LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-         LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-         LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-     rate
-WHERE (array_length($2::text[], 1) IS NULL OR ct.name = ANY($2))
-  AND (
-    jsonb_typeof($5::jsonb) IS NULL
-        OR jsonb_each_text($5::jsonb) ->> pa.name IS NOT NULL
-        AND pav.value = (jsonb_each_text($5::jsonb) ->> pa.name)
-    )
-  AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $3 AND $4
-  AND p.status = 'active'
+    SELECT
+        c.id,
+        c.name,
+        c.parent_id
+    FROM
+        categories c
+            JOIN category_hierarchy ch ON c.parent_id = ch.id
+    WHERE c.is_active = true
+),
+               filtered_categories AS (
+                   SELECT
+                       c.id
+                   FROM
+                       categories c
+                   WHERE
+                       c.id IN (SELECT id FROM category_hierarchy)
+                     AND (
+                       ($4::jsonb IS NULL OR $4 = '{}'::jsonb)
+                           OR LOWER(TRIM(c.name)) IN (
+                           SELECT LOWER(TRIM(value::text))
+                           FROM jsonb_array_elements_text($4::jsonb->'Brand') AS value
+                       )
+                       )
+               ),
+               rate AS (
+                   SELECT COALESCE(
+                                  (SELECT rate_to_kes
+                                   FROM exchange_rates
+                                   WHERE currency_code = 'USD'
+                                     AND (valid_to IS NULL OR valid_to >= NOW())
+                                     AND valid_from <= NOW()
+                                   ORDER BY valid_from DESC
+                                   LIMIT 1),
+                                  135) AS rate_to_kes
+               ),
+               filtered_products AS (
+                   SELECT
+                       p.id,
+                       COALESCE(
+                               (SELECT MAX(d.discount_percentage)
+                                FROM discounts d
+                                WHERE d.product_id = p.id
+                                  AND d.start_date <= NOW()
+                                  AND (d.end_date IS NULL OR d.end_date >= NOW())
+                               ), 0)::numeric AS discount_percent,
+                       COALESCE(
+                               (SELECT pi.image_url
+                                FROM product_images pi
+                                WHERE pi.product_id = p.id
+                                ORDER BY pi.position ASC
+                                LIMIT 1), '')::text AS image_url
+                   FROM
+                       products p
+                   WHERE
+                       p.category_id IN (SELECT id FROM filtered_categories)
+                     AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $2 AND $3
+                     AND p.status = 'active'
+               )
+SELECT
+    COUNT(fp.id) AS total_products
+FROM
+    filtered_products fp
 `
 
 type GetTotalCategoryProductsByFiltersParams struct {
 	ID         uuid.UUID
-	Column2    []string
 	UsdPrice   string
 	UsdPrice_2 string
-	Column5    json.RawMessage
+	Column4    json.RawMessage
 }
 
-// -- name: CountFilteredCategoryProducts :one
-// -- $1: selected_category_names (VARCHAR[]) sqlc.arg(selectedCategoryNames)
-// -- $2: min_price_kes (NUMERIC) sqlc.arg(minPriceKES)
-// -- $3: max_price_kes (NUMERIC) sqlc.arg(maxPriceKES)
-// -- $4: selected_attribute_names (VARCHAR[]) sqlc.arg(selectedAttributeNames)
-// -- $5: selected_attribute_values (VARCHAR[]) sqlc.arg(selectedAttributeValues)
-// WITH RECURSIVE category_hierarchy AS (
-//
-//	SELECT
-//	    c.id,
-//	    c.name,
-//	    c.parent_id
-//	FROM
-//	    categories c
-//	WHERE
-//	    c.name = ANY($1::VARCHAR[]) -- Start with the given list of category names
-//
-//	UNION ALL
-//
-//	SELECT
-//	    c.id,
-//	    c.name,
-//	    c.parent_id
-//	FROM
-//	    categories c
-//	        INNER JOIN
-//	    category_hierarchy ch ON c.parent_id = ch.id
-//
-// ),
-//
-//	current_exchange_rate AS (
-//	    SELECT
-//	        COALESCE((
-//	                     SELECT rate_to_kes
-//	                     FROM exchange_rates
-//	                     WHERE currency_code = 'USD'
-//	                       AND (valid_to IS NULL OR valid_to >= NOW())
-//	                     ORDER BY valid_from DESC
-//	                     LIMIT 1
-//	                 ), 135) AS rate_to_kes
-//	),
-//	filtered_products AS (
-//	    SELECT
-//	        p.id
-//	    FROM
-//	        products p
-//	            LEFT JOIN product_to_attribute_values ptav ON p.id = ptav.product_id
-//	            LEFT JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
-//	            LEFT JOIN product_attributes pa ON pav.attribute_id = pa.id,
-//	        current_exchange_rate er
-//	    WHERE
-//	        p.category_id IN (SELECT id FROM category_hierarchy)
-//	      -- Attribute filters
-//	      AND (
-//	        (
-//	            pa.name = ANY($4::VARCHAR[]) AND
-//	            pav.value = ANY($5::VARCHAR[])
-//	            )
-//	            OR $4 IS NULL
-//	        )
-//	      -- Price range filter (converted to KES)
-//	      AND (p.usd_price * er.rate_to_kes) BETWEEN $2::numeric AND $3::numeric
-//	      -- Status filter
-//	      AND p.status = 'active'
-//	)
-//
-// SELECT COUNT(*) AS total_count FROM filtered_products;
 // $1: category_id (UUID)
-// $2: selected_category_names (VARCHAR[])
-// $3: min_price_kes (NUMERIC)
-// $4: max_price_kes (NUMERIC)
-// $5: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
+// $2: min_price_kes (NUMERIC)
+// $3: max_price_kes (NUMERIC)
+// $4: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
 func (q *Queries) GetTotalCategoryProductsByFilters(ctx context.Context, arg GetTotalCategoryProductsByFiltersParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getTotalCategoryProductsByFilters,
 		arg.ID,
-		pq.Array(arg.Column2),
 		arg.UsdPrice,
 		arg.UsdPrice_2,
-		arg.Column5,
+		arg.Column4,
 	)
-	var total_count int64
-	err := row.Scan(&total_count)
-	return total_count, err
+	var total_products int64
+	err := row.Scan(&total_products)
+	return total_products, err
 }

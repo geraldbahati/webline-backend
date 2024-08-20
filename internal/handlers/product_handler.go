@@ -17,80 +17,131 @@ import (
 )
 
 type ProductHandler struct {
-	productService    *services.ProductService
-	productSEOService *services.ProductSEOService
+	productService          *services.ProductService
+	productSEOService       *services.ProductSEOService
+	filterService           *services.FilterService
+	productAttributeService *services.ProductAttributeService
 }
 
-func NewProductHandler(productService *services.ProductService, productSEOService *services.ProductSEOService) *ProductHandler {
+func NewProductHandler(productService *services.ProductService, productSEOService *services.ProductSEOService, filterService *services.FilterService, productAttributeService *services.ProductAttributeService) *ProductHandler {
 	return &ProductHandler{
-		productService:    productService,
-		productSEOService: productSEOService,
+		productService:          productService,
+		productSEOService:       productSEOService,
+		filterService:           filterService,
+		productAttributeService: productAttributeService,
 	}
 }
 
-//// GetAllProductsHandler gets all products
-//func (h *ProductHandler) GetAllProductsHandler(w http.ResponseWriter, r *http.Request) {
-//	// get page and page size
-//	pageStr := r.URL.Query().Get("page")
-//	pageSizeStr := r.URL.Query().Get("limit")
-//
-//	page, pageSize, err := GetPageAndPageSize(pageStr, pageSizeStr)
-//
-//	// get filters
-//	categoryNamesStr := r.URL.Query().Get("category_names")
-//	colorsStr := r.URL.Query().Get("colors")
-//	processorsStr := r.URL.Query().Get("processors")
-//	storageStr := r.URL.Query().Get("storage")
-//	sizesStr := r.URL.Query().Get("sizes")
-//	priceFromStr := r.URL.Query().Get("price_from")
-//	priceToStr := r.URL.Query().Get("price_to")
-//	sortBy := r.URL.Query().Get("sort")
-//
-//	categoryNames := parseCommaSeparatedValues(categoryNamesStr)
-//	colors := parseCommaSeparatedValues(colorsStr)
-//	processors := parseCommaSeparatedValues(processorsStr)
-//	storage := parseCommaSeparatedValues(storageStr)
-//	sizes := parseCommaSeparatedValues(sizesStr)
-//
-//	priceFrom, err := parsePrice(priceFromStr, 0)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid price_from")
-//		return
-//	}
-//
-//	priceTo, err := parsePrice(priceToStr, 999999)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid price_to")
-//		return
-//	}
-//	//
-//	//var products *model.PaginationResult[[]*model.Product]
-//	//switch sortBy {
-//	//case "price_asc":
-//	//	products, err = h.productService.GetAllProductsByFiltersPriceAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-//	//case "price_desc":
-//	//	products, err = h.productService.GetAllProductsByFiltersPriceDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-//	//case "name_asc":
-//	//	products, err = h.productService.GetAllProductsByFiltersNameAsc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-//	//case "name_desc":
-//	//	products, err = h.productService.GetAllProductsByFiltersNameDesc(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-//	//case "newest":
-//	//	products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-//	//case "oldest":
-//	//	products, err = h.productService.GetAllProductsByFiltersOldest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-//	//default:
-//	//	products, err = h.productService.GetAllProductsByFiltersNewest(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize)
-//	//}
-//
-//	//products, err := h.productService.GetAllProductsByFilters(r.Context(), categoryNames, colors, processors, storage, sizes, priceFrom, priceTo, page, pageSize, sortBy)
-//
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
-//		return
-//	}
-//
-//	//RespondWithJSON(w, http.StatusOK, products)
-//}
+// GetFilteredCategoryProducts gets all products by category ID
+func (h *ProductHandler) GetFilteredCategoryProducts(w http.ResponseWriter, r *http.Request) {
+	// get the filter values
+	var body struct {
+		AttributeFilters map[string][]string `json:"attributes"`
+		MinPrice         float64             `json:"priceFrom"`
+		MaxPrice         float64             `json:"priceTo"`
+		SortOrder        string              `json:"sortOrder"`
+		CategoryID       string              `json:"categoryID"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		log.Println(err)
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// parse category ID
+	categoryUUID, err := uuid.Parse(body.CategoryID)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
+		return
+	}
+
+	// create params
+	params := &model.CategoryProductFilterValues{
+		CategoryID:       categoryUUID,
+		AttributeFilters: body.AttributeFilters,
+		MinPrice:         body.MinPrice,
+		MaxPrice:         body.MaxPrice,
+		SortOrder:        body.SortOrder,
+	}
+
+	// get page and page size
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("limit")
+
+	page, pageSize, err := GetPageAndPageSize(pageStr, pageSizeStr)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid page or page size: %v", err))
+		return
+	}
+	log.Println("page: ", page, "pageSize: ", pageSize)
+
+	// update the limit and page
+	params.Limit = pageSize
+	params.Offset = page
+
+	log.Println("params: ", params)
+	// get products
+	products, err := h.filterService.GetCategoryProductsByFilters(r.Context(), params)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, products)
+}
+
+// GetAllProductsHandler gets all products
+func (h *ProductHandler) GetAllProductsHandler(w http.ResponseWriter, r *http.Request) {
+	// get the filter values
+	var body struct {
+		AttributeFilters map[string][]string `json:"attributes"`
+		MinPrice         float64             `json:"priceFrom"`
+		MaxPrice         float64             `json:"priceTo"`
+		SortOrder        string              `json:"sortOrder"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		log.Println(err)
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// create params
+	params := &model.AllProductFilterValues{
+		AttributeFilters: body.AttributeFilters,
+		MinPrice:         body.MinPrice,
+		MaxPrice:         body.MaxPrice,
+		SortOrder:        body.SortOrder,
+	}
+
+	// get page and page size
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("limit")
+
+	page, pageSize, err := GetPageAndPageSize(pageStr, pageSizeStr)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid page or page size: %v", err))
+		return
+	}
+	log.Println("page: ", page, "pageSize: ", pageSize)
+
+	// update the limit and page
+	params.Limit = pageSize
+	params.Offset = page
+
+	log.Println("params: ", params)
+	// get products
+	products, err := h.filterService.GetProductsByFilters(r.Context(), params)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, products)
+}
 
 // GetProductsByCategoryIDHandler gets all products by category ID
 func (h *ProductHandler) GetProductsByCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
@@ -221,34 +272,35 @@ func (h *ProductHandler) SearchProductsHandler(w http.ResponseWriter, r *http.Re
 	RespondWithJSON(w, http.StatusOK, products)
 }
 
-//// GetProductsByFilterOptionsHandler gets all products by filter options
-//func (h *ProductHandler) GetProductsByFilterOptionsHandler(w http.ResponseWriter, r *http.Request) {
-//	// get filter options
-//	filterOptions, err := h.productService.GetFilterOptions(r.Context())
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
-//		return
+// // GetProductsByFilterOptionsHandler gets all products by filter options
+//
+//	func (h *ProductHandler) GetProductsByFilterOptionsHandler(w http.ResponseWriter, r *http.Request) {
+//		// get filter options
+//		filterOptions, err := h.productService.GetFilterOptions(r.Context())
+//		if err != nil {
+//			RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
+//			return
+//		}
+//
+//		// respond with filter options
+//		RespondWithJSON(w, http.StatusOK, filterOptions)
 //	}
-//
-//	// respond with filter options
-//	RespondWithJSON(w, http.StatusOK, filterOptions)
-//}
-//
-//// GetFilterOptionsByCategoryNameHandler gets filter options by category name
-//func (h *ProductHandler) GetFilterOptionsByCategoryNameHandler(w http.ResponseWriter, r *http.Request) {
-//	// get category name
-//	categoryName := mux.Vars(r)["name"]
-//
-//	// get filter options
-//	filterOptions, err := h.productService.GetFilterOptionsByCategoryName(r.Context(), categoryName)
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
-//		return
-//	}
-//
-//	// respond with filter options
-//	RespondWithJSON(w, http.StatusOK, filterOptions)
-//}
+
+// GetFilterOptionsByCategoryNameHandler gets filter options by category name
+func (h *ProductHandler) GetFilterOptionsByCategoryNameHandler(w http.ResponseWriter, r *http.Request) {
+	// get category name
+	categoryName := mux.Vars(r)["name"]
+
+	// get filter options
+	filterOptions, err := h.filterService.GetCategoryProductFilterOptions(r.Context(), categoryName)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
+		return
+	}
+
+	// respond with filter options
+	RespondWithJSON(w, http.StatusOK, filterOptions)
+}
 
 // GetAllProductSitemapHandler gets all products for sitemap
 func (h *ProductHandler) GetAllProductSitemapHandler(w http.ResponseWriter, r *http.Request) {
@@ -653,26 +705,39 @@ func (h *ProductHandler) GetProductSpecsBySlugHandler(w http.ResponseWriter, r *
 	RespondWithJSON(w, http.StatusOK, productSpecs)
 }
 
-//// GetProductMetaFieldsByCategoryIDHandler gets product meta fields by category ID
-//func (h *ProductHandler) GetProductMetaFieldsByCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
-//	// get category ID
-//	vars := mux.Vars(r)
-//	categoryID := vars["categoryID"]
-//
-//	// parse category ID
-//	categoryUUID, err := uuid.Parse(categoryID)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
-//		return
-//	}
-//
-//	// get product meta fields
-//	productMetaFields, err := h.productService.GetFilterOptionsByCategoryID(r.Context(), categoryUUID)
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get product meta fields")
-//		return
-//	}
-//
-//	// respond with product meta fields
-//	RespondWithJSON(w, http.StatusOK, productMetaFields)
-//}
+// GetProductMetaFieldsByCategoryIDHandler gets product meta fields by category ID
+func (h *ProductHandler) GetProductMetaFieldsByCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
+	// get category ID
+	vars := mux.Vars(r)
+	categoryID := vars["categoryID"]
+
+	// parse category ID
+	categoryUUID, err := uuid.Parse(categoryID)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
+		return
+	}
+
+	// get product meta fields
+	productMetaFields, err := h.productAttributeService.GetProductAttributesWithValues(r.Context(), categoryUUID)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get product meta fields")
+		return
+	}
+
+	// respond with product meta fields
+	RespondWithJSON(w, http.StatusOK, productMetaFields)
+}
+
+// GetAllProductFilterOptionsHandler gets all product filter options
+func (h *ProductHandler) GetAllProductFilterOptionsHandler(w http.ResponseWriter, r *http.Request) {
+	// get filter options
+	filterOptions, err := h.filterService.GetProductFilterOptions(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
+		return
+	}
+
+	// respond with filter options
+	RespondWithJSON(w, http.StatusOK, filterOptions)
+}

@@ -4,7 +4,6 @@ import "github.com/google/uuid"
 
 type CategoryProductFilterValues struct {
 	CategoryID       uuid.UUID
-	CategoryNames    []string
 	AttributeFilters map[string][]string
 	MinPrice         float64
 	MaxPrice         float64
@@ -14,11 +13,10 @@ type CategoryProductFilterValues struct {
 }
 
 type AllProductFilterValues struct {
-	CategoryNames    []string
-	AttributeFilters map[string][]string
-	MinPrice         float64
-	MaxPrice         float64
-	SortOrder        string
+	AttributeFilters map[string][]string `json:"attributes"`
+	MinPrice         float64             `json:"priceFrom"`
+	MaxPrice         float64             `json:"priceTo"`
+	SortOrder        string              `json:"sortOrder"`
 	Limit            int32
 	Offset           int32
 }

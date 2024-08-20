@@ -13,18 +13,18 @@ import (
 )
 
 const createProductAttribute = `-- name: CreateProductAttribute :one
-INSERT INTO product_attributes (name, attribute_type)
-VALUES ($1, $2)
+INSERT INTO product_attributes (name, attribute_type_id)
+VALUES ($1, (SELECT at.id FROM attribute_types at WHERE at.name = $2))
 RETURNING id
 `
 
 type CreateProductAttributeParams struct {
-	Name          string
-	AttributeType AttributeTypeEnum
+	Name   string
+	Name_2 string
 }
 
 func (q *Queries) CreateProductAttribute(ctx context.Context, arg CreateProductAttributeParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createProductAttribute, arg.Name, arg.AttributeType)
+	row := q.db.QueryRowContext(ctx, createProductAttribute, arg.Name, arg.Name_2)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -57,9 +57,9 @@ func (q *Queries) CreateProductAttributeValue(ctx context.Context, arg CreatePro
 
 const createProductToAttributeValue = `-- name: CreateProductToAttributeValue :exec
 INSERT INTO product_to_attribute_values (
-     product_id, attribute_value_id
+    product_id, attribute_value_id
 ) VALUES (
-              $1, $2
+             $1, $2
          )
 `
 
@@ -71,4 +71,55 @@ type CreateProductToAttributeValueParams struct {
 func (q *Queries) CreateProductToAttributeValue(ctx context.Context, arg CreateProductToAttributeValueParams) error {
 	_, err := q.db.ExecContext(ctx, createProductToAttributeValue, arg.ProductID, arg.AttributeValueID)
 	return err
+}
+
+const getProductAttributesWithValues = `-- name: GetProductAttributesWithValues :many
+SELECT
+    pa.id AS attribute_id,
+    pa.name AS attribute_name,
+    COALESCE(pav.value, '') AS attribute_value,
+    COALESCE(pav.hex_value, '') AS hex_value
+FROM
+    product_attributes pa
+        LEFT JOIN
+    product_attribute_values pav ON pa.id = pav.attribute_id
+WHERE
+    (pav.category_id = $1 OR pav.category_id IS NULL)
+ORDER BY
+    pa.name, pav.value
+`
+
+type GetProductAttributesWithValuesRow struct {
+	AttributeID    uuid.UUID
+	AttributeName  string
+	AttributeValue string
+	HexValue       string
+}
+
+func (q *Queries) GetProductAttributesWithValues(ctx context.Context, categoryID uuid.NullUUID) ([]GetProductAttributesWithValuesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getProductAttributesWithValues, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetProductAttributesWithValuesRow
+	for rows.Next() {
+		var i GetProductAttributesWithValuesRow
+		if err := rows.Scan(
+			&i.AttributeID,
+			&i.AttributeName,
+			&i.AttributeValue,
+			&i.HexValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

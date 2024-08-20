@@ -67,14 +67,15 @@ func (r *FilterProductRepoImpl) GetTotalProductsByFilters(ctx context.Context, f
 			attributesJSON, err = json.Marshal(filterValues.AttributeFilters)
 			if err != nil {
 				r.logger.Error("failed to marshal attributes", zap.Error(err))
-				return err // Properly propagate the error
+				return err
 			}
+		} else {
+			attributesJSON = []byte("{}")
 		}
 
 		// Prepare parameters
 		params := database.CountAllProductsByFiltersParams{
-			Column1:    filterValues.CategoryNames,
-			Column4:    attributesJSON,
+			Column3:    attributesJSON,
 			UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 			UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		}
@@ -143,11 +144,12 @@ func (r *FilterProductRepoImpl) getProductsByFiltersPriceAsc(ctx context.Context
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetAllProductsByFiltersPriceAsc(ctx, database.GetAllProductsByFiltersPriceAscParams{
-		Column1:    filterValues.CategoryNames,
-		Column4:    attributesJSON,
+		Column3:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -170,11 +172,12 @@ func (r *FilterProductRepoImpl) getProductsByFiltersPriceDesc(ctx context.Contex
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetAllProductsByFiltersPriceDesc(ctx, database.GetAllProductsByFiltersPriceDescParams{
-		Column1:    filterValues.CategoryNames,
-		Column4:    attributesJSON,
+		Column3:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -197,11 +200,12 @@ func (r *FilterProductRepoImpl) getProductsByFiltersNameAsc(ctx context.Context,
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetAllProductsByFiltersNameAsc(ctx, database.GetAllProductsByFiltersNameAscParams{
-		Column1:    filterValues.CategoryNames,
-		Column4:    attributesJSON,
+		Column3:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -224,11 +228,12 @@ func (r *FilterProductRepoImpl) getProductsByFiltersNameDesc(ctx context.Context
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetAllProductsByFiltersNameDesc(ctx, database.GetAllProductsByFiltersNameDescParams{
-		Column1:    filterValues.CategoryNames,
-		Column4:    attributesJSON,
+		Column3:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -251,11 +256,12 @@ func (r *FilterProductRepoImpl) getProductsByFiltersNewest(ctx context.Context, 
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetAllProductsByFiltersNewest(ctx, database.GetAllProductsByFiltersNewestParams{
-		Column1:    filterValues.CategoryNames,
-		Column4:    attributesJSON,
+		Column3:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -278,11 +284,14 @@ func (r *FilterProductRepoImpl) getProductsByFiltersOldest(ctx context.Context, 
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
+	r.logger.Info("Starting getProductsByFiltersOldest", zap.String("attributesJSON", string(attributesJSON)))
+
 	rows, err := q.GetAllProductsByFiltersOldest(ctx, database.GetAllProductsByFiltersOldestParams{
-		Column1:    filterValues.CategoryNames,
-		Column4:    attributesJSON,
+		Column3:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -330,7 +339,7 @@ func (r *FilterProductRepoImpl) processProductRows(rows interface{}) ([]*model.P
 }
 
 // convertToProduct converts a row to a model.Product
-func (r *FilterProductRepoImpl) convertToProduct(id uuid.UUID, name, description string, price string, imageURL, discountPercent, slug string) *model.Product {
+func (r *FilterProductRepoImpl) convertToProduct(id uuid.UUID, name, description string, price string, imageURL string, discountPercent, slug string) *model.Product {
 	discount, err := strconv.ParseFloat(discountPercent, 64)
 	if err != nil {
 		r.logger.Error("failed to parse discount percent", zap.Error(err))

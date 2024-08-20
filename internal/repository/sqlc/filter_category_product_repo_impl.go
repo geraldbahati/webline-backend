@@ -69,13 +69,14 @@ func (r *FilterCategoryProductRepoImpl) GetTotalCategoryProductsByFilters(ctx co
 				r.logger.Error("failed to marshal attributes", zap.Error(err))
 				return err // Properly propagate the error
 			}
+		} else {
+			attributesJSON = []byte("{}")
 		}
 
 		// Prepare parameters
 		params := database.GetTotalCategoryProductsByFiltersParams{
 			ID:         filterValues.CategoryID,
-			Column2:    filterValues.CategoryNames,
-			Column5:    attributesJSON,
+			Column4:    attributesJSON,
 			UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 			UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		}
@@ -144,12 +145,13 @@ func (r *FilterCategoryProductRepoImpl) getProductsByFiltersPriceAsc(ctx context
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetCategoryProductsByFiltersPriceAsc(ctx, database.GetCategoryProductsByFiltersPriceAscParams{
 		ID:         filterValues.CategoryID,
-		Column2:    filterValues.CategoryNames,
-		Column5:    attributesJSON,
+		Column4:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -172,12 +174,13 @@ func (r *FilterCategoryProductRepoImpl) getProductsByFiltersPriceDesc(ctx contex
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetCategoryProductsByFiltersPriceDesc(ctx, database.GetCategoryProductsByFiltersPriceDescParams{
 		ID:         filterValues.CategoryID,
-		Column2:    filterValues.CategoryNames,
-		Column5:    attributesJSON,
+		Column4:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -200,12 +203,13 @@ func (r *FilterCategoryProductRepoImpl) getProductsByFiltersNameAsc(ctx context.
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetCategoryProductsByFiltersNameAsc(ctx, database.GetCategoryProductsByFiltersNameAscParams{
 		ID:         filterValues.CategoryID,
-		Column2:    filterValues.CategoryNames,
-		Column5:    attributesJSON,
+		Column4:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -228,12 +232,13 @@ func (r *FilterCategoryProductRepoImpl) getProductsByFiltersNameDesc(ctx context
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetCategoryProductsByFiltersNameDesc(ctx, database.GetCategoryProductsByFiltersNameDescParams{
 		ID:         filterValues.CategoryID,
-		Column2:    filterValues.CategoryNames,
-		Column5:    attributesJSON,
+		Column4:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -256,12 +261,15 @@ func (r *FilterCategoryProductRepoImpl) getProductsByFiltersNewest(ctx context.C
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
+
+	r.logger.Debug("attributesJSON", zap.ByteString("attributesJSON", attributesJSON))
 
 	rows, err := q.GetCategoryProductsByFiltersNewest(ctx, database.GetCategoryProductsByFiltersNewestParams{
 		ID:         filterValues.CategoryID,
-		Column2:    filterValues.CategoryNames,
-		Column5:    attributesJSON,
+		Column4:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
@@ -284,12 +292,13 @@ func (r *FilterCategoryProductRepoImpl) getProductsByFiltersOldest(ctx context.C
 			r.logger.Error("failed to marshal attributes", zap.Error(err))
 			return nil, err
 		}
+	} else {
+		attributesJSON = []byte("{}")
 	}
 
 	rows, err := q.GetCategoryProductsByFiltersOldest(ctx, database.GetCategoryProductsByFiltersOldestParams{
 		ID:         filterValues.CategoryID,
-		Column2:    filterValues.CategoryNames,
-		Column5:    attributesJSON,
+		Column4:    attributesJSON,
 		UsdPrice:   strconv.FormatFloat(filterValues.MinPrice, 'f', -1, 64),
 		UsdPrice_2: strconv.FormatFloat(filterValues.MaxPrice, 'f', -1, 64),
 		Limit:      filterValues.Limit,
