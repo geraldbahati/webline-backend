@@ -1043,6 +1043,15 @@ func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, e
 }
 
 // GetProductDetail retrieves a product by slug
+
+// MetaTitle         string             `json:"metaTitle"`
+// MetaDescription   string             `json:"metaDescription"`
+// MetaKeywords      string             `json:"metaKeywords"`
+// ExchangeRate      float64            `json:"exchangeRate"`
+// PricePerUnit      string             `json:"pricePerUnit"`
+// ProfitMargin      string             `json:"profitMargin"`
+// ParentCategoryID  uuid.UUID          `json:"parentCategoryID"`
+// ProductMetafields []ProductMetafield `json:"productMetafields"`
 func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*model.V2ProductDetail, error) {
 	product, err := s.productRepo.GetV2ProductDetailBySlug(ctx, slug)
 	if err != nil {

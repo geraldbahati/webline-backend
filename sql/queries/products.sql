@@ -253,8 +253,6 @@ FROM products p
          LEFT JOIN categories pc ON c.parent_id = pc.id
 ORDER BY p.created_at DESC;
 
-
-
 -- name: GetV2ProductDetailBySlug :one
 WITH rate AS (
     SELECT COALESCE(
@@ -272,14 +270,21 @@ WITH rate AS (
              p.id,
              p.name,
              p.description,
-             (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
+             (p.usd_price * r.rate_to_kes)::numeric AS price_in_kes,
+             (p.price_per_unit * r.rate_to_kes)::numeric AS price_per_unit_in_kes,
+             r.rate_to_kes AS exchange_rate,
              p.slug,
              p.stock,
              p.part_number,
              p.category_id,
-             p.status
+             p.meta_description,
+             p.meta_keywords,
+             p.meta_title,
+             p.status,
+             (NOW() BETWEEN p.valid_from AND COALESCE(p.valid_to, 'infinity'::timestamp)) AS is_valid
          FROM
-             products p
+             products p,
+             rate r
          WHERE
              p.slug = $1
      ),
@@ -302,25 +307,44 @@ WITH rate AS (
                  JOIN product_cte p ON pi.product_id = p.id
          GROUP BY
              pi.product_id
+     ),
+     metafields_cte AS (
+         SELECT
+             ptav.product_id,
+             json_agg(json_build_object('name', pa.name, 'value', pav.value)) AS metafields
+         FROM
+             product_to_attribute_values ptav
+                 JOIN product_attribute_values pav ON ptav.attribute_value_id = pav.id
+                 JOIN product_attributes pa ON pav.attribute_id = pa.id
+                 JOIN product_cte p ON ptav.product_id = p.id
+         GROUP BY
+             ptav.product_id
      )
 SELECT
-    p.id,
     p.name,
     p.description,
-    p.slug,
-    p.price_in_kes,
+    p.price_in_kes::text AS price,
+    p.price_per_unit_in_kes::text AS price_per_unit,
+    p.exchange_rate,
     CAST(p.stock AS INTEGER) AS stock,
     p.part_number,
+    p.slug,
+    p.meta_title,
+    p.meta_description,
+    p.meta_keywords,
     p.category_id,
     p.status,
     COALESCE(s.specifications, '[]'::json) AS specifications,
-    COALESCE(i.images, '[]'::json) AS images
+    COALESCE(i.images, '[]'::json) AS images,
+    COALESCE(m.metafields, '[]'::json) AS product_metafields
 FROM
     product_cte p
         LEFT JOIN
     specs_cte s ON p.id = s.product_id
         LEFT JOIN
-    images_cte i ON p.id = i.product_id;
+    images_cte i ON p.id = i.product_id
+        LEFT JOIN
+    metafields_cte m ON p.id = m.product_id;
 
 -- name: ArchiveProductsBySlugs :exec
 UPDATE products

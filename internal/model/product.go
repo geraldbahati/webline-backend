@@ -39,16 +39,29 @@ type V2Product struct {
 }
 
 type V2ProductDetail struct {
-	Name           string          `json:"name"`
-	Description    string          `json:"description"`
-	Price          string          `json:"price"`
-	Stock          int32           `json:"stock"`
-	PartNumber     string          `json:"partNumber"`
-	Slug           string          `json:"slug"`
-	CategoryID     uuid.UUID       `json:"categoryID"`
-	Status         string          `json:"status"`
-	Specifications json.RawMessage `json:"specifications"`
-	Images         json.RawMessage `json:"images"`
+	Name              string             `json:"name"`
+	Description       string             `json:"description"`
+	Price             string             `json:"price"`
+	Stock             int32              `json:"stock"`
+	PartNumber        string             `json:"partNumber"`
+	Slug              string             `json:"slug"`
+	MetaTitle         string             `json:"metaTitle"`
+	MetaDescription   string             `json:"metaDescription"`
+	MetaKeywords      string             `json:"metaKeywords"`
+	ExchangeRate      float64            `json:"exchangeRate"`
+	PricePerUnit      string             `json:"pricePerUnit"`
+	ProfitMargin      string             `json:"profitMargin"`
+	ParentCategoryID  uuid.UUID          `json:"parentCategoryID"`
+	ProductMetafields []ProductMetafield `json:"productMetafields"`
+	CategoryID        uuid.UUID          `json:"categoryID"`
+	Status            string             `json:"status"`
+	Specifications    json.RawMessage    `json:"specifications"`
+	Images            json.RawMessage    `json:"images"`
+}
+
+type ProductMetafield struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type V2ProductSpec struct {

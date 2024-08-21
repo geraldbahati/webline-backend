@@ -129,9 +129,7 @@ func main() {
 		productImageRepo,
 		productSpecificationRepo,
 		categoryRepo,
-
 		productOptionRepo,
-
 		discountRepo,
 		userRepo,
 		exchangeRateRepoImpl,
@@ -221,7 +219,6 @@ func setupRouter(
 
 	// health check
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodGet)
 
