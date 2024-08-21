@@ -138,26 +138,6 @@ func (r *ProductRepository) GetProductBySlug(
 	}, nil
 }
 
-//
-//// CountFilteredProducts returns the total number of products that match the filter
-//func (r *ProductRepository) CountFilteredProducts(
-//	ctx context.Context,
-//	categories []string,
-//	priceFrom, priceTo string,
-//) (int64, error) {
-//	count, err := r.Queries.CountFilteredProducts(ctx, database.CountFilteredProductsParams{
-//		Column1:    categories,
-//		UsdPrice:   priceFrom,
-//		UsdPrice_2: priceTo,
-//	})
-//	if err != nil {
-//		r.logger.Error("failed to count products", zap.Error(err))
-//		return 0, fmt.Errorf("failed to count products: %w", err)
-//	}
-//
-//	return count, nil
-//}
-
 // UpdateProduct updates a product in the database and returns the updated product
 func (r *ProductRepository) UpdateProduct(
 	ctx context.Context,
@@ -322,412 +302,6 @@ func (r *ProductRepository) GetProductsByParentCategoryID(
 	return productSchemas, nil
 }
 
-//// GetProductsByFilters retrieves products by filters and sort order.
-//func (r *ProductRepository) GetProductsByFilters(ctx context.Context, params model.UnifiedParams) ([]model.FilterProduct, error) {
-//	r.logger.Info("Starting GetProductsByFilters", zap.String("sortOrder", params.SortOrder))
-//
-//	var filterRow interface{}
-//	var err error
-//
-//	switch params.SortOrder {
-//	case "price_asc":
-//		r.logger.Debug("Fetching products by price ascending", zap.Any("params", params))
-//		filterRow, err = r.Queries.GetProductsByFiltersPriceAsc(ctx, database.GetProductsByFiltersPriceAscParams{
-//			ID:         params.ID,
-//			Column2:    params.CategoryNames,
-//			Column3:    params.ColorNames,
-//			Column4:    params.ProcessorNames,
-//			Column5:    params.StorageNames,
-//			Column6:    params.Sizes,
-//			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
-//			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
-//		})
-//	case "price_desc":
-//		r.logger.Debug("Fetching products by price descending", zap.Any("params", params))
-//		filterRow, err = r.Queries.GetProductsByFiltersPriceDesc(ctx, database.GetProductsByFiltersPriceDescParams{
-//			ID:         params.ID,
-//			Column2:    params.CategoryNames,
-//			Column3:    params.ColorNames,
-//			Column4:    params.ProcessorNames,
-//			Column5:    params.StorageNames,
-//			Column6:    params.Sizes,
-//			UsdPrice:   strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
-//			UsdPrice_2: strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
-//		})
-//	case "name_asc":
-//		r.logger.Debug("Fetching products by name ascending", zap.Any("params", params))
-//		filterRow, err = r.Queries.GetProductsByFiltersNameAsc(ctx, database.GetProductsByFiltersNameAscParams{
-//			ID:         params.ID,
-//			Column2:    params.CategoryNames,
-//			Column3:    params.ColorNames,
-//			Column4:    params.ProcessorNames,
-//			Column5:    params.StorageNames,
-//			Column6:    params.Sizes,
-//			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
-//			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
-//		})
-//	case "name_desc":
-//		r.logger.Debug("Fetching products by name descending", zap.Any("params", params))
-//		filterRow, err = r.Queries.GetProductsByFiltersNameDesc(ctx, database.GetProductsByFiltersNameDescParams{
-//			ID:         params.ID,
-//			Column2:    params.CategoryNames,
-//			Column3:    params.ColorNames,
-//			Column4:    params.ProcessorNames,
-//			Column5:    params.StorageNames,
-//			Column6:    params.Sizes,
-//			UsdPrice:   strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
-//			UsdPrice_2: strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
-//		})
-//	case "newest":
-//		r.logger.Debug("Fetching products by newest", zap.Any("params", params))
-//		filterRow, err = r.Queries.GetProductsByFiltersNewest(ctx, database.GetProductsByFiltersNewestParams{
-//			ID:         params.ID,
-//			Column2:    params.CategoryNames,
-//			Column3:    params.ColorNames,
-//			Column4:    params.ProcessorNames,
-//			Column5:    params.StorageNames,
-//			Column6:    params.Sizes,
-//			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
-//			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
-//		})
-//	case "oldest":
-//		r.logger.Debug("Fetching products by oldest", zap.Any("params", params))
-//		filterRow, err = r.Queries.GetProductsByFiltersOldest(ctx, database.GetProductsByFiltersOldestParams{
-//			ID:         params.ID,
-//			Column2:    params.CategoryNames,
-//			Column3:    params.ColorNames,
-//			Column4:    params.ProcessorNames,
-//			Column5:    params.StorageNames,
-//			Column6:    params.Sizes,
-//			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
-//			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
-//		})
-//	default:
-//		r.logger.Debug("Fetching products by default sorting", zap.Any("params", params))
-//		filterRow, err = r.Queries.GetProductsByFiltersDefault(ctx, database.GetProductsByFiltersDefaultParams{
-//			ID:         params.ID,
-//			Column2:    params.CategoryNames,
-//			Column3:    params.ColorNames,
-//			Column4:    params.ProcessorNames,
-//			Column5:    params.StorageNames,
-//			Column6:    params.Sizes,
-//			UsdPrice:   strconv.FormatFloat(params.PriceFrom, 'f', -1, 64),
-//			UsdPrice_2: strconv.FormatFloat(params.PriceTo, 'f', -1, 64),
-//		})
-//	}
-//
-//	if err != nil {
-//		r.logger.Error("Error fetching products by filters", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-//	}
-//
-//	r.logger.Debug("Fetched products", zap.Any("filterRow", filterRow))
-//
-//	products, err := r.convertToFilterProducts(filterRow)
-//	if err != nil {
-//		r.logger.Error("Error converting filterRow to FilterProduct", zap.Error(err))
-//		return nil, err
-//	}
-//
-//	r.logger.Info("Successfully retrieved products by filters", zap.Int("productCount", len(products)))
-//
-//	return products, nil
-//}
-
-//// convertToFilterProducts converts the various database query results to a unified []model.FilterProduct slice.
-//func (r *ProductRepository) convertToFilterProducts(filterRow interface{}) ([]model.FilterProduct, error) {
-//	r.logger.Debug("Converting filterRow to FilterProduct slice")
-//
-//	var products []model.FilterProduct
-//
-//	switch rows := filterRow.(type) {
-//	case []database.GetProductsByFiltersPriceAscRow:
-//		r.logger.Debug("Mapping GetProductsByFiltersPriceAscRow to FilterProduct")
-//		products = r.mapToFilterProducts(rows)
-//	case []database.GetProductsByFiltersPriceDescRow:
-//		r.logger.Debug("Mapping GetProductsByFiltersPriceDescRow to FilterProduct")
-//		products = r.mapToFilterProducts(rows)
-//	case []database.GetProductsByFiltersNameAscRow:
-//		r.logger.Debug("Mapping GetProductsByFiltersNameAscRow to FilterProduct")
-//		products = r.mapToFilterProducts(rows)
-//	case []database.GetProductsByFiltersNameDescRow:
-//		r.logger.Debug("Mapping GetProductsByFiltersNameDescRow to FilterProduct")
-//		products = r.mapToFilterProducts(rows)
-//	case []database.GetProductsByFiltersNewestRow:
-//		r.logger.Debug("Mapping GetProductsByFiltersNewestRow to FilterProduct")
-//		products = r.mapToFilterProducts(rows)
-//	case []database.GetProductsByFiltersOldestRow:
-//		r.logger.Debug("Mapping GetProductsByFiltersOldestRow to FilterProduct")
-//		products = r.mapToFilterProducts(rows)
-//	case []database.GetProductsByFiltersDefaultRow:
-//		r.logger.Debug("Mapping GetProductsByFiltersDefaultRow to FilterProduct")
-//		products = r.mapToFilterProducts(rows)
-//	default:
-//		err := fmt.Errorf("unexpected row type: %T", filterRow)
-//		r.logger.Error("Error in convertToFilterProducts", zap.Error(err))
-//		return nil, err
-//	}
-//
-//	r.logger.Info("Completed conversion to FilterProduct slice", zap.Int("productCount", len(products)))
-//
-//	return products, nil
-//}
-//
-//// mapToFilterProducts maps database rows to a slice of FilterProduct.
-//func (r *ProductRepository) mapToFilterProducts(rows interface{}) []model.FilterProduct {
-//	r.logger.Debug("Mapping database rows to FilterProduct")
-//	var products []model.FilterProduct
-//
-//	switch rows := rows.(type) {
-//	case []database.GetProductsByFiltersPriceAscRow:
-//		for _, row := range rows {
-//			products = append(products, model.FilterProduct{
-//				ID:          row.ID,
-//				Name:        row.Name,
-//				Description: row.Description.String,
-//				Price:       row.PriceInKes,
-//				Stock:       row.Stock.Int32,
-//				CategoryID:  row.CategoryID,
-//				IsActive:    row.Status == "active",
-//				Featured:    row.Featured.Bool,
-//				Slug:        row.Slug,
-//			})
-//		}
-//	case []database.GetProductsByFiltersPriceDescRow:
-//		for _, row := range rows {
-//			products = append(products, model.FilterProduct{
-//				ID:          row.ID,
-//				Name:        row.Name,
-//				Description: row.Description.String,
-//				Price:       row.PriceInKes,
-//				Stock:       row.Stock.Int32,
-//				CategoryID:  row.CategoryID,
-//				IsActive:    row.Status == "active",
-//				Featured:    row.Featured.Bool,
-//				Slug:        row.Slug,
-//			})
-//		}
-//
-//	case []database.GetProductsByFiltersNameAscRow:
-//		for _, row := range rows {
-//			products = append(products, model.FilterProduct{
-//				ID:          row.ID,
-//				Name:        row.Name,
-//				Description: row.Description.String,
-//				Price:       row.PriceInKes,
-//				Stock:       row.Stock.Int32,
-//				CategoryID:  row.CategoryID,
-//				IsActive:    row.Status == "active",
-//				Featured:    row.Featured.Bool,
-//				Slug:        row.Slug,
-//			})
-//		}
-//	case []database.GetProductsByFiltersNameDescRow:
-//		for _, row := range rows {
-//			products = append(products, model.FilterProduct{
-//				ID:          row.ID,
-//				Name:        row.Name,
-//				Description: row.Description.String,
-//				Price:       row.PriceInKes,
-//				Stock:       row.Stock.Int32,
-//				CategoryID:  row.CategoryID,
-//				IsActive:    row.Status == "active",
-//				Featured:    row.Featured.Bool,
-//				Slug:        row.Slug,
-//			})
-//		}
-//	case []database.GetProductsByFiltersNewestRow:
-//		for _, row := range rows {
-//			products = append(products, model.FilterProduct{
-//				ID:          row.ID,
-//				Name:        row.Name,
-//				Description: row.Description.String,
-//				Price:       row.PriceInKes,
-//				Stock:       row.Stock.Int32,
-//				CategoryID:  row.CategoryID,
-//				IsActive:    row.Status == "active",
-//				Featured:    row.Featured.Bool,
-//				Slug:        row.Slug,
-//			})
-//		}
-//	case []database.GetProductsByFiltersOldestRow:
-//		for _, row := range rows {
-//			products = append(products, model.FilterProduct{
-//				ID:          row.ID,
-//				Name:        row.Name,
-//				Description: row.Description.String,
-//				Price:       row.PriceInKes,
-//				Stock:       row.Stock.Int32,
-//				CategoryID:  row.CategoryID,
-//				IsActive:    row.Status == "active",
-//				Featured:    row.Featured.Bool,
-//				Slug:        row.Slug,
-//			})
-//		}
-//	case []database.GetProductsByFiltersDefaultRow:
-//		for _, row := range rows {
-//			products = append(products, model.FilterProduct{
-//				ID:          row.ID,
-//				Name:        row.Name,
-//				Description: row.Description.String,
-//				Price:       row.PriceInKes,
-//				Stock:       row.Stock.Int32,
-//				CategoryID:  row.CategoryID,
-//				IsActive:    row.Status == "active",
-//				Featured:    row.Featured.Bool,
-//				Slug:        row.Slug,
-//			})
-//		}
-//	default:
-//		r.logger.Warn("Unknown row type", zap.Any("rows", rows))
-//		return nil
-//	}
-//
-//	r.logger.Info("Mapped database rows to FilterProduct slice", zap.Int("productCount", len(products)))
-//
-//	return products
-//}
-//
-//func (r *ProductRepository) GetFilterOptions(ctx context.Context) ([]database.GetFilterOptionsRow, error) {
-//	return r.Queries.GetFilterOptions(ctx)
-//}
-//
-//func (r *ProductRepository) GetAllProductsByFiltersPriceAsc(ctx context.Context, params database.GetAllProductsByFiltersPriceAscParams) ([]*model.Product, error) {
-//	rows, err := r.Queries.GetAllProductsByFiltersPriceAsc(ctx, params)
-//	if err != nil {
-//		r.logger.Error("failed to get products by filters", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-//	}
-//
-//	var products []*model.Product
-//	for _, row := range rows {
-//		products = append(products, &model.Product{
-//			ID:          row.ID,
-//			Name:        row.Name,
-//			Description: row.Description.String,
-//			Price:       row.PriceInKes,
-//
-//			Slug: row.Slug,
-//		})
-//	}
-//
-//	return products, nil
-//}
-//
-//func (r *ProductRepository) GetAllProductsByFiltersPriceDesc(ctx context.Context, params database.GetAllProductsByFiltersPriceDescParams) ([]*model.Product, error) {
-//	rows, err := r.Queries.GetAllProductsByFiltersPriceDesc(ctx, params)
-//	if err != nil {
-//		r.logger.Error("failed to get products by filters", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-//	}
-//
-//	var products []*model.Product
-//	for _, row := range rows {
-//		products = append(products, &model.Product{
-//			ID:          row.ID,
-//			Name:        row.Name,
-//			Description: row.Description.String,
-//			Price:       row.PriceInKes,
-//
-//			Slug: row.Slug,
-//		})
-//	}
-//
-//	return products, nil
-//}
-//
-//func (r *ProductRepository) GetAllProductsByFiltersNameAsc(ctx context.Context, params database.GetAllProductsByFiltersNameAscParams) ([]*model.Product, error) {
-//	rows, err := r.Queries.GetAllProductsByFiltersNameAsc(ctx, params)
-//	if err != nil {
-//		r.logger.Error("failed to get products by filters", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-//	}
-//
-//	var products []*model.Product
-//	for _, row := range rows {
-//		products = append(products, &model.Product{
-//			ID:          row.ID,
-//			Name:        row.Name,
-//			Description: row.Description.String,
-//			Price:       row.PriceInKes,
-//
-//			Slug: row.Slug,
-//		})
-//	}
-//
-//	return products, nil
-//}
-//
-//func (r *ProductRepository) GetAllProductsByFiltersNameDesc(ctx context.Context, params database.GetAllProductsByFiltersNameDescParams) ([]*model.Product, error) {
-//	rows, err := r.Queries.GetAllProductsByFiltersNameDesc(ctx, params)
-//	if err != nil {
-//		r.logger.Error("failed to get products by filters", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-//	}
-//
-//	var products []*model.Product
-//	for _, row := range rows {
-//		products = append(products, &model.Product{
-//			ID:          row.ID,
-//			Name:        row.Name,
-//			Description: row.Description.String,
-//			Price:       row.PriceInKes,
-//
-//			Slug: row.Slug,
-//		})
-//	}
-//
-//	return products, nil
-//}
-//
-//func (r *ProductRepository) GetAllProductsByFiltersNewest(ctx context.Context, params database.GetAllProductsByFiltersNewestParams) ([]*model.Product, error) {
-//	rows, err := r.Queries.GetAllProductsByFiltersNewest(ctx, params)
-//	if err != nil {
-//		r.logger.Error("failed to get products by filters", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-//	}
-//
-//	var products []*model.Product
-//	for _, row := range rows {
-//		products = append(products, &model.Product{
-//			ID:          row.ID,
-//			Name:        row.Name,
-//			Description: row.Description.String,
-//			Price:       row.PriceInKes,
-//
-//			Slug: row.Slug,
-//		})
-//	}
-//
-//	return products, nil
-//}
-//
-//func (r *ProductRepository) GetAllProductsByFiltersOldest(ctx context.Context, params database.GetAllProductsByFiltersOldestParams) ([]*model.Product, error) {
-//	rows, err := r.Queries.GetAllProductsByFiltersOldest(ctx, params)
-//	if err != nil {
-//		r.logger.Error("failed to get products by filters", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get products by filters: %w", err)
-//	}
-//
-//	var products []*model.Product
-//	for _, row := range rows {
-//		products = append(products, &model.Product{
-//			ID:          row.ID,
-//			Name:        row.Name,
-//			Description: row.Description.String,
-//			Price:       row.PriceInKes,
-//
-//			Slug: row.Slug,
-//		})
-//	}
-//
-//	return products, nil
-//}
-//
-//func (r *ProductRepository) GetTotalProductsByFilters(ctx context.Context, params database.GetTotalProductsByFiltersParams) (int64, error) {
-//	return r.Queries.GetTotalProductsByFilters(ctx, params)
-//}
-
 // UpdateProductSEO updates the SEO fields of a product
 func (r *ProductRepository) UpdateProductSEO(
 	ctx context.Context,
@@ -819,24 +393,78 @@ func (r *ProductRepository) GetV2ProductDetailBySlug(
 	ctx context.Context,
 	slug string,
 ) (*model.V2ProductDetail, error) {
+	// Fetch the product details from the database
 	product, err := r.Queries.GetV2ProductDetailBySlug(ctx, slug)
 	if err != nil {
 		r.logger.Error("failed to get product by slug", zap.Error(err))
 		return nil, fmt.Errorf("failed to get product by slug: %w", err)
 	}
 
-	return &model.V2ProductDetail{
-		Name:           product.Name,
-		Description:    product.Description.String,
-		Price:          product.PriceInKes,
-		Stock:          product.Stock,
-		Slug:           product.Slug,
-		CategoryID:     product.CategoryID,
-		PartNumber:     product.PartNumber,
-		Specifications: product.Specifications,
-		Images:         product.Images,
-		Status:         product.Status,
-	}, nil
+	exchangeRate, err := strconv.ParseFloat(product.ExchangeRate, 64)
+	if err != nil {
+		r.logger.Error("failed to parse exchange rate", zap.Error(err))
+		exchangeRate = 0
+	}
+
+	price, err := strconv.ParseFloat(product.Price, 64)
+	if err != nil {
+		r.logger.Error("failed to parse price", zap.Error(err))
+		price = 0
+	}
+
+	pricePerUnit, err := strconv.ParseFloat(product.PricePerUnit, 64)
+	if err != nil {
+		r.logger.Error("failed to parse price per unit", zap.Error(err))
+		pricePerUnit = 0
+	}
+
+	// in percent
+	profitMargin := calculateProfitMargin(price, pricePerUnit)
+
+	// Map the SQLC query result to the V2ProductDetail struct
+	productDetail := &model.V2ProductDetail{
+		Name:              product.Name,
+		Description:       product.Description.String, // Handle nullable string
+		Price:             product.Price,
+		Stock:             product.Stock,
+		Slug:              product.Slug,
+		CategoryID:        product.CategoryID,
+		PartNumber:        product.PartNumber,
+		Specifications:    product.Specifications,
+		Images:            product.Images,
+		Status:            product.Status,
+		MetaTitle:         product.MetaTitle.String, // Handle nullable string
+		ExchangeRate:      exchangeRate,
+		IsValid:           product.IsValid,
+		ProfitMargin:      strconv.FormatFloat(profitMargin, 'f', -1, 64),
+		ParentCategoryID:  product.ParentCategoryID.UUID,
+		MetaDescription:   product.MetaDescription.String, // Handle nullable string
+		MetaKeywords:      product.MetaKeywords.String,    // Handle nullable string
+		PricePerUnit:      product.PricePerUnit,           // Ensure consistent string format
+		ProductMetafields: []model.ProductMetafield{},     // Initialize empty slice
+	}
+
+	// Map the product metafields
+	if len(product.ProductMetafields) > 0 {
+		err := json.Unmarshal(product.ProductMetafields, &productDetail.ProductMetafields)
+		if err != nil {
+			r.logger.Error("failed to unmarshal product metafields", zap.Error(err))
+			return nil, fmt.Errorf("failed to unmarshal product metafields: %w", err)
+		}
+	}
+
+	return productDetail, nil
+}
+
+// calculate the profit margin if any error return 0
+func calculateProfitMargin(price, pricePerUnit float64) float64 {
+	if pricePerUnit == 0 {
+		return 0
+	}
+
+	// in percent
+	profitMargin := (price - pricePerUnit) / pricePerUnit * 100
+	return profitMargin
 }
 
 // DeleteProductByID deletes a product by its ID along with its images and specifications

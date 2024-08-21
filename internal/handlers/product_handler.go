@@ -422,16 +422,28 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 	params.Slug = r.FormValue("slug")
 	params.Name = r.FormValue("name")
 	params.Description = r.FormValue("description")
+	params.MetaTitle = r.FormValue("metaTitle")
+	params.MetaDescription = r.FormValue("metaDescription")
 	priceStr := r.FormValue("price")
 	price, err := strconv.ParseFloat(priceStr, 64)
 	if err != nil {
+		log.Println(err)
 		RespondWithError(w, http.StatusBadRequest, "Invalid price")
 		return
 	}
+	pricePerUnitStr := r.FormValue("pricePerUnit")
+	pricePerUnit, err := strconv.ParseFloat(pricePerUnitStr, 64)
+	if err != nil {
+		log.Println(err)
+		RespondWithError(w, http.StatusBadRequest, "Invalid price per unit")
+		return
+	}
+	params.PricePerUnit = pricePerUnit
 	params.Price = price
 	stockStr := r.FormValue("stock")
 	stock, err := strconv.Atoi(stockStr)
 	if err != nil {
+		log.Println(err)
 		RespondWithError(w, http.StatusBadRequest, "Invalid stock")
 		return
 	}
@@ -439,12 +451,17 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 	categoryIDStr := r.FormValue("categoryID")
 	categoryID, err := uuid.Parse(categoryIDStr)
 	if err != nil {
+		log.Println(err)
 		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
 		return
 	}
 	params.CategoryID = categoryID
 	params.Status = r.FormValue("status")
 	params.PartNumber = r.FormValue("partNumber")
+	if params.PartNumber == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid part number")
+		return
+	}
 
 	// get the images
 	images := r.MultipartForm.File["images"]
@@ -461,6 +478,7 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 	for _, spec := range r.MultipartForm.Value["specifications"] {
 		var specification model.Specification
 		if err := json.Unmarshal([]byte(spec), &specification); err != nil {
+			log.Println(err)
 			http.Error(w, "Failed to parse specifications", http.StatusBadRequest)
 			return
 		}
@@ -473,6 +491,7 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 	//create product
 	err = h.productService.CreateV2Product(r.Context(), &params, images)
 	if err != nil {
+		log.Println(err)
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product")
 		return
 	}

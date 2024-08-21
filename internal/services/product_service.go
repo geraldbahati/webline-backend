@@ -1043,15 +1043,6 @@ func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, e
 }
 
 // GetProductDetail retrieves a product by slug
-
-// MetaTitle         string             `json:"metaTitle"`
-// MetaDescription   string             `json:"metaDescription"`
-// MetaKeywords      string             `json:"metaKeywords"`
-// ExchangeRate      float64            `json:"exchangeRate"`
-// PricePerUnit      string             `json:"pricePerUnit"`
-// ProfitMargin      string             `json:"profitMargin"`
-// ParentCategoryID  uuid.UUID          `json:"parentCategoryID"`
-// ProductMetafields []ProductMetafield `json:"productMetafields"`
 func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*model.V2ProductDetail, error) {
 	product, err := s.productRepo.GetV2ProductDetailBySlug(ctx, slug)
 	if err != nil {
@@ -1126,7 +1117,7 @@ func (s *ProductService) verifyAdminStatus(ctx context.Context, userID uuid.UUID
 }
 
 func (s *ProductService) updateExistingProduct(ctx context.Context, productID uuid.UUID, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
-	err := s.productRepo.UpdateProduct(ctx, s.prepareUpdateProductParams(productID, params))
+	err := s.productRepo.UpdateProduct(ctx, s.prepareUpdateProductParams(ctx, productID, params))
 	if err != nil {
 		return s.logAndReturnError("failed to update product", err)
 	}
@@ -1134,41 +1125,70 @@ func (s *ProductService) updateExistingProduct(ctx context.Context, productID uu
 }
 
 func (s *ProductService) createNewProduct(ctx context.Context, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
-	newProduct, err := s.productRepo.CreateProduct(ctx, s.prepareCreateProductParams(params))
+	newProduct, err := s.productRepo.CreateProduct(ctx, s.prepareCreateProductParams(ctx, params))
 	if err != nil {
 		return s.logAndReturnError("failed to create product", err)
 	}
 	return s.handleProductAssets(ctx, newProduct.ID, params, images)
 }
 
-func (s *ProductService) prepareUpdateProductParams(productID uuid.UUID, params *model.CreateProductRequest) database.UpdateProductParams {
+func (s *ProductService) prepareUpdateProductParams(ctx context.Context, productID uuid.UUID, params *model.CreateProductRequest) database.UpdateProductParams {
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+	}
+
 	return database.UpdateProductParams{
 		ID:          productID,
 		Name:        strings.TrimSpace(params.Name),
 		Description: sql.NullString{String: strings.TrimSpace(params.Description), Valid: true},
-		RateToKes:   fmt.Sprintf("%.0f", params.Price),
+		RateToKes:   strconv.FormatFloat(params.Price, 'f', 2, 64),
+		RateToKes_2: strconv.FormatFloat(params.PricePerUnit, 'f', 2, 64),
 		Stock:       sql.NullInt32{Int32: int32(params.Stock), Valid: true},
-		Status:      params.Status,
-		CategoryID:  params.CategoryID,
+		PartNumber:  params.PartNumber,
+		MetaTitle: sql.NullString{
+			String: params.MetaTitle,
+			Valid:  params.MetaTitle != "",
+		},
+		MetaDescription: sql.NullString{
+			String: params.MetaDescription,
+			Valid:  params.MetaDescription != "",
+		},
+		Status:     params.Status,
+		CategoryID: params.CategoryID,
 		UpdatedBy: uuid.NullUUID{
-			UUID:  uuid.Nil,
-			Valid: false,
+			UUID:  userID,
+			Valid: true,
 		},
 	}
 }
 
-func (s *ProductService) prepareCreateProductParams(params *model.CreateProductRequest) database.CreateProductParams {
+func (s *ProductService) prepareCreateProductParams(ctx context.Context, params *model.CreateProductRequest) database.CreateProductParams {
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+	}
+
 	return database.CreateProductParams{
 		Name:        params.Name,
 		Description: sql.NullString{String: params.Description, Valid: true},
-		RateToKes:   fmt.Sprintf("%.0f", params.Price),
+		RateToKes:   strconv.FormatFloat(params.Price, 'f', 2, 64),
+		RateToKes_2: strconv.FormatFloat(params.PricePerUnit, 'f', 2, 64),
 		Stock:       sql.NullInt32{Int32: int32(params.Stock), Valid: true},
 		Status:      params.Status,
 		CategoryID:  params.CategoryID,
-		PartNumber:  params.PartNumber,
+		MetaTitle: sql.NullString{
+			String: params.MetaTitle,
+			Valid:  params.MetaTitle != "",
+		},
+		MetaDescription: sql.NullString{
+			String: params.MetaDescription,
+			Valid:  params.MetaDescription != "",
+		},
+		PartNumber: params.PartNumber,
 		CreatedBy: uuid.NullUUID{
-			UUID:  uuid.Nil,
-			Valid: false,
+			UUID:  userID,
+			Valid: true,
 		},
 		UpdatedBy: uuid.NullUUID{
 			UUID:  uuid.Nil,

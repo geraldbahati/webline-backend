@@ -51,6 +51,7 @@ type V2ProductDetail struct {
 	ExchangeRate      float64            `json:"exchangeRate"`
 	PricePerUnit      string             `json:"pricePerUnit"`
 	ProfitMargin      string             `json:"profitMargin"`
+	IsValid           bool               `json:"isValid"`
 	ParentCategoryID  uuid.UUID          `json:"parentCategoryID"`
 	ProductMetafields []ProductMetafield `json:"productMetafields"`
 	CategoryID        uuid.UUID          `json:"categoryID"`
@@ -90,6 +91,7 @@ type CreateProductRequest struct {
 	MetaTitle       string                  `json:"metaTitle"`
 	MetaDescription string                  `json:"metaDescription"`
 	MetaKeywords    string                  `json:"metaKeywords"`
+	PricePerUnit    float64                 `json:"pricePerUnit"`
 	Images          []*multipart.FileHeader `json:"images"`
 	Specifications  []Specification         `json:"specifications"`
 	ImageUrls       []string                `json:"imageUrls"`

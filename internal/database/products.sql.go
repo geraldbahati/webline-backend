@@ -115,14 +115,15 @@ WITH rate AS (
 INSERT INTO products (
     id, name, description, stock, category_id, created_by, updated_by,
     part_number, meta_title, meta_description, meta_keywords,
-    status, usd_price
+    status, usd_price, price_per_unit
 )
 VALUES (
            gen_random_uuid(),
            $1, $2, $3, $4, $5, $6,
            $7, $8, $9, $10,
            $11,
-           $12 / (SELECT rate_to_kes FROM rate)
+           $12 / (SELECT rate_to_kes FROM rate),
+              $13 / (SELECT rate_to_kes FROM rate)
        )
 RETURNING id, name, description, stock, category_id, created_at, updated_at, created_by, updated_by, featured, search_keyword, part_number, meta_title, meta_description, meta_keywords, slug, status, usd_price, price_per_unit, valid_from, valid_to
 `
@@ -140,6 +141,7 @@ type CreateProductParams struct {
 	MetaKeywords    sql.NullString
 	Status          string
 	RateToKes       string
+	RateToKes_2     string
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
@@ -156,6 +158,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		arg.MetaKeywords,
 		arg.Status,
 		arg.RateToKes,
+		arg.RateToKes_2,
 	)
 	var i Product
 	err := row.Scan(
@@ -626,13 +629,15 @@ WITH rate AS (
              p.stock,
              p.part_number,
              p.category_id,
+             c.parent_id AS parent_category_id,
              p.meta_description,
              p.meta_keywords,
              p.meta_title,
              p.status,
              (NOW() BETWEEN p.valid_from AND COALESCE(p.valid_to, 'infinity'::timestamp)) AS is_valid
          FROM
-             products p,
+             products p
+                 JOIN categories c ON p.category_id = c.id,
              rate r
          WHERE
              p.slug = $1
@@ -674,7 +679,7 @@ SELECT
     p.description,
     p.price_in_kes::text AS price,
     p.price_per_unit_in_kes::text AS price_per_unit,
-    p.exchange_rate,
+    p.exchange_rate::numeric AS exchange_rate,
     CAST(p.stock AS INTEGER) AS stock,
     p.part_number,
     p.slug,
@@ -682,7 +687,9 @@ SELECT
     p.meta_description,
     p.meta_keywords,
     p.category_id,
+    p.parent_category_id,
     p.status,
+    p.is_valid::boolean AS is_valid,
     COALESCE(s.specifications, '[]'::json) AS specifications,
     COALESCE(i.images, '[]'::json) AS images,
     COALESCE(m.metafields, '[]'::json) AS product_metafields
@@ -701,7 +708,7 @@ type GetV2ProductDetailBySlugRow struct {
 	Description       sql.NullString
 	Price             string
 	PricePerUnit      string
-	ExchangeRate      interface{}
+	ExchangeRate      string
 	Stock             int32
 	PartNumber        string
 	Slug              string
@@ -709,7 +716,9 @@ type GetV2ProductDetailBySlugRow struct {
 	MetaDescription   sql.NullString
 	MetaKeywords      sql.NullString
 	CategoryID        uuid.UUID
+	ParentCategoryID  uuid.NullUUID
 	Status            string
+	IsValid           bool
 	Specifications    json.RawMessage
 	Images            json.RawMessage
 	ProductMetafields json.RawMessage
@@ -731,7 +740,9 @@ func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug string) (Ge
 		&i.MetaDescription,
 		&i.MetaKeywords,
 		&i.CategoryID,
+		&i.ParentCategoryID,
 		&i.Status,
+		&i.IsValid,
 		&i.Specifications,
 		&i.Images,
 		&i.ProductMetafields,
@@ -1046,8 +1057,9 @@ SET
     meta_keywords = $9,
     status = $10,
     usd_price = $11 / (SELECT rate_to_kes FROM rate),
+    price_per_unit = $12 / (SELECT rate_to_kes FROM rate),
     updated_at = NOW()
-WHERE p.id = $12
+WHERE p.id = $13
 `
 
 type UpdateProductParams struct {
@@ -1062,6 +1074,7 @@ type UpdateProductParams struct {
 	MetaKeywords    sql.NullString
 	Status          string
 	RateToKes       string
+	RateToKes_2     string
 	ID              uuid.UUID
 }
 
@@ -1078,6 +1091,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) er
 		arg.MetaKeywords,
 		arg.Status,
 		arg.RateToKes,
+		arg.RateToKes_2,
 		arg.ID,
 	)
 	return err
