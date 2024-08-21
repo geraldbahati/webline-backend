@@ -425,7 +425,7 @@ func (r *ProductRepository) GetV2ProductDetailBySlug(
 	productDetail := &model.V2ProductDetail{
 		Name:              product.Name,
 		Description:       product.Description.String, // Handle nullable string
-		Price:             product.Price,
+		Price:             strconv.FormatFloat(price, 'f', 2, 64),
 		Stock:             product.Stock,
 		Slug:              product.Slug,
 		CategoryID:        product.CategoryID,
@@ -436,12 +436,12 @@ func (r *ProductRepository) GetV2ProductDetailBySlug(
 		MetaTitle:         product.MetaTitle.String, // Handle nullable string
 		ExchangeRate:      exchangeRate,
 		IsValid:           product.IsValid,
-		ProfitMargin:      strconv.FormatFloat(profitMargin, 'f', -1, 64),
+		ProfitMargin:      strconv.FormatFloat(profitMargin, 'f', 2, 64),
 		ParentCategoryID:  product.ParentCategoryID.UUID,
 		MetaDescription:   product.MetaDescription.String, // Handle nullable string
 		MetaKeywords:      product.MetaKeywords.String,    // Handle nullable string
-		PricePerUnit:      product.PricePerUnit,           // Ensure consistent string format
-		ProductMetafields: []model.ProductMetafield{},     // Initialize empty slice
+		PricePerUnit:      strconv.FormatFloat(pricePerUnit, 'f', 2, 64),
+		ProductMetafields: []model.ProductMetafield{}, // Initialize empty slice
 	}
 
 	// Map the product metafields
