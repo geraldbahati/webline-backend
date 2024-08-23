@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 
 	"github.com/gorilla/mux"
@@ -20,28 +23,43 @@ func NewCategoryHandler(categoryService *services.CategoryService) *CategoryHand
 
 // CreateCategoryHandler creates a new category
 func (h *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.Request) {
-	// params
-	var params struct {
-		Name     string `json:"name"`
-		ParentID string `json:"parent_id"`
-		Position int32  `json:"position"`
-	}
-
-	// decode request body
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+	// parse the form
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse multipart form: %v", err))
 		return
 	}
 
+	params := model.CreateCategoryParams{
+		Name:     r.FormValue("name"),
+		ParentID: r.FormValue("categoryID"),
+	}
+
+	// Handle the image file upload
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		if errors.Is(err, http.ErrMissingFile) {
+			RespondWithError(w, http.StatusBadRequest, "Image file is required")
+			return
+		}
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve image file: %v", err))
+		return
+	}
+	defer file.Close()
+
+	image := &model.ImageFile{
+		File:       file,
+		FileHeader: header,
+	}
+
 	// create category
-	category, err := h.categoryService.CreateCategoryService(r.Context(), params.Name, params.ParentID, params.Position)
+	err = h.categoryService.CreateCategoryService(r.Context(), params.Name, params.ParentID, image)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create category")
 		return
 	}
 
 	// respond with category
-	RespondWithJSON(w, http.StatusOK, category)
+	RespondWithSuccess(w, http.StatusCreated, "Category created successfully")
 }
 
 // GetCategoryByIDHandler retrieves a category by its ID
@@ -218,19 +236,6 @@ func (h *CategoryHandler) GetCategoryByNameHandler(w http.ResponseWriter, r *htt
 	RespondWithJSON(w, http.StatusOK, category)
 }
 
-//// GetCategoryHierarchyHandler retrieves the category hierarchy
-//func (h *CategoryHandler) GetCategoryHierarchyHandler(w http.ResponseWriter, r *http.Request) {
-//	// get category hierarchy
-//	hierarchy, err := h.categoryService.GetCategoryHierarchyService(r.Context())
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get category hierarchy")
-//		return
-//	}
-//
-//	// respond with category hierarchy
-//	RespondWithJSON(w, http.StatusOK, hierarchy)
-//}
-
 // UploadCategoryImageHandler uploads a category image
 func (h *CategoryHandler) UploadCategoryImageHandler(w http.ResponseWriter, r *http.Request) {
 	// get category ID
@@ -271,4 +276,20 @@ func (h *CategoryHandler) GetV2CategoryHierarchyHandler(w http.ResponseWriter, r
 
 	// respond with V2 category hierarchy
 	RespondWithJSON(w, http.StatusOK, v2CategoryHierarchy)
+}
+
+// DeleteCategoryHandler deletes a category
+func (h *CategoryHandler) DeleteCategoryHandler(w http.ResponseWriter, r *http.Request) {
+	// get category ID
+	id := mux.Vars(r)["id"]
+
+	// delete category
+	err := h.categoryService.DeleteCategoryService(r.Context(), id)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to delete category")
+		return
+	}
+
+	// respond with success
+	RespondWithSuccess(w, http.StatusOK, "Category deleted successfully")
 }

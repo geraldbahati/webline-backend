@@ -20,10 +20,11 @@ type CategoryHierarchy struct {
 }
 
 type V2CategoryHierarchy struct {
-	ID       string                 `json:"id"`
-	Name     string                 `json:"name"`
-	Children []*V2CategoryHierarchy `json:"children,omitempty"`
-	Position int                    `json:"-"`
+	ID               string                 `json:"id"`
+	Name             string                 `json:"name"`
+	Position         int                    `json:"position"`
+	NumberOfProducts int                    `json:"numberOfProducts"`
+	Children         []*V2CategoryHierarchy `json:"children,omitempty"`
 }
 
 type Category struct {
@@ -65,4 +66,9 @@ type ProductMetafields struct {
 	Processor []ProcessorMetafield `json:"processor"`
 	Size      []SizeMetafield      `json:"size"`
 	Storage   []StorageMetafield   `json:"storage"`
+}
+
+type CreateCategoryParams struct {
+	Name     string `json:"name"`
+	ParentID string `json:"parentID"`
 }

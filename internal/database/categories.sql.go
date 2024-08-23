@@ -29,7 +29,7 @@ func (q *Queries) CheckCategoryExistence(ctx context.Context, id uuid.UUID) (boo
 }
 
 const createCategory = `-- name: CreateCategory :one
-INSERT INTO categories (name, parent_id, position)
+INSERT INTO categories (name, parent_id, image_url)
 VALUES ($1, $2, $3)
     RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url
 `
@@ -37,11 +37,11 @@ VALUES ($1, $2, $3)
 type CreateCategoryParams struct {
 	Name     string
 	ParentID uuid.NullUUID
-	Position int32
+	ImageUrl sql.NullString
 }
 
 func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error) {
-	row := q.db.QueryRowContext(ctx, createCategory, arg.Name, arg.ParentID, arg.Position)
+	row := q.db.QueryRowContext(ctx, createCategory, arg.Name, arg.ParentID, arg.ImageUrl)
 	var i Category
 	err := row.Scan(
 		&i.ID,
@@ -369,27 +369,49 @@ WITH RECURSIVE category_hierarchy AS (
         categories c
             INNER JOIN
         category_hierarchy ch ON ch.id = c.parent_id
-)
+),
+               product_counts AS (
+                   SELECT
+                       category_id,
+                       COUNT(*) AS product_count
+                   FROM
+                       products
+                   GROUP BY
+                       category_id
+               )
 SELECT
-    id,
-    name,
-    parent_id,
-    position,
-    path,
-    level
+    ch.id,
+    ch.name,
+    ch.parent_id,
+    ch.position,
+    ch.path,
+    ch.level,
+    COALESCE(pc.product_count, 0) +
+    COALESCE((
+                 SELECT SUM(pc2.product_count)
+                 FROM product_counts pc2
+                 WHERE pc2.category_id IN (
+                     SELECT id
+                     FROM category_hierarchy
+                     WHERE path @> ARRAY[ch.id]
+                 )
+             ), 0) AS total_products
 FROM
-    category_hierarchy
+    category_hierarchy ch
+        LEFT JOIN
+    product_counts pc ON ch.id = pc.category_id
 ORDER BY
-    path, level, position
+    ch.path, ch.level, ch.position
 `
 
 type GetV2CategoryHierarchyRow struct {
-	ID       uuid.UUID
-	Name     string
-	ParentID uuid.NullUUID
-	Position int32
-	Path     []uuid.UUID
-	Level    int32
+	ID            uuid.UUID
+	Name          string
+	ParentID      uuid.NullUUID
+	Position      int32
+	Path          []uuid.UUID
+	Level         int32
+	TotalProducts int32
 }
 
 func (q *Queries) GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHierarchyRow, error) {
@@ -408,6 +430,7 @@ func (q *Queries) GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHi
 			&i.Position,
 			pq.Array(&i.Path),
 			&i.Level,
+			&i.TotalProducts,
 		); err != nil {
 			return nil, err
 		}
@@ -471,7 +494,8 @@ func (q *Queries) ListCategories(ctx context.Context) ([]Category, error) {
 }
 
 const softDeleteCategory = `-- name: SoftDeleteCategory :exec
-DELETE FROM categories
+UPDATE categories
+SET is_active = FALSE
 WHERE id = $1
 `
 

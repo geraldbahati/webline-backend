@@ -29,26 +29,32 @@ func NewCategoryRepository(db *sql.DB, logger *zap.Logger) *CategoryRepository {
 }
 
 // execTx executes a database transaction with the provided function
-func (r *CategoryRepository) execTx(ctx context.Context, fn func(*database.Queries) error) error {
-	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
-	})
+func (r *CategoryRepository) execTx(ctx context.Context, fn func(*database.Queries) error) (err error) {
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
+
 	q := database.New(tx)
-	if err := fn(q); err != nil {
-		r.logger.Error("transaction failed, rolling back", zap.Error(err))
-		if rbErr := tx.Rollback(); rbErr != nil {
-			r.logger.Error("rollback failed", zap.Error(rbErr))
-			return fmt.Errorf("rollback transaction: %w", rbErr)
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p) // re-throw panic after Rollback
+		} else if err != nil {
+			r.logger.Error("transaction failed, rolling back", zap.Error(err))
+			if rbErr := tx.Rollback(); rbErr != nil {
+				r.logger.Error("rollback failed", zap.Error(rbErr))
+				err = fmt.Errorf("rollback transaction: %w", rbErr)
+			}
+		} else {
+			if commitErr := tx.Commit(); commitErr != nil {
+				err = fmt.Errorf("commit transaction: %w", commitErr)
+			}
 		}
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
-	return nil
+	}()
+
+	err = fn(q)
+	return err
 }
 
 // CreateCategory stores a category in the database and returns the created category
@@ -227,85 +233,6 @@ func (r *CategoryRepository) GetCategoryByName(
 	return category, nil
 }
 
-//// GetCategoryHierarchy retrieves the category hierarchy
-//func (r *CategoryRepository) GetCategoryHierarchy(
-//	ctx context.Context,
-//) ([]database.GetCategoryHierarchyRow, error) {
-//	hierarchy, err := r.Queries.GetCategoryHierarchy(ctx)
-//	if err != nil {
-//		r.logger.Error("failed to get category hierarchy", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get category hierarchy: %w", err)
-//	}
-//
-//	r.logger.Info("Category hierarchy successfully retrieved")
-//	return hierarchy, nil
-//}
-//
-//// GetFilterOptionsByCategoryName retrieves filter options by category name
-//func (r *CategoryRepository) GetFilterOptionsByCategoryName(
-//	ctx context.Context,
-//	categoryName string,
-//) ([]database.GetFilterOptionsByCategoryNameRow, error) {
-//	filterOptions, err := r.Queries.GetFilterOptionsByCategoryName(ctx, categoryName)
-//	if err != nil {
-//		r.logger.Error("failed to get filter options by category name", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get filter options by category name: %w", err)
-//	}
-//	return filterOptions, nil
-//}
-//
-//// GetFilterOptionsByCategoryID retrieves filter options by category ID
-//func (r *CategoryRepository) GetFilterOptionsByCategoryID(
-//	ctx context.Context,
-//	categoryID uuid.UUID,
-//) (*model.ProductMetafields, error) {
-//	// Execute the SQLC query to get the raw filter options
-//	rawFilterOptions, err := r.Queries.GetFilterOptionsByCategoryID(ctx, categoryID)
-//	if err != nil {
-//		r.logger.Error("failed to get filter options by category ID", zap.Error(err))
-//		return nil, fmt.Errorf("failed to get filter options by category ID: %w", err)
-//	}
-//
-//	// Initialize the FilterOptions struct
-//	filterOptions := &model.ProductMetafields{
-//		Color:     []model.ColorMetafield{},
-//		Processor: []model.ProcessorMetafield{},
-//		Size:      []model.SizeMetafield{},
-//		Storage:   []model.StorageMetafield{},
-//	}
-//
-//	// Iterate over the raw filter options and populate the FilterOptions struct
-//	for _, raw := range rawFilterOptions {
-//
-//		filterOptions.Color = append(filterOptions.Color, model.ColorMetafield{
-//			ID:    raw.ColorID,
-//			Name:  raw.ColorName,
-//			Value: raw.ColorValue.String,
-//		})
-//
-//		if raw.ProcessorID.Valid {
-//			filterOptions.Processor = append(filterOptions.Processor, model.ProcessorMetafield{
-//				ID:   raw.ProcessorID.UUID,
-//				Name: raw.ProcessorName.String,
-//			})
-//		}
-//		if raw.SizeID.Valid {
-//			filterOptions.Size = append(filterOptions.Size, model.SizeMetafield{
-//				ID:   raw.SizeID.UUID,
-//				Name: raw.SizeName.String,
-//			})
-//		}
-//		if raw.StorageID.Valid {
-//			filterOptions.Storage = append(filterOptions.Storage, model.StorageMetafield{
-//				ID:   raw.StorageID.UUID,
-//				Name: raw.StorageName.String,
-//			})
-//		}
-//	}
-//
-//	return filterOptions, nil
-//}
-
 // UpdateCategoryImage updates the image of a category
 func (r *CategoryRepository) UpdateCategoryImage(
 	ctx context.Context,
@@ -348,9 +275,10 @@ func (r *CategoryRepository) GetV2CategoryHierarchy(
 
 	for _, row := range rows {
 		category := &model.V2CategoryHierarchy{
-			ID:       row.ID.String(),
-			Name:     row.Name,
-			Position: int(row.Position),
+			ID:               row.ID.String(),
+			Name:             row.Name,
+			Position:         int(row.Position),
+			NumberOfProducts: int(row.TotalProducts),
 		}
 
 		categoryMap[category.ID] = category
@@ -374,4 +302,25 @@ func (r *CategoryRepository) GetV2CategoryHierarchy(
 
 	return rootCategories, nil
 
+}
+
+// DeleteCategory deletes a category from the database
+func (r *CategoryRepository) DeleteCategory(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		err := q.HardDeleteCategory(ctx, id)
+		if err != nil {
+			return fmt.Errorf("failed to delete category: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to delete category", zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("Category successfully deleted")
+	return nil
 }

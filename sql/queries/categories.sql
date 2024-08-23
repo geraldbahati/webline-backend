@@ -1,5 +1,5 @@
 -- name: CreateCategory :one
-INSERT INTO categories (name, parent_id, position)
+INSERT INTO categories (name, parent_id, image_url)
 VALUES ($1, $2, $3)
     RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url;
 
@@ -27,7 +27,8 @@ WHERE id = $1
     RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url;
 
 -- name: SoftDeleteCategory :exec
-DELETE FROM categories
+UPDATE categories
+SET is_active = FALSE
 WHERE id = $1;
 
 -- name: HardDeleteCategory :exec
@@ -113,15 +114,37 @@ WITH RECURSIVE category_hierarchy AS (
         categories c
             INNER JOIN
         category_hierarchy ch ON ch.id = c.parent_id
-)
+),
+               product_counts AS (
+                   SELECT
+                       category_id,
+                       COUNT(*) AS product_count
+                   FROM
+                       products
+                   GROUP BY
+                       category_id
+               )
 SELECT
-    id,
-    name,
-    parent_id,
-    position,
-    path,
-    level
+    ch.id,
+    ch.name,
+    ch.parent_id,
+    ch.position,
+    ch.path,
+    ch.level,
+    COALESCE(pc.product_count, 0) +
+    COALESCE((
+                 SELECT SUM(pc2.product_count)
+                 FROM product_counts pc2
+                 WHERE pc2.category_id IN (
+                     SELECT id
+                     FROM category_hierarchy
+                     WHERE path @> ARRAY[ch.id]
+                 )
+             ), 0) AS total_products
 FROM
-    category_hierarchy
+    category_hierarchy ch
+        LEFT JOIN
+    product_counts pc ON ch.id = pc.category_id
 ORDER BY
-    path, level, position;
+    ch.path, ch.level, ch.position;
+

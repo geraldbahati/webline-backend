@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
@@ -18,18 +19,19 @@ import (
 
 type CategoryService struct {
 	categoryRepo *repository.CategoryRepository
+	userRepo     *repository.UserRepository
 	logger       *zap.Logger
-	cfg          *appconfig.Config
+	config       *appconfig.Config
 	s3Client     *s3.Client
 }
 
-func NewCategoryService(categoryRepo *repository.CategoryRepository, logger *zap.Logger, cfg *appconfig.Config, s3Client *s3.Client) *CategoryService {
+func NewCategoryService(categoryRepo *repository.CategoryRepository, userRepo *repository.UserRepository, logger *zap.Logger, cfg *appconfig.Config, s3Client *s3.Client) *CategoryService {
 	return &CategoryService{
 		categoryRepo: categoryRepo,
-
-		logger:   logger,
-		cfg:      cfg,
-		s3Client: s3Client,
+		userRepo:     userRepo,
+		logger:       logger,
+		config:       cfg,
+		s3Client:     s3Client,
 	}
 }
 
@@ -38,8 +40,17 @@ func (s *CategoryService) CreateCategoryService(
 	ctx context.Context,
 	name string,
 	parentID string,
-	position int32,
-) (database.Category, error) {
+	image *model.ImageFile,
+) error {
+
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		return err
+	}
 
 	// parse parentID to null uuid
 	log.Printf("parentID: %v", parentID)
@@ -48,7 +59,7 @@ func (s *CategoryService) CreateCategoryService(
 		id, err := uuid.Parse(parentID)
 		if err != nil {
 			s.logger.Error("failed to parse parent ID", zap.Error(err))
-			return database.Category{}, err
+			return err
 		}
 		parentIDValue = uuid.NullUUID{
 			UUID:  id,
@@ -61,19 +72,66 @@ func (s *CategoryService) CreateCategoryService(
 		}
 	}
 
+	// upload image to S3
+
+	filePath, err := s.handleCategoryImage(ctx, nil, "")
+	if err != nil {
+		return s.logAndReturnError("failed to handle category image", err)
+	}
+
 	categoryParams := database.CreateCategoryParams{
 		Name:     name,
 		ParentID: parentIDValue,
-		Position: position,
+		ImageUrl: optionalString(filePath),
 	}
 
-	category, err := s.categoryRepo.CreateCategory(ctx, categoryParams)
+	_, err = s.categoryRepo.CreateCategory(ctx, categoryParams)
 	if err != nil {
 		s.logger.Error("failed to create category", zap.Error(err))
-		return database.Category{}, err
+		return err
 	}
 
-	return category, nil
+	return nil
+}
+
+func (s *CategoryService) handleCategoryImage(ctx context.Context, image *model.ImageFile, existingImageUrl string) (string, error) {
+	if image == nil {
+		return existingImageUrl, nil
+	}
+
+	filePath, err := utils.UploadCustomFileToS3(ctx, image.File, image.FileHeader, s.s3Client, s.config.AWSBucketName, "promotions")
+	if err != nil {
+		return "", err
+	}
+
+	if existingImageUrl != "" {
+		if err := utils.DeleteFileFromS3(ctx, s.s3Client, s.config.AWSBucketName, existingImageUrl); err != nil {
+			return "", err
+		}
+	}
+
+	return filePath, nil
+}
+
+func (s *CategoryService) getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	userID, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		return uuid.Nil, app_errors.NewUnauthorizedUserError()
+	}
+	return userID, nil
+}
+
+func (s *CategoryService) logAndReturnError(message string, err error) error {
+	s.logger.Error(message, zap.Error(err))
+	return fmt.Errorf("%s: %w", message, err)
+}
+
+func (s *CategoryService) verifyAdminStatus(ctx context.Context, userID uuid.UUID) error {
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
+	if err != nil || !isAdmin {
+		return app_errors.NewUnauthorizedUserError()
+	}
+	return nil
 }
 
 // GetCategoryByIDService retrieves a category by its ID
@@ -380,23 +438,6 @@ type Category struct {
 	ParentID         uuid.UUID   `json:"-"` // Exclude from JSON output, used for processing
 }
 
-//
-//// GetCategoryHierarchyService retrieves the category hierarchy
-//func (s *CategoryService) GetCategoryHierarchyService(ctx context.Context) ([]*Category, error) {
-//	// get category tree
-//	categories, err := s.categoryRepo.GetCategoryHierarchy(ctx)
-//	if err != nil {
-//		s.logger.Error("failed to get category tree", zap.Error(err))
-//		return nil, err
-//	}
-//
-//	// build the category hierarchy
-//	categoryHierarchy := s.buildCategoryHierarchy(categories)
-//
-//	return categoryHierarchy, nil
-//
-//}
-
 func uniqueStrings(input []string) []string {
 	keys := make(map[string]bool)
 	list := []string{}
@@ -409,109 +450,9 @@ func uniqueStrings(input []string) []string {
 	return list
 }
 
-//func (s *CategoryService) buildCategoryHierarchy(categories []database.GetCategoryHierarchyRow) []*Category {
-//	categoryMap := make(map[uuid.UUID]*Category)
-//	childParentMap := make(map[uuid.UUID]uuid.UUID)
-//
-//	for _, row := range categories {
-//		if _, exists := categoryMap[row.CategoryID]; !exists {
-//			categoryMap[row.CategoryID] = &Category{
-//				CategoryID:       row.CategoryID.String(),
-//				CategoryName:     row.CategoryName,
-//				FeaturedProducts: []Product{},
-//				Processors:       []string{},
-//				Size:             []string{},
-//				Storage:          []string{},
-//				Children:         []*Category{},
-//				Position:         int(row.Position),
-//				ParentID:         row.ParentID.UUID,
-//			}
-//		}
-//
-//		if row.ParentID.UUID != uuid.Nil {
-//			childParentMap[row.CategoryID] = row.ParentID.UUID
-//		}
-//
-//		if row.ProductID.Valid {
-//			category := categoryMap[row.CategoryID]
-//
-//			product := Product{
-//				ProductID:   row.ProductID.UUID.String(),
-//				ProductName: row.ProductName.String,
-//				ImageURL:    s.constructS3URL(row.ImageUrl.String),
-//			}
-//
-//			// Find the immediate parent category to place the product in the second layer
-//			var parentCategory *Category
-//			if parentID, exists := childParentMap[row.CategoryID]; exists {
-//				if _, exists := childParentMap[parentID]; exists {
-//					parentCategory = categoryMap[parentID]
-//				}
-//			}
-//
-//			if parentCategory != nil {
-//				parentCategory.FeaturedProducts = append(parentCategory.FeaturedProducts, product)
-//				if row.Processor.Valid {
-//					parentCategory.Processors = append(parentCategory.Processors, row.Processor.String)
-//				}
-//				if row.Size.Valid {
-//					parentCategory.Size = append(parentCategory.Size, row.Size.String)
-//				}
-//				if row.Storage.Valid {
-//					parentCategory.Storage = append(parentCategory.Storage, row.Storage.String)
-//				}
-//			} else {
-//				category.FeaturedProducts = append(category.FeaturedProducts, product)
-//				if row.Processor.Valid {
-//					category.Processors = append(category.Processors, row.Processor.String)
-//				}
-//				if row.Size.Valid {
-//					category.Size = append(category.Size, row.Size.String)
-//				}
-//				if row.Storage.Valid {
-//					category.Storage = append(category.Storage, row.Storage.String)
-//				}
-//			}
-//		}
-//	}
-//
-//	// Remove duplicate processors, sizes, and storages
-//	for _, category := range categoryMap {
-//		category.Processors = uniqueStrings(category.Processors)
-//		category.Size = uniqueStrings(category.Size)
-//		category.Storage = uniqueStrings(category.Storage)
-//	}
-//
-//	// Organize the hierarchy
-//	rootCategories := make([]*Category, 0)
-//	for id, category := range categoryMap {
-//		if parentID, exists := childParentMap[id]; exists {
-//			if parentCategory, ok := categoryMap[parentID]; ok {
-//				parentCategory.Children = append(parentCategory.Children, category)
-//			}
-//		} else {
-//			rootCategories = append(rootCategories, category)
-//		}
-//	}
-//
-//	// Sort root categories by position
-//	sort.SliceStable(rootCategories, func(i, j int) bool {
-//		return rootCategories[i].Position < rootCategories[j].Position
-//	})
-//
-//	// Sort children categories by position
-//	for _, category := range categoryMap {
-//		sort.SliceStable(category.Children, func(i, j int) bool {
-//			return category.Children[i].Position < category.Children[j].Position
-//		})
-//	}
-//
-//	return rootCategories
-//}
-
 // constructS3URL constructs the S3 URL for a given file path
 func (s *CategoryService) constructS3URL(filePath string) string {
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.cfg.AWSBucketName, s.cfg.AWSRegion, filePath)
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)
 }
 
 // UpdateCategoryImageService updates the image of a category
@@ -532,7 +473,7 @@ func (s *CategoryService) UpdateCategoryImageService(ctx context.Context, r *htt
 	}
 
 	// Update the image of the category
-	filePath, err := utils.UploadFileToS3(ctx, r, s.s3Client, s.cfg.AWSBucketName, "category_images")
+	filePath, err := utils.UploadFileToS3(ctx, r, s.s3Client, s.config.AWSBucketName, "category_images")
 	if err != nil {
 		s.logger.Error("failed to upload file to S3", zap.Error(err))
 		return fmt.Errorf("failed to upload file to S3")
@@ -610,4 +551,22 @@ func (s *CategoryService) GetV2CategoryHierarchy(
 	}
 
 	return hierarchy, nil
+}
+
+// DeleteCategoryService deletes a category
+func (s *CategoryService) DeleteCategoryService(ctx context.Context, id string) error {
+	// parse id to uuid
+	categoryID, err := uuid.Parse(id)
+	if err != nil {
+		s.logger.Error("failed to parse category ID", zap.Error(err))
+		return err
+	}
+
+	err = s.categoryRepo.DeleteCategory(ctx, categoryID)
+	if err != nil {
+		s.logger.Error("failed to delete category", zap.Error(err))
+		return err
+	}
+
+	return nil
 }

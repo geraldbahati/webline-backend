@@ -122,7 +122,7 @@ func main() {
 
 	// Initialize services
 	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, verificationTokenRepoImpl, passwordResetRepoImpl, tokenRepo, &cfg, logger)
-	categoryService := services.NewCategoryService(categoryRepo, logger, &cfg, s3Client)
+	categoryService := services.NewCategoryService(categoryRepo, userRepo, logger, &cfg, s3Client)
 	productService := services.NewProductService(
 		productRepo,
 		productVariantRepo,
@@ -252,9 +252,7 @@ func setupRouter(
 
 	// Category routes
 	categoryRouter := r.PathPrefix("/api/categories").Subrouter()
-	categoryRouter.HandleFunc("", categoryHandler.CreateCategoryHandler).Methods(http.MethodPost)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.GetCategoryByIDHandler).Methods(http.MethodGet)
-	categoryRouter.HandleFunc("", categoryHandler.GetCategoriesHandler).Methods(http.MethodOptions)
 	categoryRouter.HandleFunc("", categoryHandler.GetCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.UpdateCategoryHandler).Methods(http.MethodPut)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodDelete)
@@ -273,6 +271,12 @@ func setupRouter(
 	// admin category
 	adminCategoryRouter := r.PathPrefix("/api/v2/categories").Subrouter()
 	adminCategoryRouter.HandleFunc("/hierarchy", categoryHandler.GetV2CategoryHierarchyHandler).Methods(http.MethodGet)
+
+	protectedAdminCategoryRouter := adminCategoryRouter.PathPrefix("").Subrouter()
+	protectedAdminCategoryRouter.Use(middleware.Auth)
+	protectedAdminCategoryRouter.HandleFunc("", categoryHandler.CreateCategoryHandler).Methods(http.MethodPost)
+	protectedAdminCategoryRouter.HandleFunc("/{id}", categoryHandler.DeleteCategoryHandler).Methods(http.MethodDelete)
+	protectedAdminCategoryRouter.HandleFunc("/{id}", categoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodPut)
 
 	// Product routes
 	productRouter := r.PathPrefix("/api/products").Subrouter()
