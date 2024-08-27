@@ -103,6 +103,127 @@ func (q *Queries) GetGuestCheckoutByEmail(ctx context.Context, email string) (Gu
 	return i, err
 }
 
+const getMonthlyRevenue = `-- name: GetMonthlyRevenue :many
+WITH sales_data AS (
+    SELECT
+        created_at AS month,
+        COALESCE(SUM(amount), 0)::numeric AS total_sales
+    FROM
+        order_payments
+    WHERE
+        payment_status_id = $1
+    GROUP BY
+        month
+    ORDER BY
+        month DESC
+    LIMIT 12
+)
+SELECT month, total_sales FROM sales_data
+`
+
+type GetMonthlyRevenueRow struct {
+	Month      sql.NullTime
+	TotalSales string
+}
+
+func (q *Queries) GetMonthlyRevenue(ctx context.Context, paymentStatusID sql.NullInt32) ([]GetMonthlyRevenueRow, error) {
+	rows, err := q.db.QueryContext(ctx, getMonthlyRevenue, paymentStatusID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMonthlyRevenueRow
+	for rows.Next() {
+		var i GetMonthlyRevenueRow
+		if err := rows.Scan(&i.Month, &i.TotalSales); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMonthlySales = `-- name: GetMonthlySales :many
+SELECT
+    date_trunc('month', created_at) AS month,
+    COALESCE(SUM(amount), 0)::numeric AS total_sales
+FROM
+    order_payments
+WHERE
+    payment_status_id = $1
+GROUP BY
+    month
+ORDER BY
+    month
+`
+
+type GetMonthlySalesRow struct {
+	Month      int64
+	TotalSales string
+}
+
+// GetMonthlySales retrieves the total sales for each month from the order_payments table
+func (q *Queries) GetMonthlySales(ctx context.Context, paymentStatusID sql.NullInt32) ([]GetMonthlySalesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getMonthlySales, paymentStatusID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMonthlySalesRow
+	for rows.Next() {
+		var i GetMonthlySalesRow
+		if err := rows.Scan(&i.Month, &i.TotalSales); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMonthlySalesForLastTwoMonths = `-- name: GetMonthlySalesForLastTwoMonths :one
+WITH sales_data AS (
+    SELECT
+        date_trunc('month', created_at) AS month,
+        COALESCE(SUM(amount), 0)::numeric AS total_sales
+    FROM
+        order_payments
+    WHERE
+        payment_status_id = $1
+    GROUP BY
+        month
+    ORDER BY
+        month DESC
+    LIMIT 2
+)
+SELECT
+    COALESCE((SELECT total_sales FROM sales_data ORDER BY month DESC LIMIT 1), 0)::numeric AS current_month_sales,
+    COALESCE((SELECT total_sales FROM sales_data ORDER BY month DESC LIMIT 1 OFFSET 1), 0)::numeric AS previous_month_sales
+`
+
+type GetMonthlySalesForLastTwoMonthsRow struct {
+	CurrentMonthSales  string
+	PreviousMonthSales string
+}
+
+func (q *Queries) GetMonthlySalesForLastTwoMonths(ctx context.Context, paymentStatusID sql.NullInt32) (GetMonthlySalesForLastTwoMonthsRow, error) {
+	row := q.db.QueryRowContext(ctx, getMonthlySalesForLastTwoMonths, paymentStatusID)
+	var i GetMonthlySalesForLastTwoMonthsRow
+	err := row.Scan(&i.CurrentMonthSales, &i.PreviousMonthSales)
+	return i, err
+}
+
 const getOrderById = `-- name: GetOrderById :one
 SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at, order_number
 FROM orders
@@ -270,6 +391,160 @@ func (q *Queries) GetOrdersByUserId(ctx context.Context, userID uuid.NullUUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const getRecentSales = `-- name: GetRecentSales :many
+SELECT
+    COALESCE(u.first_name || ' ' || u.last_name, g.first_name || ' ' || g.last_name)::varchar AS name,
+    COALESCE(u.email, g.email) AS email,
+    op.amount,
+    COALESCE(SUBSTRING(u.first_name, 1, 1) || SUBSTRING(u.last_name, 1, 1),
+             SUBSTRING(g.first_name, 1, 1) || SUBSTRING(g.last_name, 1, 1))::varchar AS fallback
+FROM
+    orders o
+        LEFT JOIN
+    users u ON o.user_id = u.id
+        LEFT JOIN
+    guest_checkouts g ON o.guest_checkout_id = g.id
+        JOIN
+    order_payments op ON o.id = op.order_id
+ORDER BY
+    o.created_at DESC
+LIMIT 10
+`
+
+type GetRecentSalesRow struct {
+	Name     string
+	Email    string
+	Amount   string
+	Fallback string
+}
+
+func (q *Queries) GetRecentSales(ctx context.Context) ([]GetRecentSalesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRecentSales)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRecentSalesRow
+	for rows.Next() {
+		var i GetRecentSalesRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Email,
+			&i.Amount,
+			&i.Fallback,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSalesTrend = `-- name: GetSalesTrend :one
+WITH sales_data AS (
+    SELECT
+        TO_CHAR(date_trunc('month', created_at), 'YYYY-MM') AS month,
+        COALESCE(SUM(amount), 0) AS total_sales
+    FROM
+        order_payments
+    WHERE
+        payment_status_id = $1
+    GROUP BY
+        month
+    ORDER BY
+        month DESC
+    LIMIT 2
+)
+SELECT
+    COALESCE(MAX(total_sales), 0)::numeric AS current_month_sales,
+    COALESCE(
+            (SELECT total_sales FROM sales_data ORDER BY month DESC LIMIT 1 OFFSET 1),
+            0
+    )::numeric AS previous_month_sales
+FROM sales_data
+`
+
+type GetSalesTrendRow struct {
+	CurrentMonthSales  string
+	PreviousMonthSales string
+}
+
+func (q *Queries) GetSalesTrend(ctx context.Context, paymentStatusID sql.NullInt32) (GetSalesTrendRow, error) {
+	row := q.db.QueryRowContext(ctx, getSalesTrend, paymentStatusID)
+	var i GetSalesTrendRow
+	err := row.Scan(&i.CurrentMonthSales, &i.PreviousMonthSales)
+	return i, err
+}
+
+const getTotalRevenueByStatus = `-- name: GetTotalRevenueByStatus :one
+SELECT COALESCE(SUM(amount), 0)::numeric AS total_revenue
+FROM order_payments
+WHERE payment_status_id = $1
+`
+
+// GetTotalRevenueByStatus gets the total revenue for orders with a specific payment status
+func (q *Queries) GetTotalRevenueByStatus(ctx context.Context, paymentStatusID sql.NullInt32) (string, error) {
+	row := q.db.QueryRowContext(ctx, getTotalRevenueByStatus, paymentStatusID)
+	var total_revenue string
+	err := row.Scan(&total_revenue)
+	return total_revenue, err
+}
+
+const getTotalRevenueForLastTwoMonths = `-- name: GetTotalRevenueForLastTwoMonths :one
+WITH revenue_data AS (
+    SELECT
+        date_trunc('month', created_at) AS month,
+        COALESCE(SUM(amount), 0)::numeric AS total_revenue
+    FROM
+        order_payments
+    WHERE
+        payment_status_id = $1
+    GROUP BY
+        month
+    ORDER BY
+        month DESC
+    LIMIT 2
+)
+SELECT
+    COALESCE((SELECT total_revenue FROM revenue_data ORDER BY month DESC LIMIT 1), 0)::numeric AS current_month_revenue,
+    COALESCE((SELECT total_revenue FROM revenue_data ORDER BY month DESC LIMIT 1 OFFSET 1), 0)::numeric AS previous_month_revenue
+`
+
+type GetTotalRevenueForLastTwoMonthsRow struct {
+	CurrentMonthRevenue  string
+	PreviousMonthRevenue string
+}
+
+func (q *Queries) GetTotalRevenueForLastTwoMonths(ctx context.Context, paymentStatusID sql.NullInt32) (GetTotalRevenueForLastTwoMonthsRow, error) {
+	row := q.db.QueryRowContext(ctx, getTotalRevenueForLastTwoMonths, paymentStatusID)
+	var i GetTotalRevenueForLastTwoMonthsRow
+	err := row.Scan(&i.CurrentMonthRevenue, &i.PreviousMonthRevenue)
+	return i, err
+}
+
+const getTotalSalesCurrentMonth = `-- name: GetTotalSalesCurrentMonth :one
+SELECT
+    COUNT(*) AS total_sales
+FROM
+    orders
+WHERE
+    created_at >= date_trunc('month', current_date)
+  AND created_at < date_trunc('month', current_date) + interval '1 month'
+`
+
+func (q *Queries) GetTotalSalesCurrentMonth(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getTotalSalesCurrentMonth)
+	var total_sales int64
+	err := row.Scan(&total_sales)
+	return total_sales, err
 }
 
 const getUserOrGuestCheckoutNameByOrderID = `-- name: GetUserOrGuestCheckoutNameByOrderID :one

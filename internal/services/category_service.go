@@ -2,8 +2,9 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
@@ -38,8 +39,7 @@ func NewCategoryService(categoryRepo *repository.CategoryRepository, userRepo *r
 // CreateCategoryService creates a new category
 func (s *CategoryService) CreateCategoryService(
 	ctx context.Context,
-	name string,
-	parentID string,
+	params *model.CreateCategoryParams,
 	image *model.ImageFile,
 ) error {
 
@@ -52,11 +52,23 @@ func (s *CategoryService) CreateCategoryService(
 		return err
 	}
 
+	categoryID, err := s.categoryRepo.GetCategoryBySlug(ctx, params.Slug)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return s.logAndReturnError("failed to get category by slug", err)
+	}
+
+	if categoryID != nil {
+		return s.updateExistingCategory(ctx, params, image, categoryID)
+	}
+
+	return s.createNewCategory(ctx, params, image)
+}
+
+func (s *CategoryService) createNewCategory(ctx context.Context, params *model.CreateCategoryParams, image *model.ImageFile) error {
 	// parse parentID to null uuid
-	log.Printf("parentID: %v", parentID)
 	var parentIDValue uuid.NullUUID
-	if parentID != "" {
-		id, err := uuid.Parse(parentID)
+	if params.ParentID != "" {
+		id, err := uuid.Parse(params.ParentID)
 		if err != nil {
 			s.logger.Error("failed to parse parent ID", zap.Error(err))
 			return err
@@ -73,21 +85,85 @@ func (s *CategoryService) CreateCategoryService(
 	}
 
 	// upload image to S3
-
-	filePath, err := s.handleCategoryImage(ctx, nil, "")
+	filePath, err := s.handleCategoryImage(ctx, image, "")
 	if err != nil {
 		return s.logAndReturnError("failed to handle category image", err)
 	}
 
 	categoryParams := database.CreateCategoryParams{
-		Name:     name,
-		ParentID: parentIDValue,
-		ImageUrl: optionalString(filePath),
+		Name:            params.Name,
+		Description:     optionalString(params.Description),
+		MetaTitle:       optionalString(params.MetaTitle),
+		MetaDescription: optionalString(params.MetaDescription),
+		ParentID:        parentIDValue,
+		ImageUrl:        optionalString(filePath),
 	}
 
-	_, err = s.categoryRepo.CreateCategory(ctx, categoryParams)
+	err = s.categoryRepo.CreateCategory(ctx, categoryParams)
 	if err != nil {
 		s.logger.Error("failed to create category", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (s *CategoryService) updateExistingCategory(ctx context.Context, params *model.CreateCategoryParams, image *model.ImageFile, categoryID *uuid.UUID) error {
+	// updated by
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	// parse parentID to null uuid
+	var parentIDValue uuid.NullUUID
+	if params.ParentID != "" {
+		id, err := uuid.Parse(params.ParentID)
+		if err != nil {
+			s.logger.Error("failed to parse parent ID", zap.Error(err))
+			return err
+		}
+		parentIDValue = uuid.NullUUID{
+			UUID:  id,
+			Valid: true,
+		}
+	} else {
+		parentIDValue = uuid.NullUUID{
+			UUID:  uuid.Nil,
+			Valid: false,
+		}
+	}
+
+	// get existing category
+	existingCategory, err := s.categoryRepo.GetCategoryByID(ctx, *categoryID)
+	if err != nil {
+		s.logger.Error("failed to get category by ID", zap.Error(err))
+		return err
+	}
+
+	// upload image to S3
+	filePath, err := s.handleCategoryImage(ctx, image, existingCategory.ImageUrl.String)
+	if err != nil {
+		return s.logAndReturnError("failed to handle category image", err)
+	}
+
+	// update category
+	categoryParams := database.UpdateCategoryParams{
+		ID:              *categoryID,
+		Name:            params.Name,
+		ParentID:        parentIDValue,
+		ImageUrl:        optionalString(filePath),
+		MetaTitle:       optionalString(params.MetaTitle),
+		MetaDescription: optionalString(params.MetaDescription),
+		LastUpdatedBy: uuid.NullUUID{
+			UUID:  userID,
+			Valid: true,
+		},
+	}
+
+	err = s.categoryRepo.UpdateCategory(ctx, categoryParams)
+	if err != nil {
+		s.logger.Error("failed to update category", zap.Error(err))
 		return err
 	}
 
@@ -135,25 +211,25 @@ func (s *CategoryService) verifyAdminStatus(ctx context.Context, userID uuid.UUI
 }
 
 // GetCategoryByIDService retrieves a category by its ID
-func (s *CategoryService) GetCategoryByIDService(ctx context.Context, id string) (database.Category, error) {
+func (s *CategoryService) GetCategoryByIDService(ctx context.Context, id string) (database.GetCategoryByIDRow, error) {
 	// parse id to uuid
 	categoryID, err := uuid.Parse(id)
 	if err != nil {
 		s.logger.Error("failed to parse category ID", zap.Error(err))
-		return database.Category{}, err
+		return database.GetCategoryByIDRow{}, err
 	}
 
 	category, err := s.categoryRepo.GetCategoryByID(ctx, categoryID)
 	if err != nil {
 		s.logger.Error("failed to get category by ID", zap.Error(err))
-		return database.Category{}, err
+		return database.GetCategoryByIDRow{}, err
 	}
 
 	return category, nil
 }
 
 // GetCategoriesService retrieves all categories
-func (s *CategoryService) GetCategoriesService(ctx context.Context) ([]database.Category, error) {
+func (s *CategoryService) GetCategoriesService(ctx context.Context) ([]database.ListCategoriesRow, error) {
 	categories, err := s.categoryRepo.GetCategories(ctx)
 	if err != nil {
 		s.logger.Error("failed to get categories", zap.Error(err))
@@ -161,69 +237,6 @@ func (s *CategoryService) GetCategoriesService(ctx context.Context) ([]database.
 	}
 
 	return categories, nil
-}
-
-// UpdateCategoryService updates a category in the database and returns the updated category
-func (s *CategoryService) UpdateCategoryService(
-	ctx context.Context,
-	id string,
-	name string,
-	parentID string,
-	position int32,
-) (*database.Category, error) {
-	// parse id to uuid
-	categoryID, err := uuid.Parse(id)
-	if err != nil {
-		s.logger.Error("failed to parse category ID", zap.Error(err))
-		return nil, err
-	}
-
-	// get category by ID
-	existingCategory, err := s.categoryRepo.GetCategoryByID(ctx, categoryID)
-	if err != nil {
-		s.logger.Error("the category does not exist", zap.Error(err))
-		return nil, err
-	}
-
-	// parse parentID to null uuid
-	var parentIDValue uuid.NullUUID
-	if parentID != "" {
-		id, err := uuid.Parse(parentID)
-		if err != nil {
-			s.logger.Error("failed to parse parent ID", zap.Error(err))
-			return nil, err
-		}
-		parentIDValue = uuid.NullUUID{
-			UUID:  id,
-			Valid: true,
-		}
-	} else {
-		parentIDValue = existingCategory.ParentID
-	}
-
-	// if the name is the same as the current name, return the category
-	if name == existingCategory.Name && parentIDValue == existingCategory.ParentID && position == existingCategory.Position {
-		return nil, nil
-	}
-
-	// if name is not provided, use the current name
-	if name == "" {
-		name = existingCategory.Name
-	}
-
-	// if position is not provided, use the current position
-	if position == 0 {
-		position = existingCategory.Position
-	}
-
-	// update category
-	category, err := s.categoryRepo.UpdateCategory(ctx, categoryID, name, parentIDValue, position)
-	if err != nil {
-		s.logger.Error("failed to update category", zap.Error(err))
-		return nil, err
-	}
-
-	return &category, nil
 }
 
 // SoftDeleteCategoryService marks a category as inactive
@@ -569,4 +582,31 @@ func (s *CategoryService) DeleteCategoryService(ctx context.Context, id string) 
 	}
 
 	return nil
+}
+
+// GetCategoryDetailsService retrieves the details of a category
+func (s *CategoryService) GetCategoryDetailsService(ctx context.Context, slug string) (*model.V2CategoryDetail, error) {
+	category, err := s.categoryRepo.GetCategoryDetailsBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get category by slug", zap.Error(err))
+		return nil, err
+	}
+
+	// update the image url to s3 url
+	if category.ImageURL != "" {
+		category.ImageURL = s.constructS3URL(category.ImageURL)
+	}
+
+	return category, nil
+}
+
+// GetCategorySEOService retrieves the SEO details of a category
+func (s *CategoryService) GetCategorySEOService(ctx context.Context, slug string) (*model.CategorySEO, error) {
+	seo, err := s.categoryRepo.GetCategorySEOBySlug(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get category SEO by slug", zap.Error(err))
+		return nil, err
+	}
+
+	return seo, nil
 }

@@ -1,7 +1,6 @@
--- name: CreateCategory :one
-INSERT INTO categories (name, parent_id, image_url)
-VALUES ($1, $2, $3)
-    RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url;
+-- name: CreateCategory :exec
+INSERT INTO categories (name, parent_id, image_url, description, meta_description, meta_title)
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateCategoryImage :one
 UPDATE categories
@@ -22,7 +21,10 @@ ORDER BY position;
 
 -- name: UpdateCategory :one
 UPDATE categories
-SET name = $2, parent_id = $3, position = $4, updated_at = NOW()
+SET name = $2, parent_id = $3, position = $4, image_url = $5,
+    description = $6, meta_description = $7, meta_title = $8,
+    last_updated_by = $9,
+    updated_at = NOW()
 WHERE id = $1
     RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url;
 
@@ -49,18 +51,21 @@ GROUP BY c.id, c.name, c.parent_id, c.position, c.created_at, c.updated_at, c.is
 ORDER BY c.position;
 
 -- name: GetCategoryTree :many
-WITH RECURSIVE category_tree AS (
-    SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
-    FROM categories
-    WHERE parent_id IS NULL
-    UNION
-    SELECT c.id, c.name, c.parent_id, c.created_at, c.updated_at, c.is_active, c.position, c.image_url
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-)
-SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
-FROM category_tree
-ORDER BY position, parent_id, name;
+SELECT
+    id,
+    name,
+    parent_id,
+    created_at,
+    updated_at,
+    is_active,
+    position,
+    image_url,
+    nlevel(path) AS level
+FROM
+    categories
+ORDER BY
+    position;
+
 
 -- name: CheckCategoryExistence :one
 SELECT EXISTS (
@@ -88,63 +93,56 @@ FROM categories
 WHERE name = $1;
 
 -- name: GetV2CategoryHierarchy :many
-WITH RECURSIVE category_hierarchy AS (
+WITH product_counts AS (
     SELECT
-        id,
-        name,
-        parent_id,
-        position,
-        ARRAY[]::uuid[] AS path,
-        1 AS level
+        category_id,
+        COUNT(*) AS product_count
     FROM
-        categories
-    WHERE
-        parent_id IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id,
-        c.position,
-        ch.path || c.parent_id,
-        ch.level + 1
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON ch.id = c.parent_id
-),
-               product_counts AS (
-                   SELECT
-                       category_id,
-                       COUNT(*) AS product_count
-                   FROM
-                       products
-                   GROUP BY
-                       category_id
-               )
+        products
+    GROUP BY
+        category_id
+)
 SELECT
-    ch.id,
-    ch.name,
-    ch.parent_id,
-    ch.position,
-    ch.path,
-    ch.level,
+    c.id,
+    c.name,
+    c.parent_id,
+    c.is_active,
+    c.position,
+    c.slug,
+    c.path,
+    nlevel(c.path) AS level,
     COALESCE(pc.product_count, 0) +
     COALESCE((
                  SELECT SUM(pc2.product_count)
                  FROM product_counts pc2
                  WHERE pc2.category_id IN (
                      SELECT id
-                     FROM category_hierarchy
-                     WHERE path @> ARRAY[ch.id]
+                     FROM categories
+                     WHERE path <@ c.path
                  )
              ), 0) AS total_products
 FROM
-    category_hierarchy ch
+    categories c
         LEFT JOIN
-    product_counts pc ON ch.id = pc.category_id
+    product_counts pc ON c.id = pc.category_id
 ORDER BY
-    ch.path, ch.level, ch.position;
+    c.path, c.position;
 
+
+SELECT id, generate_ltree_path(id)
+FROM categories;
+
+-- name: GetCategoryBySlug :one
+SELECT id
+FROM categories
+WHERE slug = $1;
+
+-- name: GetCategoryDetailsBySlug :one
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url, description, meta_description, meta_title, slug
+FROM categories
+WHERE slug = $1;
+
+-- name: GetCategorySEOBySlug :one
+SELECT meta_title, meta_description
+FROM categories
+WHERE slug = $1;

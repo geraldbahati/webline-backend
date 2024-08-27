@@ -50,3 +50,20 @@ type OrderClientResponse struct {
 	Phone          string
 	Amount         float64
 }
+
+type Revenue struct {
+	Revenue       float64 `json:"revenue"`
+	MonthlyGrowth float64 `json:"monthlyGrowth"`
+}
+
+type MonthlyRevenue struct {
+	Month   time.Time `json:"month"`
+	Revenue float64   `json:"revenue"`
+}
+
+type OrderUser struct {
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	Amount   float64 `json:"amount"`
+	Fallback string  `json:"fallback"`
+}

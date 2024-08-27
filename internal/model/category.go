@@ -14,6 +14,21 @@ type CategoryDetail struct {
 	AvailableColors []string         `json:"availableColors"`
 }
 
+type V2CategoryDetail struct {
+	Slug            string `json:"slug"`
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	ParentID        string `json:"categoryID"`
+	MetaTitle       string `json:"metaTitle"`
+	MetaDescription string `json:"metaDescription"`
+	ImageURL        string `json:"imageURL"`
+}
+
+type CategorySEO struct {
+	MetaTitle       string `json:"metaTitle"`
+	MetaDescription string `json:"metaDescription"`
+}
+
 type CategoryHierarchy struct {
 	Name     string              `json:"Name"`
 	Children []CategoryHierarchy `json:"Children"`
@@ -24,6 +39,8 @@ type V2CategoryHierarchy struct {
 	Name             string                 `json:"name"`
 	Position         int                    `json:"position"`
 	NumberOfProducts int                    `json:"numberOfProducts"`
+	IsActive         bool                   `json:"isActive"`
+	Slug             string                 `json:"slug"`
 	Children         []*V2CategoryHierarchy `json:"children,omitempty"`
 }
 
@@ -69,6 +86,10 @@ type ProductMetafields struct {
 }
 
 type CreateCategoryParams struct {
-	Name     string `json:"name"`
-	ParentID string `json:"parentID"`
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	MetaTitle       string `json:"metaTitle"`
+	MetaDescription string `json:"metaDescription"`
+	ParentID        string `json:"parentID"`
+	Slug            string `json:"slug"`
 }

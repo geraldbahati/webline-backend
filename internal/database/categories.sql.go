@@ -10,7 +10,6 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 const checkCategoryExistence = `-- name: CheckCategoryExistence :one
@@ -28,32 +27,30 @@ func (q *Queries) CheckCategoryExistence(ctx context.Context, id uuid.UUID) (boo
 	return exists, err
 }
 
-const createCategory = `-- name: CreateCategory :one
-INSERT INTO categories (name, parent_id, image_url)
-VALUES ($1, $2, $3)
-    RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url
+const createCategory = `-- name: CreateCategory :exec
+INSERT INTO categories (name, parent_id, image_url, description, meta_description, meta_title)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type CreateCategoryParams struct {
-	Name     string
-	ParentID uuid.NullUUID
-	ImageUrl sql.NullString
+	Name            string
+	ParentID        uuid.NullUUID
+	ImageUrl        sql.NullString
+	Description     sql.NullString
+	MetaDescription sql.NullString
+	MetaTitle       sql.NullString
 }
 
-func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error) {
-	row := q.db.QueryRowContext(ctx, createCategory, arg.Name, arg.ParentID, arg.ImageUrl)
-	var i Category
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.ParentID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.IsActive,
-		&i.Position,
-		&i.ImageUrl,
+func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) error {
+	_, err := q.db.ExecContext(ctx, createCategory,
+		arg.Name,
+		arg.ParentID,
+		arg.ImageUrl,
+		arg.Description,
+		arg.MetaDescription,
+		arg.MetaTitle,
 	)
-	return i, err
+	return err
 }
 
 const getCategoriesByParentID = `-- name: GetCategoriesByParentID :many
@@ -63,15 +60,26 @@ WHERE parent_id = $1
 ORDER BY position
 `
 
-func (q *Queries) GetCategoriesByParentID(ctx context.Context, parentID uuid.NullUUID) ([]Category, error) {
+type GetCategoriesByParentIDRow struct {
+	ID        uuid.UUID
+	Name      string
+	ParentID  uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	IsActive  bool
+	Position  int32
+	ImageUrl  sql.NullString
+}
+
+func (q *Queries) GetCategoriesByParentID(ctx context.Context, parentID uuid.NullUUID) ([]GetCategoriesByParentIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCategoriesByParentID, parentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Category
+	var items []GetCategoriesByParentIDRow
 	for rows.Next() {
-		var i Category
+		var i GetCategoriesByParentIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -207,9 +215,20 @@ FROM categories
 WHERE id = $1
 `
 
-func (q *Queries) GetCategoryByID(ctx context.Context, id uuid.UUID) (Category, error) {
+type GetCategoryByIDRow struct {
+	ID        uuid.UUID
+	Name      string
+	ParentID  uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	IsActive  bool
+	Position  int32
+	ImageUrl  sql.NullString
+}
+
+func (q *Queries) GetCategoryByID(ctx context.Context, id uuid.UUID) (GetCategoryByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getCategoryByID, id)
-	var i Category
+	var i GetCategoryByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -229,9 +248,20 @@ FROM categories
 WHERE name = $1
 `
 
-func (q *Queries) GetCategoryByName(ctx context.Context, name string) (Category, error) {
+type GetCategoryByNameRow struct {
+	ID        uuid.UUID
+	Name      string
+	ParentID  uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	IsActive  bool
+	Position  int32
+	ImageUrl  sql.NullString
+}
+
+func (q *Queries) GetCategoryByName(ctx context.Context, name string) (GetCategoryByNameRow, error) {
 	row := q.db.QueryRowContext(ctx, getCategoryByName, name)
-	var i Category
+	var i GetCategoryByNameRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -245,19 +275,93 @@ func (q *Queries) GetCategoryByName(ctx context.Context, name string) (Category,
 	return i, err
 }
 
+const getCategoryBySlug = `-- name: GetCategoryBySlug :one
+SELECT id
+FROM categories
+WHERE slug = $1
+`
+
+func (q *Queries) GetCategoryBySlug(ctx context.Context, slug string) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getCategoryBySlug, slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getCategoryDetailsBySlug = `-- name: GetCategoryDetailsBySlug :one
+SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url, description, meta_description, meta_title, slug
+FROM categories
+WHERE slug = $1
+`
+
+type GetCategoryDetailsBySlugRow struct {
+	ID              uuid.UUID
+	Name            string
+	ParentID        uuid.NullUUID
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	IsActive        bool
+	Position        int32
+	ImageUrl        sql.NullString
+	Description     sql.NullString
+	MetaDescription sql.NullString
+	MetaTitle       sql.NullString
+	Slug            string
+}
+
+func (q *Queries) GetCategoryDetailsBySlug(ctx context.Context, slug string) (GetCategoryDetailsBySlugRow, error) {
+	row := q.db.QueryRowContext(ctx, getCategoryDetailsBySlug, slug)
+	var i GetCategoryDetailsBySlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ParentID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+		&i.Position,
+		&i.ImageUrl,
+		&i.Description,
+		&i.MetaDescription,
+		&i.MetaTitle,
+		&i.Slug,
+	)
+	return i, err
+}
+
+const getCategorySEOBySlug = `-- name: GetCategorySEOBySlug :one
+SELECT meta_title, meta_description
+FROM categories
+WHERE slug = $1
+`
+
+type GetCategorySEOBySlugRow struct {
+	MetaTitle       sql.NullString
+	MetaDescription sql.NullString
+}
+
+func (q *Queries) GetCategorySEOBySlug(ctx context.Context, slug string) (GetCategorySEOBySlugRow, error) {
+	row := q.db.QueryRowContext(ctx, getCategorySEOBySlug, slug)
+	var i GetCategorySEOBySlugRow
+	err := row.Scan(&i.MetaTitle, &i.MetaDescription)
+	return i, err
+}
+
 const getCategoryTree = `-- name: GetCategoryTree :many
-WITH RECURSIVE category_tree AS (
-    SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
-    FROM categories
-    WHERE parent_id IS NULL
-    UNION
-    SELECT c.id, c.name, c.parent_id, c.created_at, c.updated_at, c.is_active, c.position, c.image_url
-    FROM categories c
-             INNER JOIN category_tree ct ON ct.id = c.parent_id
-)
-SELECT id, name, parent_id, created_at, updated_at, is_active, position, image_url
-FROM category_tree
-ORDER BY position, parent_id, name
+SELECT
+    id,
+    name,
+    parent_id,
+    created_at,
+    updated_at,
+    is_active,
+    position,
+    image_url,
+    nlevel(path) AS level
+FROM
+    categories
+ORDER BY
+    position
 `
 
 type GetCategoryTreeRow struct {
@@ -269,6 +373,7 @@ type GetCategoryTreeRow struct {
 	IsActive  bool
 	Position  int32
 	ImageUrl  sql.NullString
+	Level     int32
 }
 
 func (q *Queries) GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, error) {
@@ -289,6 +394,7 @@ func (q *Queries) GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, er
 			&i.IsActive,
 			&i.Position,
 			&i.ImageUrl,
+			&i.Level,
 		); err != nil {
 			return nil, err
 		}
@@ -310,15 +416,26 @@ WHERE parent_id IS NULL
 ORDER BY position
 `
 
-func (q *Queries) GetParentCategories(ctx context.Context) ([]Category, error) {
+type GetParentCategoriesRow struct {
+	ID        uuid.UUID
+	Name      string
+	ParentID  uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	IsActive  bool
+	Position  int32
+	ImageUrl  sql.NullString
+}
+
+func (q *Queries) GetParentCategories(ctx context.Context) ([]GetParentCategoriesRow, error) {
 	rows, err := q.db.QueryContext(ctx, getParentCategories)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Category
+	var items []GetParentCategoriesRow
 	for rows.Next() {
-		var i Category
+		var i GetParentCategoriesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -343,73 +460,50 @@ func (q *Queries) GetParentCategories(ctx context.Context) ([]Category, error) {
 }
 
 const getV2CategoryHierarchy = `-- name: GetV2CategoryHierarchy :many
-WITH RECURSIVE category_hierarchy AS (
+WITH product_counts AS (
     SELECT
-        id,
-        name,
-        parent_id,
-        position,
-        ARRAY[]::uuid[] AS path,
-        1 AS level
+        category_id,
+        COUNT(*) AS product_count
     FROM
-        categories
-    WHERE
-        parent_id IS NULL
-
-    UNION ALL
-
-    SELECT
-        c.id,
-        c.name,
-        c.parent_id,
-        c.position,
-        ch.path || c.parent_id,
-        ch.level + 1
-    FROM
-        categories c
-            INNER JOIN
-        category_hierarchy ch ON ch.id = c.parent_id
-),
-               product_counts AS (
-                   SELECT
-                       category_id,
-                       COUNT(*) AS product_count
-                   FROM
-                       products
-                   GROUP BY
-                       category_id
-               )
+        products
+    GROUP BY
+        category_id
+)
 SELECT
-    ch.id,
-    ch.name,
-    ch.parent_id,
-    ch.position,
-    ch.path,
-    ch.level,
+    c.id,
+    c.name,
+    c.parent_id,
+    c.is_active,
+    c.position,
+    c.slug,
+    c.path,
+    nlevel(c.path) AS level,
     COALESCE(pc.product_count, 0) +
     COALESCE((
                  SELECT SUM(pc2.product_count)
                  FROM product_counts pc2
                  WHERE pc2.category_id IN (
                      SELECT id
-                     FROM category_hierarchy
-                     WHERE path @> ARRAY[ch.id]
+                     FROM categories
+                     WHERE path <@ c.path
                  )
              ), 0) AS total_products
 FROM
-    category_hierarchy ch
+    categories c
         LEFT JOIN
-    product_counts pc ON ch.id = pc.category_id
+    product_counts pc ON c.id = pc.category_id
 ORDER BY
-    ch.path, ch.level, ch.position
+    c.path, c.position
 `
 
 type GetV2CategoryHierarchyRow struct {
 	ID            uuid.UUID
 	Name          string
 	ParentID      uuid.NullUUID
+	IsActive      bool
 	Position      int32
-	Path          []uuid.UUID
+	Slug          string
+	Path          sql.NullString
 	Level         int32
 	TotalProducts int32
 }
@@ -427,8 +521,10 @@ func (q *Queries) GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHi
 			&i.ID,
 			&i.Name,
 			&i.ParentID,
+			&i.IsActive,
 			&i.Position,
-			pq.Array(&i.Path),
+			&i.Slug,
+			&i.Path,
 			&i.Level,
 			&i.TotalProducts,
 		); err != nil {
@@ -461,15 +557,26 @@ FROM categories
 ORDER BY position
 `
 
-func (q *Queries) ListCategories(ctx context.Context) ([]Category, error) {
+type ListCategoriesRow struct {
+	ID        uuid.UUID
+	Name      string
+	ParentID  uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	IsActive  bool
+	Position  int32
+	ImageUrl  sql.NullString
+}
+
+func (q *Queries) ListCategories(ctx context.Context) ([]ListCategoriesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listCategories)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Category
+	var items []ListCategoriesRow
 	for rows.Next() {
-		var i Category
+		var i ListCategoriesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -506,26 +613,50 @@ func (q *Queries) SoftDeleteCategory(ctx context.Context, id uuid.UUID) error {
 
 const updateCategory = `-- name: UpdateCategory :one
 UPDATE categories
-SET name = $2, parent_id = $3, position = $4, updated_at = NOW()
+SET name = $2, parent_id = $3, position = $4, image_url = $5,
+    description = $6, meta_description = $7, meta_title = $8,
+    last_updated_by = $9,
+    updated_at = NOW()
 WHERE id = $1
     RETURNING id, name, parent_id, created_at, updated_at, is_active, position, image_url
 `
 
 type UpdateCategoryParams struct {
-	ID       uuid.UUID
-	Name     string
-	ParentID uuid.NullUUID
-	Position int32
+	ID              uuid.UUID
+	Name            string
+	ParentID        uuid.NullUUID
+	Position        int32
+	ImageUrl        sql.NullString
+	Description     sql.NullString
+	MetaDescription sql.NullString
+	MetaTitle       sql.NullString
+	LastUpdatedBy   uuid.NullUUID
 }
 
-func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
+type UpdateCategoryRow struct {
+	ID        uuid.UUID
+	Name      string
+	ParentID  uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	IsActive  bool
+	Position  int32
+	ImageUrl  sql.NullString
+}
+
+func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (UpdateCategoryRow, error) {
 	row := q.db.QueryRowContext(ctx, updateCategory,
 		arg.ID,
 		arg.Name,
 		arg.ParentID,
 		arg.Position,
+		arg.ImageUrl,
+		arg.Description,
+		arg.MetaDescription,
+		arg.MetaTitle,
+		arg.LastUpdatedBy,
 	)
-	var i Category
+	var i UpdateCategoryRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -551,9 +682,20 @@ type UpdateCategoryImageParams struct {
 	ImageUrl sql.NullString
 }
 
-func (q *Queries) UpdateCategoryImage(ctx context.Context, arg UpdateCategoryImageParams) (Category, error) {
+type UpdateCategoryImageRow struct {
+	ID        uuid.UUID
+	Name      string
+	ParentID  uuid.NullUUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	IsActive  bool
+	Position  int32
+	ImageUrl  sql.NullString
+}
+
+func (q *Queries) UpdateCategoryImage(ctx context.Context, arg UpdateCategoryImageParams) (UpdateCategoryImageRow, error) {
 	row := q.db.QueryRowContext(ctx, updateCategoryImage, arg.ID, arg.ImageUrl)
-	var i Category
+	var i UpdateCategoryImageRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,

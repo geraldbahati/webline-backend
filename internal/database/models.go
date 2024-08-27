@@ -45,14 +45,23 @@ type CartItem struct {
 }
 
 type Category struct {
-	ID        uuid.UUID
-	Name      string
-	ParentID  uuid.NullUUID
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
-	IsActive  bool
-	Position  int32
-	ImageUrl  sql.NullString
+	ID              uuid.UUID
+	Name            string
+	ParentID        uuid.NullUUID
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	IsActive        bool
+	Position        int32
+	ImageUrl        sql.NullString
+	Description     sql.NullString
+	MetaTitle       sql.NullString
+	MetaDescription sql.NullString
+	IsFeatured      bool
+	Level           int32
+	Path            sql.NullString
+	SearchVector    interface{}
+	Slug            string
+	LastUpdatedBy   uuid.NullUUID
 }
 
 type CategoryHierarchyMv struct {

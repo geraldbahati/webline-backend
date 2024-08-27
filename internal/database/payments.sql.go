@@ -170,6 +170,19 @@ func (q *Queries) GetPaymentByOrderID(ctx context.Context, orderID uuid.UUID) (G
 	return i, err
 }
 
+const getPaymentStatusIDByStatus = `-- name: GetPaymentStatusIDByStatus :one
+SELECT id
+FROM payment_statuses
+WHERE status = $1
+`
+
+func (q *Queries) GetPaymentStatusIDByStatus(ctx context.Context, status string) (int32, error) {
+	row := q.db.QueryRowContext(ctx, getPaymentStatusIDByStatus, status)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getStatusByID = `-- name: GetStatusByID :one
 SELECT status
 FROM payment_statuses

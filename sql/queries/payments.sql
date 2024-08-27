@@ -27,6 +27,11 @@ SELECT status
 FROM payment_statuses
 WHERE id = $1;
 
+-- name: GetPaymentStatusIDByStatus :one
+SELECT id
+FROM payment_statuses
+WHERE status = $1;
+
 -- name: ChangeOrderPaymentMethod :one
 WITH updated_payment AS (
     UPDATE order_payments

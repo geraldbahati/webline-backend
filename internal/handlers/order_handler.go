@@ -332,3 +332,69 @@ func (h *OrderHandler) ChangeOrderPaymentMethod(w http.ResponseWriter, r *http.R
 	// Write response
 	RespondWithSuccess(w, http.StatusOK, "Payment status changed successfully")
 }
+
+// GetTotalRevenue returns the total revenue
+func (h *OrderHandler) GetTotalRevenue(w http.ResponseWriter, r *http.Request) {
+	totalRevenue, err := h.orderService.GetTotalRevenue(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get total revenue: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, totalRevenue)
+}
+
+// GetMonthlySales returns the total revenue for the last two months
+func (h *OrderHandler) GetMonthlySales(w http.ResponseWriter, r *http.Request) {
+	revenue, err := h.orderService.GetMonthlySales(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get monthly sales: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, revenue)
+}
+
+// GetMonthlyRevenue returns the total revenue for the last two months
+func (h *OrderHandler) GetMonthlyRevenue(w http.ResponseWriter, r *http.Request) {
+	revenue, err := h.orderService.GetMonthlyRevenue(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get monthly revenue: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, revenue)
+}
+
+// GetSalesTrend returns the total revenue for the last two months
+func (h *OrderHandler) GetSalesTrend(w http.ResponseWriter, r *http.Request) {
+	revenue, err := h.orderService.GetSalesTrend(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get sales trend: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, map[string]float64{"revenue": revenue})
+}
+
+// GetRecentSales returns the total revenue for the last two months
+func (h *OrderHandler) GetRecentSales(w http.ResponseWriter, r *http.Request) {
+	revenue, err := h.orderService.GetRecentSales(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get recent sales: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, revenue)
+}
+
+// GetTotalSalesCurrentMonth returns the total revenue for the current month
+func (h *OrderHandler) GetTotalSalesCurrentMonth(w http.ResponseWriter, r *http.Request) {
+	revenue, err := h.orderService.GetTotalSalesCurrentMonth(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get total sales for current month: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, revenue)
+}

@@ -95,7 +95,7 @@ func (r *PaymentRepository) UpdatePaymentStatus(ctx context.Context, params data
 	return nil
 }
 
-// GetPaymentsByOrderID returns payments by order ID
+// GetPaymentByOrderID returns payments by order ID
 func (r *PaymentRepository) GetPaymentByOrderID(ctx context.Context, orderID uuid.UUID) (*model.OrderPayment, error) {
 	payment, err := r.Queries.GetPaymentByOrderID(ctx, orderID)
 	if err != nil {
@@ -195,4 +195,15 @@ func (r *PaymentRepository) ChangeOrderPaymentMethod(ctx context.Context, orderI
 
 	r.logger.Info("Payment method changed successfully", zap.String("orderID", orderID.String()), zap.String("paymentMethod", paymentMethod))
 	return orderNumber, nil
+}
+
+// GetPaymentStatusIDByStatus returns payment status ID by status
+func (r *PaymentRepository) GetPaymentStatusIDByStatus(ctx context.Context, status string) (int32, error) {
+	statusID, err := r.Queries.GetPaymentStatusIDByStatus(ctx, status)
+	if err != nil {
+		r.logger.Error("Failed to get payment status ID by status", zap.Error(err), zap.String("status", status))
+		return 0, fmt.Errorf("get payment status ID by status: %w", err)
+	}
+
+	return statusID, nil
 }

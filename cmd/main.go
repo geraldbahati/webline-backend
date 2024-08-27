@@ -254,7 +254,6 @@ func setupRouter(
 	categoryRouter := r.PathPrefix("/api/categories").Subrouter()
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.GetCategoryByIDHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("", categoryHandler.GetCategoriesHandler).Methods(http.MethodGet)
-	categoryRouter.HandleFunc("/{id}/", categoryHandler.UpdateCategoryHandler).Methods(http.MethodPut)
 	categoryRouter.HandleFunc("/{id}/", categoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodDelete)
 	categoryRouter.HandleFunc("/collections", categoryHandler.GetCollectionCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/name/{name}", categoryHandler.GetCategoryByNameHandler).Methods(http.MethodOptions)
@@ -270,7 +269,9 @@ func setupRouter(
 
 	// admin category
 	adminCategoryRouter := r.PathPrefix("/api/v2/categories").Subrouter()
+	adminCategoryRouter.HandleFunc("/{slug}/details", categoryHandler.GetCategoryDetailsHandler).Methods(http.MethodGet)
 	adminCategoryRouter.HandleFunc("/hierarchy", categoryHandler.GetV2CategoryHierarchyHandler).Methods(http.MethodGet)
+	adminCategoryRouter.HandleFunc("/{slug}/seo", categoryHandler.GetCategorySEOHandler).Methods(http.MethodGet)
 
 	protectedAdminCategoryRouter := adminCategoryRouter.PathPrefix("").Subrouter()
 	protectedAdminCategoryRouter.Use(middleware.Auth)
@@ -368,6 +369,18 @@ func setupRouter(
 	orderRouter.HandleFunc("/pay/mpesa-callback", orderHandler.HandleMpesaCallback).Methods(http.MethodPost)
 	orderRouter.HandleFunc("/{id}/cancel", orderHandler.CancelOrder).Methods(http.MethodPut)
 	orderRouter.HandleFunc("/{id}/pay", orderHandler.ChangeOrderPaymentMethod).Methods(http.MethodPut)
+
+	// Admin order routes
+	adminOrderRouter := r.PathPrefix("/api/v2/orders").Subrouter()
+
+	protectedAdminOrderRouter := adminOrderRouter.PathPrefix("").Subrouter()
+	protectedAdminOrderRouter.Use(middleware.Auth)
+	protectedAdminOrderRouter.HandleFunc("/total-revenue", orderHandler.GetTotalRevenue).Methods(http.MethodGet)
+	protectedAdminOrderRouter.HandleFunc("/monthly-sales", orderHandler.GetMonthlySales).Methods(http.MethodGet)
+	protectedAdminOrderRouter.HandleFunc("/monthly-revenue", orderHandler.GetMonthlyRevenue).Methods(http.MethodGet)
+	protectedAdminOrderRouter.HandleFunc("/sales-trend", orderHandler.GetSalesTrend).Methods(http.MethodGet)
+	protectedAdminOrderRouter.HandleFunc("/recent-sales", orderHandler.GetRecentSales).Methods(http.MethodGet)
+	protectedAdminOrderRouter.HandleFunc("/monthly-total-sales", orderHandler.GetTotalSalesCurrentMonth).Methods(http.MethodGet)
 
 	// Product analytic routes
 	productAnalyticRouter := r.PathPrefix("/api/product-analytics").Subrouter()

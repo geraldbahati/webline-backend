@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"weblineBackend/internal/database"
-
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"strconv"
+	"weblineBackend/internal/database"
+	"weblineBackend/internal/model"
 )
 
 type OrderRepository struct {
@@ -194,4 +195,190 @@ func (r *OrderRepository) CancelOrder(ctx context.Context, orderID uuid.UUID) (s
 
 	r.logger.Info("Order cancelled successfully", zap.String("orderNumber", orderNumber))
 	return orderNumber, nil
+}
+
+// GetTotalRevenue retrieves the total revenue
+func (r *OrderRepository) GetTotalRevenue(ctx context.Context, paymentStatus int32) (float64, error) {
+	revenue, err := r.Queries.GetTotalRevenueByStatus(ctx, sql.NullInt32{
+		Int32: paymentStatus,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("get total revenue failed", zap.Error(err))
+		return 0, fmt.Errorf("get total revenue: %w", err)
+	}
+
+	total, err := strconv.ParseFloat(revenue, 64)
+	if err != nil {
+		r.logger.Error("failed to parse total revenue", zap.Error(err))
+		return 0, fmt.Errorf("parse total revenue: %w", err)
+	}
+
+	r.logger.Info("Total revenue retrieved successfully", zap.Float64("revenue", total))
+	return total, nil
+}
+
+// GetMonthlySales retrieves the monthly sales
+func (r *OrderRepository) GetMonthlySales(ctx context.Context, paymentStatus int32) ([]database.GetMonthlySalesRow, error) {
+	sales, err := r.Queries.GetMonthlySales(ctx, sql.NullInt32{
+		Int32: paymentStatus,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("get monthly sales failed", zap.Error(err))
+		return nil, fmt.Errorf("get monthly sales: %w", err)
+	}
+
+	r.logger.Info("Monthly sales retrieved successfully", zap.Any("sales", sales))
+	return sales, nil
+}
+
+// GetTotalRevenueForLastTwoMonths retrieves the total revenue for the last two months
+func (r *OrderRepository) GetTotalRevenueForLastTwoMonths(ctx context.Context, paymentStatus int32) (float64, float64, error) {
+	revenue, err := r.Queries.GetTotalRevenueForLastTwoMonths(ctx, sql.NullInt32{
+		Int32: paymentStatus,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("get total revenue for last two months failed", zap.Error(err))
+		return 0, 0, fmt.Errorf("get total revenue for last two months: %w", err)
+	}
+
+	currentRevenue, err := strconv.ParseFloat(revenue.CurrentMonthRevenue, 64)
+	if err != nil {
+		r.logger.Error("failed to parse total revenue for last two months", zap.Error(err))
+		return 0, 0, fmt.Errorf("parse total revenue for last two months: %w", err)
+	}
+
+	lastRevenue, err := strconv.ParseFloat(revenue.PreviousMonthRevenue, 64)
+	if err != nil {
+		r.logger.Error("failed to parse total revenue for last two months", zap.Error(err))
+		return 0, 0, fmt.Errorf("parse total revenue for last two months: %w", err)
+	}
+
+	r.logger.Info("Total revenue for last two months retrieved successfully", zap.Float64("currentRevenue", currentRevenue), zap.Float64("lastRevenue", lastRevenue))
+	return currentRevenue, lastRevenue, nil
+}
+
+// GetMonthlySalesForLastTwoMonths retrieves the monthly sales for the last two months
+func (r *OrderRepository) GetMonthlySalesForLastTwoMonths(ctx context.Context, paymentStatus int32) (float64, float64, error) {
+	sales, err := r.Queries.GetMonthlySalesForLastTwoMonths(ctx, sql.NullInt32{
+		Int32: paymentStatus,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("get monthly sales for last two months failed", zap.Error(err))
+		return 0, 0, fmt.Errorf("get monthly sales for last two months: %w", err)
+	}
+
+	currentSales, err := strconv.ParseFloat(sales.CurrentMonthSales, 64)
+	if err != nil {
+		r.logger.Error("failed to parse monthly sales for last two months", zap.Error(err))
+		return 0, 0, fmt.Errorf("parse monthly sales for last two months: %w", err)
+	}
+
+	lastSales, err := strconv.ParseFloat(sales.PreviousMonthSales, 64)
+	if err != nil {
+		r.logger.Error("failed to parse monthly sales for last two months", zap.Error(err))
+		return 0, 0, fmt.Errorf("parse monthly sales for last two months: %w", err)
+	}
+
+	r.logger.Info("Monthly sales for last two months retrieved successfully", zap.Float64("currentSales", currentSales), zap.Float64("lastSales", lastSales))
+	return currentSales, lastSales, nil
+}
+
+// GetMonthlyRevenue retrieves the monthly revenue
+func (r *OrderRepository) GetMonthlyRevenue(ctx context.Context, paymentStatus int32) ([]*model.MonthlyRevenue, error) {
+	revenue, err := r.Queries.GetMonthlyRevenue(ctx, sql.NullInt32{
+		Int32: paymentStatus,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("get monthly revenue failed", zap.Error(err))
+		return nil, fmt.Errorf("get monthly revenue: %w", err)
+	}
+
+	var monthlyRevenue []*model.MonthlyRevenue
+	for _, row := range revenue {
+		totalSales, err := strconv.ParseFloat(row.TotalSales, 64)
+		if err != nil {
+			r.logger.Error("failed to parse monthly revenue", zap.Error(err))
+			return nil, fmt.Errorf("parse monthly revenue: %w", err)
+		}
+
+		monthlyRevenue = append(monthlyRevenue, &model.MonthlyRevenue{
+			Month:   row.Month.Time,
+			Revenue: totalSales,
+		})
+	}
+
+	r.logger.Info("Monthly revenue retrieved successfully", zap.Any("monthlyRevenue", monthlyRevenue))
+	return monthlyRevenue, nil
+}
+
+// GetSalesTrend retrieves the sales trend
+func (r *OrderRepository) GetSalesTrend(ctx context.Context, paymentStatus int32) (float64, float64, error) {
+	revenue, err := r.Queries.GetSalesTrend(ctx, sql.NullInt32{
+		Int32: paymentStatus,
+		Valid: true,
+	})
+	if err != nil {
+		r.logger.Error("get sales trend failed", zap.Error(err))
+		return 0, 0, fmt.Errorf("get sales trend: %w", err)
+	}
+
+	currentSales, err := strconv.ParseFloat(revenue.CurrentMonthSales, 64)
+	if err != nil {
+		r.logger.Error("failed to parse sales trend", zap.Error(err))
+		return 0, 0, fmt.Errorf("parse sales trend: %w", err)
+	}
+
+	lastSales, err := strconv.ParseFloat(revenue.PreviousMonthSales, 64)
+	if err != nil {
+		r.logger.Error("failed to parse sales trend", zap.Error(err))
+		return 0, 0, fmt.Errorf("parse sales trend: %w", err)
+	}
+
+	r.logger.Info("Sales trend retrieved successfully", zap.Float64("currentSales", currentSales), zap.Float64("lastSales", lastSales))
+	return currentSales, lastSales, nil
+}
+
+// GetRecentSales retrieves the recent sales
+func (r *OrderRepository) GetRecentSales(ctx context.Context) ([]*model.OrderUser, error) {
+	sales, err := r.Queries.GetRecentSales(ctx)
+	if err != nil {
+		r.logger.Error("get recent sales failed", zap.Error(err))
+		return nil, fmt.Errorf("get recent sales: %w", err)
+	}
+
+	var recentSales []*model.OrderUser
+	for _, row := range sales {
+		sale, err := strconv.ParseFloat(row.Amount, 64)
+		if err != nil {
+			r.logger.Error("failed to parse recent sales", zap.Error(err))
+			return nil, fmt.Errorf("parse recent sales: %w", err)
+		}
+
+		recentSales = append(recentSales, &model.OrderUser{
+			Name:     row.Name,
+			Email:    row.Email,
+			Amount:   sale,
+			Fallback: row.Fallback,
+		})
+	}
+
+	r.logger.Info("Recent sales retrieved successfully", zap.Any("recentSales", recentSales))
+	return recentSales, nil
+}
+
+// GetTotalSalesCurrentMonth retrieves the total sales for the current month
+func (r *OrderRepository) GetTotalSalesCurrentMonth(ctx context.Context) (int64, error) {
+	revenue, err := r.Queries.GetTotalSalesCurrentMonth(ctx)
+	if err != nil {
+		r.logger.Error("get total sales for current month failed", zap.Error(err))
+		return 0, fmt.Errorf("get total sales for current month: %w", err)
+	}
+
+	r.logger.Info("Total sales for current month retrieved successfully", zap.Int64("revenue", revenue))
+	return revenue, nil
 }

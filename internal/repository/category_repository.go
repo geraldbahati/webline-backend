@@ -61,11 +61,10 @@ func (r *CategoryRepository) execTx(ctx context.Context, fn func(*database.Queri
 func (r *CategoryRepository) CreateCategory(
 	ctx context.Context,
 	category database.CreateCategoryParams,
-) (database.Category, error) {
-	var createdCategory database.Category
+) error {
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
-		createdCategory, err = q.CreateCategory(ctx, category)
+		err = q.CreateCategory(ctx, category)
 		if err != nil {
 			return fmt.Errorf("failed to create category: %w", err)
 		}
@@ -73,26 +72,26 @@ func (r *CategoryRepository) CreateCategory(
 	})
 	if err != nil {
 		r.logger.Error("failed to create category", zap.Error(err))
-		return database.Category{}, err
+		return err
 	}
-	return createdCategory, nil
+	return nil
 }
 
 // GetCategoryByID retrieves a category by its ID
 func (r *CategoryRepository) GetCategoryByID(
 	ctx context.Context,
 	id uuid.UUID,
-) (database.Category, error) {
+) (database.GetCategoryByIDRow, error) {
 	category, err := r.Queries.GetCategoryByID(ctx, id)
 	if err != nil {
 		r.logger.Error("failed to get category by ID", zap.Error(err))
-		return database.Category{}, fmt.Errorf("failed to get category by ID: %w", err)
+		return database.GetCategoryByIDRow{}, fmt.Errorf("failed to get category by ID: %w", err)
 	}
 	return category, nil
 }
 
 // GetCategories retrieves all categories
-func (r *CategoryRepository) GetCategories(ctx context.Context) ([]database.Category, error) {
+func (r *CategoryRepository) GetCategories(ctx context.Context) ([]database.ListCategoriesRow, error) {
 	categories, err := r.Queries.ListCategories(ctx)
 	if err != nil {
 		r.logger.Error("failed to get categories", zap.Error(err))
@@ -105,20 +104,12 @@ func (r *CategoryRepository) GetCategories(ctx context.Context) ([]database.Cate
 // UpdateCategory updates a category in the database and returns the updated category
 func (r *CategoryRepository) UpdateCategory(
 	ctx context.Context,
-	id uuid.UUID,
-	name string,
-	parentID uuid.NullUUID,
-	position int32,
-) (database.Category, error) {
-	var updatedCategory database.Category
+	params database.UpdateCategoryParams,
+) error {
+
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
-		updatedCategory, err = q.UpdateCategory(ctx, database.UpdateCategoryParams{
-			ID:       id,
-			Name:     name,
-			ParentID: parentID,
-			Position: position,
-		})
+		_, err = q.UpdateCategory(ctx, params)
 		if err != nil {
 			return fmt.Errorf("failed to update category: %w", err)
 		}
@@ -126,9 +117,9 @@ func (r *CategoryRepository) UpdateCategory(
 	})
 	if err != nil {
 		r.logger.Error("failed to update category", zap.Error(err))
-		return database.Category{}, err
+		return err
 	}
-	return updatedCategory, nil
+	return nil
 }
 
 // SoftDeleteCategory marks a category as inactive in the database
@@ -148,7 +139,7 @@ func (r *CategoryRepository) SoftDeleteCategory(
 func (r *CategoryRepository) GetCategoriesByParentID(
 	ctx context.Context,
 	parentID uuid.NullUUID,
-) ([]database.Category, error) {
+) ([]database.GetCategoriesByParentIDRow, error) {
 	log.Printf("parentID: %v", parentID)
 	categories, err := r.Queries.GetCategoriesByParentID(ctx, parentID)
 	if err != nil {
@@ -211,7 +202,7 @@ func (r *CategoryRepository) GetCategoriesWithSubcategoryCount(
 // GetParentCategories retrieves parent categories
 func (r *CategoryRepository) GetParentCategories(
 	ctx context.Context,
-) ([]database.Category, error) {
+) ([]database.GetParentCategoriesRow, error) {
 	parentCategories, err := r.Queries.GetParentCategories(ctx)
 	if err != nil {
 		r.logger.Error("failed to get parent categories", zap.Error(err))
@@ -224,11 +215,11 @@ func (r *CategoryRepository) GetParentCategories(
 func (r *CategoryRepository) GetCategoryByName(
 	ctx context.Context,
 	name string,
-) (database.Category, error) {
+) (database.GetCategoryByNameRow, error) {
 	category, err := r.Queries.GetCategoryByName(ctx, name)
 	if err != nil {
 		r.logger.Error("failed to get category by name", zap.Error(err))
-		return database.Category{}, fmt.Errorf("failed to get category by name: %w", err)
+		return database.GetCategoryByNameRow{}, fmt.Errorf("failed to get category by name: %w", err)
 	}
 	return category, nil
 }
@@ -238,8 +229,8 @@ func (r *CategoryRepository) UpdateCategoryImage(
 	ctx context.Context,
 	id uuid.UUID,
 	imageURL string,
-) (database.Category, error) {
-	var updatedCategory database.Category
+) (database.UpdateCategoryImageRow, error) {
+	var updatedCategory database.UpdateCategoryImageRow
 	err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
 		updatedCategory, err = q.UpdateCategoryImage(ctx, database.UpdateCategoryImageParams{
@@ -253,7 +244,7 @@ func (r *CategoryRepository) UpdateCategoryImage(
 	})
 	if err != nil {
 		r.logger.Error("failed to update category image", zap.Error(err))
-		return database.Category{}, err
+		return database.UpdateCategoryImageRow{}, err
 	}
 
 	r.logger.Info("Category image successfully updated")
@@ -278,7 +269,9 @@ func (r *CategoryRepository) GetV2CategoryHierarchy(
 			ID:               row.ID.String(),
 			Name:             row.Name,
 			Position:         int(row.Position),
+			IsActive:         row.IsActive,
 			NumberOfProducts: int(row.TotalProducts),
+			Slug:             row.Slug,
 		}
 
 		categoryMap[category.ID] = category
@@ -323,4 +316,62 @@ func (r *CategoryRepository) DeleteCategory(
 
 	r.logger.Info("Category successfully deleted")
 	return nil
+}
+
+// GetCategoryBySlug retrieves a category by its slug
+func (r *CategoryRepository) GetCategoryBySlug(
+	ctx context.Context,
+	slug string,
+) (*uuid.UUID, error) {
+	id, err := r.Queries.GetCategoryBySlug(ctx, slug)
+	if err != nil {
+		r.logger.Error("failed to get category by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get category by slug: %w", err)
+	}
+	return &id, nil
+}
+
+// GetCategoryDetailsBySlug retrieves a category detail by its slug
+func (r *CategoryRepository) GetCategoryDetailsBySlug(
+	ctx context.Context,
+	slug string,
+) (*model.V2CategoryDetail, error) {
+	category, err := r.Queries.GetCategoryDetailsBySlug(ctx, slug)
+	if err != nil {
+		r.logger.Error("failed to get category detail by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get category detail by slug: %w", err)
+	}
+
+	parentID := ""
+	if category.ParentID.Valid {
+		parentID = category.ParentID.UUID.String()
+	}
+
+	return &model.V2CategoryDetail{
+		Slug:            category.Slug,
+		Name:            category.Name,
+		Description:     category.Description.String,
+		ParentID:        parentID,
+		MetaTitle:       category.MetaTitle.String,
+		MetaDescription: category.MetaDescription.String,
+		ImageURL:        category.ImageUrl.String,
+	}, nil
+
+}
+
+// GetCategorySEOBySlug retrieves a category SEO by its slug
+func (r *CategoryRepository) GetCategorySEOBySlug(
+	ctx context.Context,
+	slug string,
+) (*model.CategorySEO, error) {
+	seo, err := r.Queries.GetCategorySEOBySlug(ctx, slug)
+	if err != nil {
+		r.logger.Error("failed to get category SEO by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get category SEO by slug: %w", err)
+	}
+
+	return &model.CategorySEO{
+		MetaTitle:       seo.MetaTitle.String,
+		MetaDescription: seo.MetaDescription.String,
+	}, nil
 }

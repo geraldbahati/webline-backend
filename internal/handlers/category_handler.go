@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -29,9 +28,12 @@ func (h *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	params := model.CreateCategoryParams{
-		Name:     r.FormValue("name"),
-		ParentID: r.FormValue("categoryID"),
+	params := &model.CreateCategoryParams{
+		Name:            r.FormValue("name"),
+		Description:     r.FormValue("description"),
+		MetaTitle:       r.FormValue("metaTitle"),
+		MetaDescription: r.FormValue("metaDescription"),
+		ParentID:        r.FormValue("categoryID"),
 	}
 
 	// Handle the image file upload
@@ -52,7 +54,7 @@ func (h *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// create category
-	err = h.categoryService.CreateCategoryService(r.Context(), params.Name, params.ParentID, image)
+	err = h.categoryService.CreateCategoryService(r.Context(), params, image)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create category")
 		return
@@ -89,35 +91,6 @@ func (h *CategoryHandler) GetCategoriesHandler(w http.ResponseWriter, r *http.Re
 
 	// respond with categories
 	RespondWithJSON(w, http.StatusOK, categories)
-}
-
-// UpdateCategoryHandler updates a category
-func (h *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.Request) {
-	// get category ID
-	id := mux.Vars(r)["id"]
-
-	// params
-	var params struct {
-		Name     string `json:"name"`
-		ParentID string `json:"parent_id"`
-		Position int32  `json:"position"`
-	}
-
-	// decode request body
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
-		return
-	}
-
-	// update category
-	category, err := h.categoryService.UpdateCategoryService(r.Context(), id, params.Name, params.ParentID, params.Position)
-	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, "Failed to update category")
-		return
-	}
-
-	// respond with category
-	RespondWithJSON(w, http.StatusOK, category)
 }
 
 // SoftDeleteCategoryHandler marks a category as inactive
@@ -292,4 +265,46 @@ func (h *CategoryHandler) DeleteCategoryHandler(w http.ResponseWriter, r *http.R
 
 	// respond with success
 	RespondWithSuccess(w, http.StatusOK, "Category deleted successfully")
+}
+
+// GetCategoryDetailsHandler retrieves category details
+func (h *CategoryHandler) GetCategoryDetailsHandler(w http.ResponseWriter, r *http.Request) {
+	// get category ID
+	slug := mux.Vars(r)["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Category slug is required")
+		return
+	}
+
+	// get category details
+	categoryDetails, err := h.categoryService.GetCategoryDetailsService(r.Context(), slug)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get category details")
+		return
+	}
+
+	// respond with category details
+	RespondWithJSON(w, http.StatusOK, categoryDetails)
+}
+
+// GetCategorySEOHandler retrieves category SEO
+func (h *CategoryHandler) GetCategorySEOHandler(w http.ResponseWriter, r *http.Request) {
+	// get category ID
+	slug := mux.Vars(r)["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Category slug is required")
+		return
+	}
+
+	// get category SEO
+	categorySEO, err := h.categoryService.GetCategorySEOService(r.Context(), slug)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get category SEO")
+		return
+	}
+
+	// respond with category SEO
+	RespondWithJSON(w, http.StatusOK, categorySEO)
 }

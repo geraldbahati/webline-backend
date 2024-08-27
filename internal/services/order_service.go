@@ -449,3 +449,135 @@ func (s *OrderService) ChangeOrderPaymentMethod(ctx context.Context, orderID uui
 
 	return nil
 }
+
+// GetTotalRevenue gets the total revenue
+func (s *OrderService) GetTotalRevenue(ctx context.Context) (*model.Revenue, error) {
+	statusID, err := s.paymentRepository.GetPaymentStatusIDByStatus(ctx, "paid")
+	if err != nil {
+		s.logger.Error("failed to get payment status ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get payment status ID: %w", err)
+	}
+
+	revenue, err := s.orderRepository.GetTotalRevenue(ctx, statusID)
+	if err != nil {
+		s.logger.Error("failed to get total revenue", zap.Error(err))
+		return nil, fmt.Errorf("failed to get total revenue: %w", err)
+	}
+
+	currentRevenue, previousRevenue, err := s.orderRepository.GetTotalRevenueForLastTwoMonths(ctx, statusID)
+	if err != nil {
+		s.logger.Error("failed to get last two months revenue", zap.Error(err))
+		return nil, fmt.Errorf("failed to get last two months revenue: %w", err)
+	}
+
+	// percentage growth
+	percentageGrowth := 0.0
+	if previousRevenue != 0 {
+		percentageGrowth = ((currentRevenue - previousRevenue) / previousRevenue) * 100
+	}
+
+	result := &model.Revenue{
+		Revenue:       revenue,
+		MonthlyGrowth: percentageGrowth,
+	}
+
+	s.logger.Info("Total revenue", zap.Any("revenue", result))
+
+	return result, nil
+}
+
+// GetMonthlySales gets the total revenue for the current month
+func (s *OrderService) GetMonthlySales(ctx context.Context) (*model.Revenue, error) {
+	statusID, err := s.paymentRepository.GetPaymentStatusIDByStatus(ctx, "paid")
+	if err != nil {
+		s.logger.Error("failed to get payment status ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get payment status ID: %w", err)
+	}
+
+	currentRevenue, lastRevenue, err := s.orderRepository.GetMonthlySalesForLastTwoMonths(ctx, statusID)
+	if err != nil {
+		s.logger.Error("failed to get last month revenue", zap.Error(err))
+		return nil, fmt.Errorf("failed to get last month revenue: %w", err)
+	}
+
+	// percentage growth
+	percentageGrowth := 0.0
+	if lastRevenue != 0 {
+		percentageGrowth = ((currentRevenue - lastRevenue) / lastRevenue) * 100
+	}
+
+	result := &model.Revenue{
+		Revenue:       currentRevenue,
+		MonthlyGrowth: percentageGrowth,
+	}
+
+	s.logger.Info("Monthly sales", zap.Any("revenue", result))
+	return result, nil
+}
+
+// GetMonthlyRevenue gets the monthly revenue
+func (s *OrderService) GetMonthlyRevenue(ctx context.Context) ([]*model.MonthlyRevenue, error) {
+	statusID, err := s.paymentRepository.GetPaymentStatusIDByStatus(ctx, "paid")
+	if err != nil {
+		s.logger.Error("failed to get payment status ID", zap.Error(err))
+		return nil, fmt.Errorf("failed to get payment status ID: %w", err)
+	}
+
+	revenue, err := s.orderRepository.GetMonthlyRevenue(ctx, statusID)
+	if err != nil {
+		s.logger.Error("failed to get monthly revenue", zap.Error(err))
+		return nil, fmt.Errorf("failed to get monthly revenue: %w", err)
+	}
+
+	s.logger.Info("Monthly revenue", zap.Any("revenue", revenue))
+	return revenue, nil
+}
+
+// GetSalesTrend gets the sales trend
+func (s *OrderService) GetSalesTrend(ctx context.Context) (float64, error) {
+	statusID, err := s.paymentRepository.GetPaymentStatusIDByStatus(ctx, "paid")
+	if err != nil {
+		s.logger.Error("failed to get payment status ID", zap.Error(err))
+		return 0, fmt.Errorf("failed to get payment status ID: %w", err)
+	}
+
+	currentSales, lastSales, err := s.orderRepository.GetSalesTrend(ctx, statusID)
+	if err != nil {
+		s.logger.Error("failed to get sales trend", zap.Error(err))
+		return 0, fmt.Errorf("failed to get sales trend: %w", err)
+	}
+
+	// percentage growth
+	percentageGrowth := 0.0
+	if lastSales != 0 {
+		percentageGrowth = ((currentSales - lastSales) / lastSales) * 100
+	}
+
+	s.logger.Info("Sales trend", zap.Float64("sales", percentageGrowth))
+	return percentageGrowth, nil
+}
+
+// GetRecentSales gets the recent sales
+func (s *OrderService) GetRecentSales(ctx context.Context) ([]*model.OrderUser, error) {
+
+	recentSales, err := s.orderRepository.GetRecentSales(ctx)
+	if err != nil {
+		s.logger.Error("failed to get recent sales", zap.Error(err))
+		return nil, fmt.Errorf("failed to get recent sales: %w", err)
+	}
+
+	s.logger.Info("Recent sales", zap.Any("sales", recentSales))
+	return recentSales, nil
+}
+
+// GetTotalSalesCurrentMonth gets the total sales for the current month
+func (s *OrderService) GetTotalSalesCurrentMonth(ctx context.Context) (int64, error) {
+	sales, err := s.orderRepository.GetTotalSalesCurrentMonth(ctx)
+	if err != nil {
+		s.logger.Error("failed to get total sales for current month", zap.Error(err))
+		return 0, fmt.Errorf("failed to get total sales for current month: %w", err)
+	}
+
+	s.logger.Info("Total sales for current month", zap.Int64("sales", sales))
+	return sales, nil
+}
