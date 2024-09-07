@@ -110,3 +110,49 @@ WHERE
 DELETE FROM promotion_products
 WHERE promotion_id = $1
   AND product_id = ANY($2::uuid[]);
+
+-- name: GetPromotionDetails :many
+-- This function will fetch the promotion details along with associated products.
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
+SELECT
+    p.title AS name,
+    p.description,
+    p.slug,
+    p.image_url AS promotion_image_url,
+    p.status,
+    p.start_date,
+    p.end_date,
+    pr.slug AS product_slug,
+    pr.name AS product_name,
+    (pr.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price,
+    COALESCE(d.discount_percentage, 0) AS discount,
+    COALESCE(pi.image_url, '') AS image_url
+FROM
+    promotions p
+        LEFT JOIN
+    promotion_products pp ON pp.promotion_id = p.id
+        LEFT JOIN
+    products pr ON pr.id = pp.product_id
+        LEFT JOIN
+    LATERAL (
+        SELECT image_url
+        FROM product_images
+        WHERE product_id = pr.id
+        ORDER BY created_at
+        LIMIT 1
+        ) pi ON true
+        LEFT JOIN
+    discounts d ON d.product_id = pr.id AND now() BETWEEN d.start_date AND d.end_date
+WHERE
+    p.slug = $1;
+

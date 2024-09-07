@@ -167,6 +167,103 @@ func (q *Queries) GetPromotionBySlug(ctx context.Context, slug string) (Promotio
 	return i, err
 }
 
+const getPromotionDetails = `-- name: GetPromotionDetails :many
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
+SELECT
+    p.title AS name,
+    p.description,
+    p.slug,
+    p.image_url AS promotion_image_url,
+    p.status,
+    p.start_date,
+    p.end_date,
+    pr.slug AS product_slug,
+    pr.name AS product_name,
+    (pr.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price,
+    COALESCE(d.discount_percentage, 0) AS discount,
+    COALESCE(pi.image_url, '') AS image_url
+FROM
+    promotions p
+        LEFT JOIN
+    promotion_products pp ON pp.promotion_id = p.id
+        LEFT JOIN
+    products pr ON pr.id = pp.product_id
+        LEFT JOIN
+    LATERAL (
+        SELECT image_url
+        FROM product_images
+        WHERE product_id = pr.id
+        ORDER BY created_at
+        LIMIT 1
+        ) pi ON true
+        LEFT JOIN
+    discounts d ON d.product_id = pr.id AND now() BETWEEN d.start_date AND d.end_date
+WHERE
+    p.slug = $1
+`
+
+type GetPromotionDetailsRow struct {
+	Name              string
+	Description       sql.NullString
+	Slug              string
+	PromotionImageUrl sql.NullString
+	Status            string
+	StartDate         time.Time
+	EndDate           time.Time
+	ProductSlug       sql.NullString
+	ProductName       sql.NullString
+	Price             string
+	Discount          string
+	ImageUrl          string
+}
+
+// This function will fetch the promotion details along with associated products.
+func (q *Queries) GetPromotionDetails(ctx context.Context, slug string) ([]GetPromotionDetailsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPromotionDetails, slug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPromotionDetailsRow
+	for rows.Next() {
+		var i GetPromotionDetailsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Description,
+			&i.Slug,
+			&i.PromotionImageUrl,
+			&i.Status,
+			&i.StartDate,
+			&i.EndDate,
+			&i.ProductSlug,
+			&i.ProductName,
+			&i.Price,
+			&i.Discount,
+			&i.ImageUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPromotions = `-- name: GetPromotions :many
 SELECT
     p.title AS name,

@@ -51,3 +51,22 @@ type ImageFile struct {
 	File       multipart.File
 	FileHeader *multipart.FileHeader
 }
+
+type PromotionDetails struct {
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Slug        string             `json:"slug"`
+	ImageUrl    string             `json:"imageUrl"`
+	Status      string             `json:"status"`
+	StartDate   time.Time          `json:"startDate"`
+	EndDate     time.Time          `json:"endDate"`
+	Products    []PromotionProduct `json:"products"`
+}
+
+type PromotionProduct struct {
+	Slug     string  `json:"slug"`
+	Name     string  `json:"name"`
+	Price    float64 `json:"price"`
+	Discount float64 `json:"discount"`
+	ImageURL string  `json:"imageURL"`
+}

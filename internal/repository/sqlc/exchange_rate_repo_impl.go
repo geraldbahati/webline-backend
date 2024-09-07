@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
+	"log"
 	"strconv"
 	"time"
 	"weblineBackend/internal/database"
@@ -95,6 +96,8 @@ func (r *ExchangeRateRepoImpl) InsertExchangeRate(ctx context.Context, baseCurre
 
 // UpdateExchangeRate updates an existing exchange rate record
 func (r *ExchangeRateRepoImpl) UpdateExchangeRate(ctx context.Context, baseCurrency string, rateToKes float64, validFrom, validTo time.Time) error {
+	log.Println("UpdateExchangeRate", baseCurrency, rateToKes, validFrom, validTo)
+
 	return r.execTx(ctx, func(q *database.Queries) error {
 		err := q.UpdateExchangeRate(ctx, database.UpdateExchangeRateParams{
 			CurrencyCode: baseCurrency,

@@ -83,6 +83,8 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id IN (SELECT id FROM sub_category_hierarchy)
                      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $1 AND $2
                      AND p.status = 'active'
+                     AND p.valid_from <= NOW()
+                     AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                final_products AS (
                    SELECT DISTINCT
@@ -226,6 +228,8 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id IN (SELECT id FROM sub_category_hierarchy)
                      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $1 AND $2
                      AND p.status = 'active'
+                     AND p.valid_from <= NOW()
+                     AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                final_products AS (
                    SELECT DISTINCT
@@ -424,6 +428,8 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id IN (SELECT id FROM sub_category_hierarchy)
                      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $1 AND $2
                      AND p.status = 'active'
+                     AND p.valid_from <= NOW()
+                     AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                final_products AS (
                    SELECT DISTINCT
@@ -622,6 +628,8 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id IN (SELECT id FROM sub_category_hierarchy)
                      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $1 AND $2
                      AND p.status = 'active'
+                     AND p.valid_from <= NOW()
+                     AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                final_products AS (
                    SELECT DISTINCT
@@ -820,6 +828,8 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id IN (SELECT id FROM sub_category_hierarchy)
                      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $1 AND $2
                      AND p.status = 'active'
+                     AND p.valid_from <= NOW()
+                     AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                final_products AS (
                    SELECT DISTINCT
@@ -1018,6 +1028,8 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id IN (SELECT id FROM sub_category_hierarchy)
                      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $1 AND $2
                      AND p.status = 'active'
+                     AND p.valid_from <= NOW()
+                     AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                final_products AS (
                    SELECT DISTINCT
@@ -1216,6 +1228,8 @@ WITH RECURSIVE category_hierarchy AS (
                        p.category_id IN (SELECT id FROM sub_category_hierarchy)
                      AND (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric BETWEEN $1 AND $2
                      AND p.status = 'active'
+                     AND p.valid_from <= NOW()
+                     AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                final_products AS (
                    SELECT DISTINCT
@@ -1356,6 +1370,8 @@ WITH RECURSIVE category_hierarchy AS (
                        products p
                    WHERE
                        p.status = 'active'
+                         AND p.valid_from <= NOW()
+                         AND (p.valid_to IS NULL OR p.valid_to >= NOW())
                ),
                attribute_values AS (
                    SELECT

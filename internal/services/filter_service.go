@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
+	"log"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
@@ -67,6 +68,8 @@ func (s *FilterService) GetProductsByFilters(ctx context.Context, filterValues *
 		s.logger.Error("failed to get total products by filters", zap.Error(err))
 		return nil, err
 	}
+
+	log.Println("totalCount", totalCount)
 
 	paginatedProducts, err := utils.Paginate(
 		s.config,

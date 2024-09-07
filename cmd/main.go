@@ -381,6 +381,8 @@ func setupRouter(
 	protectedAdminOrderRouter.HandleFunc("/sales-trend", orderHandler.GetSalesTrend).Methods(http.MethodGet)
 	protectedAdminOrderRouter.HandleFunc("/recent-sales", orderHandler.GetRecentSales).Methods(http.MethodGet)
 	protectedAdminOrderRouter.HandleFunc("/monthly-total-sales", orderHandler.GetTotalSalesCurrentMonth).Methods(http.MethodGet)
+	protectedAdminOrderRouter.HandleFunc("/exchange-rate", orderHandler.GetExchangeRate).Methods(http.MethodGet)
+	protectedAdminOrderRouter.HandleFunc("/exchange-rate", orderHandler.UpdateExchangeRate).Methods(http.MethodPut)
 
 	// Product analytic routes
 	productAnalyticRouter := r.PathPrefix("/api/product-analytics").Subrouter()
@@ -400,6 +402,7 @@ func setupRouter(
 	protectedAdminPromotionRouter := adminPromotionRouter.PathPrefix("").Subrouter()
 	protectedAdminPromotionRouter.Use(middleware.Auth)
 	protectedAdminPromotionRouter.HandleFunc("", promotionHandler.CreateOrEditV2Promotion).Methods(http.MethodPost)
+	protectedAdminPromotionRouter.HandleFunc("/{slug}", promotionHandler.GetPromotionDetails).Methods(http.MethodGet)
 
 	// Discount routes
 	discountRouter := r.PathPrefix("/api/discounts").Subrouter()

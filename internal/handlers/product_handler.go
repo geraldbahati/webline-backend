@@ -150,7 +150,7 @@ func (h *ProductHandler) GetProductsByCategoryIDHandler(w http.ResponseWriter, r
 	categoryID := vars["id"]
 
 	pageStr := r.URL.Query().Get("page")
-	pageSizeStr := r.URL.Query().Get("page_size")
+	pageSizeStr := r.URL.Query().Get("limit")
 
 	page, pageSize, err := GetPageAndPageSize(pageStr, pageSizeStr)
 	if err != nil {

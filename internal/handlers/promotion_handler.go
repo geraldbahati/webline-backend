@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"github.com/gorilla/mux"
 	"net/http"
 	"time"
 	"weblineBackend/internal/model"
@@ -122,4 +123,20 @@ func parsePromotionDates(r *http.Request) (startDate, endDate time.Time, err err
 	}
 
 	return startDate, endDate, nil
+}
+
+// GetPromotionDetails retrieves the details of a promotion
+func (h *PromotionHandler) GetPromotionDetails(w http.ResponseWriter, r *http.Request) {
+	// Extract the promotion slug
+	slug := mux.Vars(r)["slug"]
+
+	// Get the promotion details
+	promotion, err := h.promotionService.GetPromotionDetails(r.Context(), slug)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to get promotion details: %w", err).Error())
+		return
+	}
+
+	// Respond with the promotion details
+	RespondWithJSON(w, http.StatusOK, promotion)
 }

@@ -398,3 +398,41 @@ func (h *OrderHandler) GetTotalSalesCurrentMonth(w http.ResponseWriter, r *http.
 
 	RespondWithJSON(w, http.StatusOK, revenue)
 }
+
+// GetExchangeRate returns the exchange rate
+func (h *OrderHandler) GetExchangeRate(w http.ResponseWriter, r *http.Request) {
+	rate, err := h.orderService.GetExchangeRate(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get exchange rate: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, map[string]float64{"rate": rate})
+}
+
+// UpdateExchangeRate updates the exchange rate
+func (h *OrderHandler) UpdateExchangeRate(w http.ResponseWriter, r *http.Request) {
+	// Get rate from body
+	var req struct {
+		Rate float64 `json:"rate"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	if req.Rate <= 0 {
+		RespondWithError(w, http.StatusBadRequest, "Invalid exchange rate")
+		return
+	}
+
+	// Update rate
+	err := h.orderService.UpdateExchangeRate(r.Context(), req.Rate)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update exchange rate: %v", err))
+		return
+	}
+
+	// Write response
+	RespondWithSuccess(w, http.StatusOK, "Exchange rate updated successfully")
+}

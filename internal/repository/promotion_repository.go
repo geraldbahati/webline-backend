@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 )
@@ -267,4 +268,58 @@ func (r *PromotionRepository) RemoveProductsFromPromotion(ctx context.Context, p
 
 	r.logger.Info("Products removed from promotion successfully", zap.String("promotionID", promotionID.String()), zap.Int("productCount", len(productIDs)))
 	return nil
+}
+
+// GetPromotionDetails retrieves the details of a promotion
+func (r *PromotionRepository) GetPromotionDetails(ctx context.Context, slug string) (*model.PromotionDetails, error) {
+	// Retrieve promotion details from the database
+	promotions, err := r.Queries.GetPromotionDetails(ctx, slug)
+	if err != nil {
+		r.logger.Error("failed to retrieve promotion details", zap.Error(err))
+		return nil, fmt.Errorf("could not retrieve promotion details for slug %s: %w", slug, err)
+	}
+
+	// Check if no promotions were found
+	if len(promotions) == 0 {
+		return nil, fmt.Errorf("no promotions found for slug: %s", slug)
+	}
+
+	// Pre-allocate slice for products
+	products := make([]model.PromotionProduct, 0, len(promotions))
+
+	for _, product := range promotions {
+		// Parse price and discount, if they fail, continue to the next product
+		price, err := strconv.ParseFloat(product.Price, 64)
+		if err != nil {
+			r.logger.Warn("skipping product due to invalid price", zap.String("product_slug", product.ProductSlug.String), zap.Error(err))
+			continue
+		}
+
+		discount, err := strconv.ParseFloat(product.Discount, 64)
+		if err != nil {
+			r.logger.Warn("skipping product due to invalid discount", zap.String("product_slug", product.ProductSlug.String), zap.Error(err))
+			continue
+		}
+
+		// Append the product to the list
+		products = append(products, model.PromotionProduct{
+			Price:    price,
+			Name:     product.ProductName.String,
+			Discount: discount,
+			Slug:     product.ProductSlug.String,
+			ImageURL: product.ImageUrl,
+		})
+	}
+
+	// Construct the promotion details
+	return &model.PromotionDetails{
+		Name:        promotions[0].Name,
+		Description: promotions[0].Description.String,
+		Slug:        promotions[0].Slug,
+		ImageUrl:    promotions[0].PromotionImageUrl.String,
+		Status:      promotions[0].Status,
+		StartDate:   promotions[0].StartDate,
+		EndDate:     promotions[0].EndDate,
+		Products:    products,
+	}, nil
 }

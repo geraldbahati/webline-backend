@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
@@ -580,4 +581,33 @@ func (s *OrderService) GetTotalSalesCurrentMonth(ctx context.Context) (int64, er
 
 	s.logger.Info("Total sales for current month", zap.Int64("sales", sales))
 	return sales, nil
+}
+
+// GetExchangeRate gets the exchange rate
+func (s *OrderService) GetExchangeRate(ctx context.Context) (float64, error) {
+	exchangeRate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, "USD")
+	if err != nil {
+		s.logger.Error("failed to get exchange rate", zap.Error(err))
+		return 0, fmt.Errorf("failed to get exchange rate: %w", err)
+	}
+
+	s.logger.Info("Exchange rate", zap.Any("exchangeRate", exchangeRate))
+	return exchangeRate, nil
+}
+
+// UpdateExchangeRate updates the exchange rate
+func (s *OrderService) UpdateExchangeRate(ctx context.Context, rate float64) error {
+	// Get today's date
+	validFrom := time.Now()
+
+	// valid date range is 30 days
+	validTo := validFrom.AddDate(0, 0, 30)
+
+	err := s.exchangeRateRepo.UpdateExchangeRate(ctx, "USD", rate, validFrom, validTo)
+	if err != nil {
+		s.logger.Error("failed to update exchange rate", zap.Error(err))
+		return fmt.Errorf("failed to update exchange rate: %w", err)
+	}
+
+	return nil
 }

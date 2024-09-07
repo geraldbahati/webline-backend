@@ -303,3 +303,39 @@ func (s *PromotionService) verifyAdminStatus(ctx context.Context, userID uuid.UU
 func optionalString(value string) sql.NullString {
 	return sql.NullString{String: value, Valid: value != ""}
 }
+
+// GetPromotionDetails retrieves the details of a promotion
+func (s *PromotionService) GetPromotionDetails(ctx context.Context, slug string) (*model.PromotionDetails, error) {
+	// check if is admin
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+		return nil, err
+	}
+
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		s.logger.Error("failed to verify admin status", zap.Error(err))
+		return nil, err
+	}
+
+	// get the promotion details
+	promotion, err := s.promotionRepo.GetPromotionDetails(ctx, slug)
+	if err != nil {
+		s.logger.Error("failed to get promotion details", zap.Error(err))
+		return nil, err
+	}
+
+	// update the image url
+	if promotion.ImageUrl != "" {
+		promotion.ImageUrl = s.constructS3URL(promotion.ImageUrl)
+	}
+
+	// update the images for the products
+	for _, product := range promotion.Products {
+		if product.ImageURL != "" {
+			product.ImageURL = s.constructS3URL(product.ImageURL)
+		}
+	}
+
+	return promotion, nil
+}

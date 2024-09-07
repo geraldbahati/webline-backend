@@ -108,8 +108,6 @@ const updateExchangeRate = `-- name: UpdateExchangeRate :exec
 UPDATE exchange_rates
 SET rate_to_kes = $2, valid_from = $3, valid_to = $4
 WHERE currency_code = $1
-  AND valid_from <= NOW()
-  AND (valid_to IS NULL OR valid_to >= NOW())
 `
 
 type UpdateExchangeRateParams struct {
