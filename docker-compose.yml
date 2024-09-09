@@ -1,6 +1,8 @@
+version: '3.8'
+
 services:
   db:
-    image: postgres:latest
+    image: postgres:14-alpine
     container_name: backend_postgres
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -13,6 +15,11 @@ services:
     networks:
       - webline-backend-network
       - webline-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -25,19 +32,46 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_BUCKET_NAME: ${AWS_BUCKET_NAME}
+      BUSINESS_SHORTCODE: ${BUSINESS_SHORTCODE}
+      PASSKEY: ${PASSKEY}
+      CALLBACK_URL: ${CALLBACK_URL}
+      CONSUMER_KEY: ${CONSUMER_KEY}
+      CONSUMER_SECRET: ${CONSUMER_SECRET}
+      ACCOUNT_REFERENCE: ${ACCOUNT_REFERENCE}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME}
+      TO_EMAIL: ${TO_EMAIL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      BACKEND_URL: ${BACKEND_URL}
+      AWS_REGION: ${AWS_REGION}
     ports:
       - "8080:8080"
+    volumes:
+      - ./backup.sh:/app/backup.sh
+      - ./backups:/app/backups
+      - ./.env:/app/.env
+      - ./sql/schema:/app/sql/schema
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - webline-backend-network
       - webline-network
+    restart: unless-stopped
 
 networks:
-    webline-backend-network:
-        external: true
-    webline-network:
-        external: true
+  webline-backend-network:
+    external: true
+  webline-network:
+    external: true
 
 volumes:
   postgres-data:
+    driver: local

@@ -1,5 +1,11 @@
 # Stage 1: Build the Go binary
-FROM golang:latest AS builder
+FROM golang:alpine AS builder
+
+# Install PostgreSQL client utilities, bash, aws-cli, and cron
+RUN apk add --no-cache postgresql-client bash aws-cli dcron
+
+# Print Go version for reference
+RUN go version
 
 # Set the Current Working Directory inside the container
 WORKDIR /app
@@ -16,17 +22,14 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 # Copy the source from the current directory to the Working Directory inside the container
 COPY . .
 
-# Set the working directory to /app/cmd
-WORKDIR /app/cmd
-
 # Build the Go app
-RUN go build -o /app/main .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
 
 # Stage 2: Run the binary
-FROM golang:latest
+FROM alpine:3.18
 
-# Install PostgreSQL client utilities and bash
-RUN apt-get update && apt-get install -y postgresql-client bash
+# Install PostgreSQL client utilities, bash, aws-cli, cron, and sudo
+RUN apk add --no-cache postgresql-client bash aws-cli dcron sudo
 
 # Set the Current Working Directory inside the container
 WORKDIR /app
@@ -38,17 +41,30 @@ COPY --from=builder /app/main .
 COPY --from=builder /go/bin/goose /usr/local/bin/goose
 
 # Copy migration files
-COPY --from=builder /app/sql/schema /app/sql/schema
+COPY --from=builder /app/sql/schema ./sql/schema
 
-# Copy wait-for-it script
-COPY --from=builder /app/wait-for-it.sh /app/wait-for-it.sh
-RUN chmod +x /app/wait-for-it.sh
+# Copy wait-for-it script and backup script
+COPY --from=builder /app/wait-for-it.sh .
+COPY --from=builder /app/backup.sh .
 
-# Copy .env file
-COPY .env .env
+# Copy entrypoint script
+COPY entrypoint.sh .
+
+# Make scripts executable
+RUN chmod +x wait-for-it.sh backup.sh entrypoint.sh
+
+# Create a non-root user and give it permissions to use crontab and crond
+RUN adduser -D appuser && \
+    echo "appuser ALL=(ALL) NOPASSWD: /usr/sbin/crond, /usr/bin/crontab" >> /etc/sudoers
+
+# Change ownership of the /app directory to appuser
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
 
-# Command to run the executable and migrate the database
-CMD ["bash", "-c", "/app/wait-for-it.sh db ${DB_USER} && /usr/local/bin/goose -dir /app/sql/schema postgres \"postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable\" up && ./main"]
+# Use the entrypoint script
+ENTRYPOINT ["./entrypoint.sh"]
