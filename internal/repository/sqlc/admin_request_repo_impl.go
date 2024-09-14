@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"time"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type AdminRequestRepositoryImpl struct {
@@ -191,4 +192,21 @@ func (r *AdminRequestRepositoryImpl) DeleteApprovalToken(ctx context.Context, to
 		return err
 	})
 	return err
+}
+
+// GetAdminRequestByUserID returns an admin request by user ID
+func (r *AdminRequestRepositoryImpl) GetAdminRequestByUserID(ctx context.Context, userID uuid.UUID) (model.AdminRequest, error) {
+	adminRequest, err := r.Queries.GetAdminRequestByUserID(ctx, userID)
+	if err != nil {
+		return model.AdminRequest{}, err
+	}
+
+	return model.AdminRequest{
+		ID:        adminRequest.ID,
+		UserID:    adminRequest.UserID,
+		Reason:    adminRequest.Reason,
+		Status:    adminRequest.Status,
+		CreatedAt: adminRequest.CreatedAt,
+		UpdatedAt: adminRequest.UpdatedAt,
+	}, nil
 }

@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type UserHandler struct {
@@ -351,4 +352,62 @@ func (h *UserHandler) ApproveAdminRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondWithSuccess(w, http.StatusOK, "Admin role approved successfully")
+}
+
+// GetUserInfo gets a user's info
+func (h *UserHandler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := mux.Vars(r)["id"]
+	if !ok {
+		RespondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	user, err := h.userService.GetUserInfo(r.Context(), userID)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get user info: %v", err))
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, user)
+}
+
+// UpdateUserProfile updates a user's profile
+func (h *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
+	// Parse the multipart form
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse multipart form: %v", err))
+		return
+	}
+
+	params := model.UpdateUserInfoParams{
+		FirstName:   r.FormValue("firstName"),
+		LastName:    r.FormValue("lastName"),
+		PhoneNumber: r.FormValue("phoneNumber"),
+		DateOfBirth: r.FormValue("dateOfBirth"),
+	}
+
+	file, header, err := r.FormFile("profileImage")
+	if err != nil {
+		if errors.Is(err, http.ErrMissingFile) {
+			RespondWithError(w, http.StatusBadRequest, "Profile image is required")
+			return
+		}
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve profile image: %v", err))
+		return
+	}
+
+	defer file.Close()
+
+	image := &model.ImageFile{
+		File:       file,
+		FileHeader: header,
+	}
+
+	err = h.userService.UpdateUserInfo(r.Context(), params, image)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update user profile: %v", err))
+		return
+	}
+
+	RespondWithSuccess(w, http.StatusOK, "User profile updated successfully")
 }

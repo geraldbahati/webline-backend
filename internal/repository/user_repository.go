@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/lib/pq"
 	"time"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+
+	"github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -476,5 +477,49 @@ func (r *UserRepository) MakeAdmin(ctx context.Context, id uuid.UUID) error {
 	}
 
 	r.logger.Info("User is now an admin", zap.String("userID", id.String()))
+	return nil
+}
+
+// GetUserProfileByID retrieves a user's profile by ID
+func (r *UserRepository) GetUserProfileByID(ctx context.Context, id uuid.UUID) (*model.UserProfile, error) {
+	user, err := r.Queries.GetUserProfileByID(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get user profile by ID", zap.Error(err))
+		return nil, err
+	}
+
+	var dateOfBirth *time.Time
+	if user.DateOfBirth.Valid {
+		dateOfBirth = &user.DateOfBirth.Time
+	}
+
+	return &model.UserProfile{
+		ID:                 user.ID,
+		Email:              user.Email,
+		ProfileImageUrl:    user.ProfileImageUrl.String,
+		FirstName:          user.FirstName.String,
+		LastName:           user.LastName.String,
+		PhoneNumber:        user.PhoneNumber.String,
+		DateOfBirth:        dateOfBirth,
+		RequestAdmin:       user.RequestAdmin,
+		AdminRequestReason: user.AdminRequestReason.String,
+	}, nil
+}
+
+// UpdateUserInfo updates a user's info
+func (r *UserRepository) UpdateUserInfo(ctx context.Context, user database.UpdateUserInfoParams) error {
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		if err := q.UpdateUserInfo(ctx, user); err != nil {
+			r.logger.Error("failed to update user info", zap.Error(err))
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update user info", zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("User info updated successfully", zap.String("userID", user.ID.String()))
 	return nil
 }

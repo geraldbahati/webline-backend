@@ -43,7 +43,7 @@ func LoadConfig() Config {
 	port, _ := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 
 	return Config{
-		Port: getEnv("PORT", "8080"),
+		Port: getEnv("BACKEND_PORT", "8080"),
 		DbUrl: fmt.Sprintf(
 			"postgres://%s:%s@%s:%s/%s?sslmode=disable",
 			getEnv("POSTGRES_USER", "postgres"),

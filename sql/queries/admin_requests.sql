@@ -79,3 +79,8 @@ WHERE token = $1;
 -- name: DeleteApprovalToken :exec
 DELETE FROM admin_approval_tokens
 WHERE token = $1;
+
+-- name: GetAdminRequestByUserID :one
+SELECT id, user_id, reason, status, created_at, updated_at
+FROM admin_requests
+WHERE user_id = $1 AND status = 'PENDING';

@@ -18,6 +18,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -29,8 +30,10 @@ type UserService struct {
 	tokenRepository             *repository.TokenRepository
 	verificationTokenRepository repository.VerificationTokenRepository
 	passwordResetRepository     repository.PasswordResetRepository
+	adminRequestRepository      repository.AdminRequestRepository
 	config                      *appconfig.Config
 	logger                      *zap.Logger
+	s3Client                    *s3.Client
 }
 
 func NewUserService(
@@ -39,9 +42,11 @@ func NewUserService(
 	userRoleRepository *repository.UserRoleRepository,
 	verificationTokenRepository repository.VerificationTokenRepository,
 	passwordResetRepository repository.PasswordResetRepository,
+	adminRequestRepository repository.AdminRequestRepository,
 	tokenRepository *repository.TokenRepository,
 	config *appconfig.Config,
 	logger *zap.Logger,
+	s3Client *s3.Client,
 ) *UserService {
 	return &UserService{
 		userRepository:              userRepository,
@@ -49,9 +54,11 @@ func NewUserService(
 		userRoleRepository:          userRoleRepository,
 		verificationTokenRepository: verificationTokenRepository,
 		passwordResetRepository:     passwordResetRepository,
+		adminRequestRepository:      adminRequestRepository,
 		tokenRepository:             tokenRepository,
 		config:                      config,
 		logger:                      logger,
+		s3Client:                    s3Client,
 	}
 }
 
@@ -61,7 +68,7 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(registerUserParams.Password), bcrypt.DefaultCost)
 	if err != nil {
 		s.logger.Error("Failed to hash password", zap.Error(err))
-		return err
+		return app_errors.NewInternalError("Failed to process password", err)
 	}
 
 	// create user
@@ -73,13 +80,13 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 	createdUser, err := s.userRepository.CreateUser(ctx, newUser)
 	if err != nil {
 		s.logger.Error("Failed to create user", zap.Error(err))
-		return err
+		return app_errors.NewInternalError("Failed to create user", err)
 	}
 
-	// assign user role
-	role, err := s.roleRepository.GetRoleByName(ctx, "customer")
+	// get or create customer role
+	role, err := s.getOrCreateCustomerRole(ctx)
 	if err != nil {
-		s.logger.Error("Failed to get role", zap.Error(err))
+		s.logger.Error("Failed to get or create customer role", zap.Error(err))
 		return err
 	}
 
@@ -87,10 +94,32 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 	err = s.userRoleRepository.AssignRoleToUser(ctx, createdUser.ID, role.ID)
 	if err != nil {
 		s.logger.Error("Failed to assign role to user", zap.Error(err))
-		return err
+		return app_errors.NewInternalError("Failed to assign role to user", err)
 	}
 
 	return nil
+}
+
+// getOrCreateCustomerRole gets the customer role or creates it if it doesn't exist
+func (s *UserService) getOrCreateCustomerRole(ctx context.Context) (*database.GetRoleByNameRow, error) {
+	role, err := s.roleRepository.GetRoleByName(ctx, "customer")
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Role doesn't exist, create it
+			createdRole, createErr := s.roleRepository.CreateRole(ctx, "customer", "Default customer role")
+			if createErr != nil {
+				s.logger.Error("Failed to create customer role", zap.Error(createErr))
+				return nil, app_errors.NewInternalError("Failed to create customer role", createErr)
+			}
+			return &database.GetRoleByNameRow{
+				ID:       createdRole.ID,
+				RoleName: createdRole.Name,
+			}, nil
+		}
+		s.logger.Error("Failed to get customer role", zap.Error(err))
+		return nil, app_errors.NewInternalError("Failed to get customer role", err)
+	}
+	return role, nil
 }
 
 // GetUserByEmail returns the user with the given email
@@ -175,53 +204,6 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (mo
 		RefreshToken: refreshToken,
 	}, nil
 }
-
-//// UpdateUserProfile updates a user's profile
-//func (s *UserService) UpdateUserProfile(ctx context.Context, params model.UpdateUserProfileParams) (database.User, error) {
-//	userId := ctx.Value("userId").(uuid.UUID)
-//	user, err := s.userRepository.GetUserByID(ctx, userId)
-//	if err != nil {
-//		return database.User{}, err
-//	}
-//
-//	if params.FirstName != "" {
-//		user.FirstName = sql.NullString{String: params.FirstName, Valid: params.FirstName != ""}
-//	}
-//
-//	if params.LastName != "" {
-//		user.LastName = sql.NullString{String: params.LastName, Valid: params.LastName != ""}
-//	}
-//
-//	if params.PhoneNumber != "" {
-//		user.PhoneNumber = sql.NullString{String: params.PhoneNumber, Valid: params.PhoneNumber != ""}
-//	}
-//
-//	if params.ProfileImageUrl != "" {
-//		user.ProfileImageUrl = sql.NullString{String: params.ProfileImageUrl, Valid: params.ProfileImageUrl != ""}
-//	}
-//
-//	if params.DateOfBirth != "" {
-//		dateOfBirth, err := time.Parse("02-01-2006", params.DateOfBirth)
-//		if err != nil {
-//			dateOfBirth = time.Time{}
-//		}
-//		user.DateOfBirth = sql.NullTime{Time: dateOfBirth, Valid: !dateOfBirth.IsZero()}
-//	}
-//
-//	updatedUser, err := s.userRepository.UpdateUserProfile(ctx, database.UpdateUserProfileParams{
-//		ID:              user.ID,
-//		FirstName:       user.FirstName,
-//		LastName:        user.LastName,
-//		PhoneNumber:     user.PhoneNumber,
-//		ProfileImageUrl: user.ProfileImageUrl,
-//		DateOfBirth:     user.DateOfBirth,
-//	})
-//	if err != nil {
-//		return database.User{}, err
-//	}
-//
-//	return updatedUser, nil
-//}
 
 // SendPasswordResetEmail sends a password reset email to the user
 func (s *UserService) SendPasswordResetEmail(ctx context.Context, email string) error {
@@ -614,4 +596,125 @@ func (s *UserService) VerifyEmail(ctx context.Context, token string) error {
 	}
 
 	return nil
+}
+
+// GetUserInfo gets a user's info
+func (s *UserService) GetUserInfo(ctx context.Context, userId string) (*model.UserProfile, error) {
+	userIdUUID, err := uuid.Parse(userId)
+	if err != nil {
+		s.logger.Error("Failed to parse user id", zap.Error(err))
+		return nil, err
+	}
+
+	user, err := s.userRepository.GetUserProfileByID(ctx, userIdUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// UpdateUserInfo updates a user's info
+func (s *UserService) UpdateUserInfo(ctx context.Context, params model.UpdateUserInfoParams, image *model.ImageFile) error {
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("Failed to get user ID from context", zap.Error(err))
+		return err
+	}
+
+	// get the user profile
+	user, err := s.userRepository.GetUserProfileByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	imageUrl, err := s.handleUserProfileImage(ctx, image, user.ProfileImageUrl)
+	if err != nil {
+		return err
+	}
+
+	dateOfBirth, err := time.Parse("2006-01-02", params.DateOfBirth)
+	if err != nil {
+		return err
+	}
+
+	values := database.UpdateUserInfoParams{
+		ID: userID,
+		ProfileImageUrl: sql.NullString{
+			String: imageUrl,
+			Valid:  true,
+		},
+		FirstName: sql.NullString{
+			String: params.FirstName,
+			Valid:  true,
+		},
+		LastName: sql.NullString{
+			String: params.LastName,
+			Valid:  true,
+		},
+		PhoneNumber: sql.NullString{
+			String: params.PhoneNumber,
+			Valid:  true,
+		},
+		DateOfBirth: sql.NullTime{
+			Time:  dateOfBirth,
+			Valid: true,
+		},
+	}
+
+	// Handle admin request if applicable
+	if params.RequestAdmin {
+		// check if the admin request is still pending
+		adminRequest, err := s.adminRequestRepository.GetAdminRequestByUserID(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if adminRequest.Status != "PENDING" {
+
+			_, err = s.adminRequestRepository.CreateAdminRequest(ctx, userID, params.AdminRequestReason)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		return nil
+
+	}
+
+	err = s.userRepository.UpdateUserInfo(ctx, values)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *UserService) getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	userID, ok := ctx.Value("userId").(uuid.UUID)
+	if !ok {
+		return uuid.Nil, app_errors.NewUnauthorizedUserError()
+	}
+	return userID, nil
+}
+
+func (s *UserService) handleUserProfileImage(ctx context.Context, image *model.ImageFile, existingImageUrl string) (string, error) {
+	if image == nil {
+		return existingImageUrl, nil
+	}
+
+	filePath, err := utils.UploadCustomFileToS3(ctx, image.File, image.FileHeader, s.s3Client, s.config.AWSBucketName, "users")
+	if err != nil {
+		return "", err
+	}
+
+	if existingImageUrl != "" {
+		if err := utils.DeleteFileFromS3(ctx, s.s3Client, s.config.AWSBucketName, existingImageUrl); err != nil {
+			return "", err
+		}
+	}
+
+	return filePath, nil
 }

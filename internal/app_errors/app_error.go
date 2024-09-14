@@ -41,3 +41,8 @@ func NewInternalError(message string, err error) *AppError {
 func NewValidationError(message string) *AppError {
 	return NewAppError(400, message, nil)
 }
+
+// NewAdminRequestPendingError creates a new AppError for an admin request pending error.
+func NewAdminRequestPendingError() *AppError {
+	return NewAppError(400, "Admin request is still pending", nil)
+}

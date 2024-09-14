@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"
 	"strings"
 	"weblineBackend/internal/repository/sqlc"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -121,7 +122,7 @@ func main() {
 	productAttributeRepoImpl := sqlc.NewProductAttributeRepoImpl(conn, logger)
 
 	// Initialize services
-	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, verificationTokenRepoImpl, passwordResetRepoImpl, tokenRepo, &cfg, logger)
+	userService := services.NewUserService(userRepo, roleRepo, userRoleRepo, verificationTokenRepoImpl, passwordResetRepoImpl, adminRequestRepoImpl, tokenRepo, &cfg, logger, s3Client)
 	categoryService := services.NewCategoryService(categoryRepo, userRepo, logger, &cfg, s3Client)
 	productService := services.NewProductService(
 		productRepo,
@@ -244,11 +245,13 @@ func setupRouter(
 	userRouter.HandleFunc("/reset-password/request", userHandler.RequestPasswordReset).Methods(http.MethodPost)
 	userRouter.HandleFunc("/login/google", userHandler.LoginWithGoogle).Methods(http.MethodPost)
 	userRouter.HandleFunc("/login/email-verified", userHandler.EmailVerified).Methods(http.MethodPost)
+	userRouter.HandleFunc("/{id}/profile", userHandler.GetUserInfo).Methods(http.MethodGet)
 
 	protectedUserRouter := userRouter.PathPrefix("").Subrouter()
 	protectedUserRouter.Use(middleware.Auth)
 	protectedUserRouter.HandleFunc("/admin-requests", userHandler.RequestAdminRole).Methods(http.MethodPost)
 	protectedUserRouter.HandleFunc("/approve", userHandler.ApproveAdminRole).Methods(http.MethodPost)
+	protectedUserRouter.HandleFunc("/profile", userHandler.UpdateUserProfile).Methods(http.MethodPut)
 
 	// Category routes
 	categoryRouter := r.PathPrefix("/api/categories").Subrouter()

@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type RegisterUserParams struct {
@@ -36,6 +37,18 @@ type User struct {
 	Roles         []string   `json:"roles"`
 }
 
+type UserProfile struct {
+	ID                 uuid.UUID  `json:"id"`
+	Email              string     `json:"email"`
+	ProfileImageUrl    string     `json:"profileImageUrl"`
+	FirstName          string     `json:"firstName"`
+	LastName           string     `json:"lastName"`
+	PhoneNumber        string     `json:"phoneNumber"`
+	DateOfBirth        *time.Time `json:"dateOfBirth"`
+	RequestAdmin       bool       `json:"requestAdmin"`
+	AdminRequestReason string     `json:"adminRequestReason"`
+}
+
 type LoginParams struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -60,4 +73,14 @@ type GoogleUser struct {
 	Picture       *string `json:"image"`         // URL to the user's profile picture (optional)
 	Locale        *string `json:"locale"`        // User's locale (optional)
 	HD            *string `json:"hd"`            // Hosted domain, if any (optional)
+}
+
+type UpdateUserInfoParams struct {
+	Email              string `json:"email"`
+	FirstName          string `json:"firstName"`
+	LastName           string `json:"lastName"`
+	PhoneNumber        string `json:"phoneNumber"`
+	DateOfBirth        string `json:"dateOfBirth"`
+	AdminRequestReason string `json:"adminRequestReason"`
+	RequestAdmin       bool   `json:"requestAdmin"`
 }

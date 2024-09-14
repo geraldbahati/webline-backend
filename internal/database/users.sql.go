@@ -284,6 +284,51 @@ func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderPa
 	return i, err
 }
 
+const getUserProfileByID = `-- name: GetUserProfileByID :one
+SELECT
+  u.id,
+  u.email,
+  u.profile_image_url,
+  u.first_name,
+  u.last_name,
+  u.phone_number,
+  u.date_of_birth,
+  CASE WHEN ar.id IS NOT NULL THEN true ELSE false END AS request_admin,
+  ar.reason AS admin_request_reason
+FROM users u
+LEFT JOIN admin_requests ar ON u.id = ar.user_id AND ar.status = 'PENDING'
+WHERE u.id = $1
+`
+
+type GetUserProfileByIDRow struct {
+	ID                 uuid.UUID
+	Email              string
+	ProfileImageUrl    sql.NullString
+	FirstName          sql.NullString
+	LastName           sql.NullString
+	PhoneNumber        sql.NullString
+	DateOfBirth        sql.NullTime
+	RequestAdmin       bool
+	AdminRequestReason sql.NullString
+}
+
+func (q *Queries) GetUserProfileByID(ctx context.Context, id uuid.UUID) (GetUserProfileByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserProfileByID, id)
+	var i GetUserProfileByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.ProfileImageUrl,
+		&i.FirstName,
+		&i.LastName,
+		&i.PhoneNumber,
+		&i.DateOfBirth,
+		&i.RequestAdmin,
+		&i.AdminRequestReason,
+	)
+	return i, err
+}
+
 const isAdmin = `-- name: IsAdmin :one
 SELECT EXISTS (
     SELECT 1
@@ -390,6 +435,39 @@ WHERE email = $1
 
 func (q *Queries) UpdateUserEmailVerified(ctx context.Context, email string) error {
 	_, err := q.db.ExecContext(ctx, updateUserEmailVerified, email)
+	return err
+}
+
+const updateUserInfo = `-- name: UpdateUserInfo :exec
+UPDATE users
+SET
+  profile_image_url = COALESCE($2, profile_image_url),
+  first_name        = COALESCE($3, first_name),
+  last_name         = COALESCE($4, last_name),
+  phone_number      = COALESCE($5, phone_number),
+  date_of_birth     = COALESCE($6, date_of_birth),
+  updated_at        = now()
+WHERE id = $1
+`
+
+type UpdateUserInfoParams struct {
+	ID              uuid.UUID
+	ProfileImageUrl sql.NullString
+	FirstName       sql.NullString
+	LastName        sql.NullString
+	PhoneNumber     sql.NullString
+	DateOfBirth     sql.NullTime
+}
+
+func (q *Queries) UpdateUserInfo(ctx context.Context, arg UpdateUserInfoParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserInfo,
+		arg.ID,
+		arg.ProfileImageUrl,
+		arg.FirstName,
+		arg.LastName,
+		arg.PhoneNumber,
+		arg.DateOfBirth,
+	)
 	return err
 }
 

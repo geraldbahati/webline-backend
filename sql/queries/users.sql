@@ -110,3 +110,29 @@ SELECT EXISTS (
 INSERT INTO user_roles (user_id, role_id)
 VALUES ($1, (SELECT id FROM roles WHERE role_name = 'admin'))
 ON CONFLICT (user_id, role_id) DO NOTHING;
+
+-- name: GetUserProfileByID :one
+SELECT
+  u.id,
+  u.email,
+  u.profile_image_url,
+  u.first_name,
+  u.last_name,
+  u.phone_number,
+  u.date_of_birth,
+  CASE WHEN ar.id IS NOT NULL THEN true ELSE false END AS request_admin,
+  ar.reason AS admin_request_reason
+FROM users u
+LEFT JOIN admin_requests ar ON u.id = ar.user_id AND ar.status = 'PENDING'
+WHERE u.id = $1;
+
+-- name: UpdateUserInfo :exec
+UPDATE users
+SET
+  profile_image_url = COALESCE($2, profile_image_url),
+  first_name        = COALESCE($3, first_name),
+  last_name         = COALESCE($4, last_name),
+  phone_number      = COALESCE($5, phone_number),
+  date_of_birth     = COALESCE($6, date_of_birth),
+  updated_at        = now()
+WHERE id = $1;

@@ -93,6 +93,26 @@ func (q *Queries) GetAdminRequestByID(ctx context.Context, id uuid.UUID) (GetAdm
 	return i, err
 }
 
+const getAdminRequestByUserID = `-- name: GetAdminRequestByUserID :one
+SELECT id, user_id, reason, status, created_at, updated_at
+FROM admin_requests
+WHERE user_id = $1 AND status = 'PENDING'
+`
+
+func (q *Queries) GetAdminRequestByUserID(ctx context.Context, userID uuid.UUID) (AdminRequest, error) {
+	row := q.db.QueryRowContext(ctx, getAdminRequestByUserID, userID)
+	var i AdminRequest
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Reason,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getAdminRequestsByUserID = `-- name: GetAdminRequestsByUserID :many
 SELECT
     ar.id,

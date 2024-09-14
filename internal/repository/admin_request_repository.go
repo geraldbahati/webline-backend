@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"time"
 	"weblineBackend/internal/model"
+
+	"github.com/google/uuid"
 )
 
 type AdminRequestRepository interface {
@@ -17,4 +18,5 @@ type AdminRequestRepository interface {
 	StoreApprovalToken(ctx context.Context, token string, adminRequestID uuid.UUID, expiresAt time.Time) error
 	GetApprovalToken(ctx context.Context, token string) (model.ApprovalToken, error)
 	DeleteApprovalToken(ctx context.Context, token string) error
+	GetAdminRequestByUserID(ctx context.Context, userID uuid.UUID) (model.AdminRequest, error)
 }
