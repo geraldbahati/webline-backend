@@ -26,20 +26,41 @@ type CreateOrderItemParams struct {
 	Price            string          `json:"price"`
 }
 
+var AVAILABLE_COUNTRIES = []string{"Kenya"}
+
+var COUNTIES = []string{
+	"Mombasa", "Kwale", "Kilifi", "Tana River", "Lamu", "Taita-Taveta", "Garissa",
+	"Wajir", "Mandera", "Marsabit", "Isiolo", "Meru", "Tharaka-Nithi", "Embu",
+	"Kitui", "Machakos", "Makueni", "Nyandarua", "Nyeri", "Kirinyaga", "Murang'a",
+	"Kiambu", "Turkana", "West Pokot", "Samburu", "Trans-Nzoia", "Uasin Gishu",
+	"Elgeyo-Marakwet", "Nandi", "Baringo", "Laikipia", "Nakuru", "Narok", "Kajiado",
+	"Kericho", "Bomet", "Kakamega", "Vihiga", "Bungoma", "Busia", "Siaya", "Kisumu",
+	"Homa Bay", "Migori", "Kisii", "Nyamira", "Nairobi",
+}
+
+const (
+	MIN_NAME_LENGTH     = 2
+	MAX_NAME_LENGTH     = 50
+	MIN_PHONE_LENGTH    = 10
+	MAX_PHONE_LENGTH    = 15
+	MIN_PASSWORD_LENGTH = 6
+)
+
 type CreateOrderParams struct {
-	GuestCheckoutID uuid.NullUUID `json:"guest_checkout,omitempty"`
-	Email           string        `json:"email"`
-	FirstName       string        `json:"first_name"`
-	LastName        string        `json:"last_name"`
-	StreetAddress   string        `json:"street_address"`
-	City            string        `json:"city"`
-	State           string        `json:"state"`
-	Country         string        `json:"country"`
-	Phone           string        `json:"phone"`
-	ShippingOption  string        `json:"shipping_option"`
-	Total           float64       `json:"total"`
-	ShippingMethod  string        `json:"shipping_method"`
-	PaymentOption   string        `json:"payment_method"`
+	GuestCheckoutID  uuid.NullUUID `json:"guest_checkout,omitempty"`
+	FirstName        string        `json:"first_name" validate:"required,min=2,max=50"`
+	LastName         string        `json:"last_name" validate:"required,min=2,max=50"`
+	Country          string        `json:"country" validate:"required,oneof=Kenya"`
+	KraPIN           *string       `json:"kraPIN,omitempty"`
+	CompanyName      *string       `json:"companyName,omitempty"`
+	City             string        `json:"city" validate:"required,min=2,max=50"`
+	County           string        `json:"county" validate:"required,oneof=Mombasa Kwale Kilifi 'Tana River' Lamu Taita-Taveta Garissa Wajir Mandera Marsabit Isiolo Meru Tharaka-Nithi Embu Kitui Machakos Makueni Nyandarua Nyeri Kirinyaga Murang'a Kiambu Turkana 'West Pokot' Samburu Trans-Nzoia 'Uasin Gishu' Elgeyo-Marakwet Nandi Baringo Laikipia Nakuru Narok Kajiado Kericho Bomet Kakamega Vihiga Bungoma Busia Siaya Kisumu 'Homa Bay' Migori Kisii Nyamira Nairobi"`
+	Phone            string        `json:"phone" validate:"required,min=10,max=15,numeric"`
+	Email            string        `json:"email" validate:"required,email"`
+	CanCreateAccount bool          `json:"canCreateAccount"`
+	Password         *string       `json:"password,omitempty" validate:"omitempty,min=6"`
+	OrderNotes       *string       `json:"orderNotes,omitempty"`
+	Total            float64       `json:"total"`
 }
 
 type OrderClientResponse struct {

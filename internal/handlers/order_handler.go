@@ -2,9 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
@@ -31,169 +32,178 @@ func NewOrderHandler(logger *zap.Logger, orderService *services.OrderService, pa
 
 // CreateOrderRequest creates a new order
 type CreateOrderRequest struct {
-	FirstName      string                  `json:"first_name"`
-	LastName       string                  `json:"last_name"`
-	StreetAddress  string                  `json:"street_address"`
-	City           string                  `json:"city"`
-	State          string                  `json:"state"`
-	Country        string                  `json:"country"`
-	Phone          string                  `json:"phone"`
-	Email          string                  `json:"email"`
-	ShippingOption string                  `json:"shipping_option"`
-	OrderItems     []CreateOrderItemParams `json:"order_items"`
-	Total          float64                 `json:"total"`
-	PaymentOption  string                  `json:"payment_option"`
+	FirstName        string                  `json:"firstName"`
+	LastName         string                  `json:"lastName"`
+	Country          string                  `json:"country"`
+	KraPIN           string                  `json:"kraPIN"`
+	CompanyName      string                  `json:"companyName"`
+	City             string                  `json:"city"`
+	County           string                  `json:"county"`
+	Phone            string                  `json:"phone"`
+	Email            string                  `json:"email"`
+	CanCreateAccount bool                    `json:"canCreateAccount"`
+	Password         string                  `json:"password,omitempty"`
+	OrderNotes       string                  `json:"orderNotes"`
+	OrderItems       []CreateOrderItemParams `json:"orderItems"`
+	Total            float64                 `json:"total"`
 }
 
 type CreateOrderItemParams struct {
-	ProductID        string   `json:"product_id"`
-	ProductOptionIDs []string `json:"product_option_id"`
-	ColorID          string   `json:"color_id"`
-	SizeID           string   `json:"size_id"`
+	ProductID        string   `json:"productID"`
+	ProductOptionIDs []string `json:"productOptionIDs"`
+	ColorID          string   `json:"colorID"`
+	SizeID           string   `json:"sizeID"`
 	Quantity         int32    `json:"quantity"`
 	Price            float64  `json:"price"`
 }
 
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	// Parse request
 	var req CreateOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Failed to decode request body", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	log.Println(req.PaymentOption)
-
-	// Create order Params
-	orderParams := &model.CreateOrderParams{
-		GuestCheckoutID: uuid.NullUUID{UUID: uuid.Nil, Valid: false},
-		FirstName:       req.FirstName,
-		LastName:        req.LastName,
-		StreetAddress:   req.StreetAddress,
-		City:            req.City,
-		State:           req.State,
-		Country:         req.Country,
-		Phone:           req.Phone,
-		Email:           req.Email,
-		ShippingOption:  req.ShippingOption,
-		Total:           req.Total,
-		PaymentOption:   req.PaymentOption,
+	if err := h.validateCreateOrderRequest(&req); err != nil {
+		h.logger.Error("Invalid create order request", zap.Error(err))
+		RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
-	// Create order items
-	var orderItems []model.CreateOrderItemParams
-	for _, item := range req.OrderItems {
-		if item.ProductID == "" {
-			RespondWithError(w, http.StatusBadRequest, "Product ID is required")
-			return
-		}
+	orderParams := &model.CreateOrderParams{
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
+		Country:     req.Country,
+		KraPIN:      &req.KraPIN,
+		CompanyName: &req.CompanyName,
+		City:        req.City,
+		County:      req.County,
+		Phone:       req.Phone,
+		Email:       req.Email,
+		OrderNotes:  &req.OrderNotes,
+		Total:       req.Total,
+	}
 
+	// Convert OrderItems directly from request
+	orderItems := req.OrderItems
+
+	orderID, err := h.orderService.CreateOrder(r.Context(), orderParams, orderItems)
+	if err != nil {
+		h.logger.Error("Failed to create order", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to create order")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
+		"orderID": orderID,
+	})
+}
+
+func (h *OrderHandler) validateCreateOrderRequest(req *CreateOrderRequest) error {
+	if req.FirstName == "" || req.LastName == "" || req.Country == "" || req.City == "" || req.County == "" || req.Phone == "" || req.Email == "" {
+		return errors.New("missing required fields")
+	}
+
+	if !slices.Contains(model.AVAILABLE_COUNTRIES, req.Country) {
+		return errors.New("invalid country")
+	}
+
+	if !slices.Contains(model.COUNTIES, req.County) {
+		return errors.New("invalid county")
+	}
+
+	if req.CanCreateAccount && req.Password == "" {
+		return errors.New("password is required when creating an account")
+	}
+
+	if len(req.OrderItems) == 0 {
+		return errors.New("order must contain at least one item")
+	}
+
+	return nil
+}
+
+func (h *OrderHandler) createOrderItems(items []CreateOrderItemParams) ([]model.CreateOrderItemParams, error) {
+	var orderItems []model.CreateOrderItemParams
+	for _, item := range items {
 		productID, err := uuid.Parse(item.ProductID)
 		if err != nil {
-			RespondWithError(w, http.StatusBadRequest, "Invalid product ID")
-			return
+			return nil, fmt.Errorf("invalid product ID: %s", item.ProductID)
 		}
 
-		var productOptionIDs []uuid.NullUUID
-		for _, optionID := range item.ProductOptionIDs {
+		productOptionIDs := make([]uuid.NullUUID, len(item.ProductOptionIDs))
+		for i, optionID := range item.ProductOptionIDs {
 			if optionID == "" {
-				productOptionIDs = append(productOptionIDs, uuid.NullUUID{UUID: uuid.Nil, Valid: false})
-				continue
+				productOptionIDs[i] = uuid.NullUUID{UUID: uuid.Nil, Valid: false}
+			} else {
+				optionUUID, err := uuid.Parse(optionID)
+				if err != nil {
+					return nil, fmt.Errorf("invalid product option ID: %s", optionID)
+				}
+				productOptionIDs[i] = uuid.NullUUID{UUID: optionUUID, Valid: true}
 			}
-
-			optionUUID, err := uuid.Parse(optionID)
-			if err != nil {
-				RespondWithError(w, http.StatusBadRequest, "Invalid product option ID")
-				return
-			}
-
-			productOptionIDs = append(productOptionIDs, uuid.NullUUID{UUID: optionUUID, Valid: true})
 		}
 
-		var colorID *uuid.NullUUID
-		if item.ColorID == "" {
-			colorID = &uuid.NullUUID{UUID: uuid.Nil, Valid: false}
-		} else {
-			colorUUID, err := uuid.Parse(item.ColorID)
-			if err != nil {
-				RespondWithError(w, http.StatusBadRequest, "Invalid color ID")
-				return
-			}
-			colorID = &uuid.NullUUID{UUID: colorUUID, Valid: true}
-		}
-
-		var sizeID *uuid.NullUUID
-		if item.SizeID == "" {
-			sizeID = &uuid.NullUUID{UUID: uuid.Nil, Valid: false}
-		} else {
-			sizeUUID, err := uuid.Parse(item.SizeID)
-			if err != nil {
-				RespondWithError(w, http.StatusBadRequest, "Invalid size ID")
-				return
-			}
-			sizeID = &uuid.NullUUID{UUID: sizeUUID, Valid: true}
-		}
+		colorID := h.parseOptionalUUID(item.ColorID)
+		sizeID := h.parseOptionalUUID(item.SizeID)
 
 		orderItems = append(orderItems, model.CreateOrderItemParams{
 			ProductID:        productID,
 			ProductOptionIDs: productOptionIDs,
-			ColorID:          *colorID,
-			SizeID:           *sizeID,
+			ColorID:          colorID,
+			SizeID:           sizeID,
 			Quantity:         item.Quantity,
 			Price:            strconv.FormatFloat(item.Price, 'f', -1, 64),
 		})
 	}
-
-	// Create order
-	orderID, err := h.orderService.CreateOrder(r.Context(), orderParams, orderItems)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Write response
-	RespondWithJSON(w, http.StatusCreated, orderID)
+	return orderItems, nil
 }
 
-// ListOrders lists all orders for authenticated user
-func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID := r.Context().Value("userId").(uuid.UUID)
+func (h *OrderHandler) parseOptionalUUID(id string) uuid.NullUUID {
+	if id == "" {
+		return uuid.NullUUID{UUID: uuid.Nil, Valid: false}
+	}
+	parsedID, err := uuid.Parse(id)
+	if err != nil {
+		return uuid.NullUUID{UUID: uuid.Nil, Valid: false}
+	}
+	return uuid.NullUUID{UUID: parsedID, Valid: true}
+}
 
-	if userID == uuid.Nil {
-		log.Println("Unauthorized")
+func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("userId").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		h.logger.Error("Unauthorized access attempt")
 		RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	// Get orders
 	orders, err := h.orderService.ListOrders(r.Context(), userID)
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list orders: %v", err))
+		h.logger.Error("Failed to list orders", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to list orders")
 		return
 	}
 
-	// Write response
 	RespondWithJSON(w, http.StatusOK, orders)
 }
 
-// GetOrder gets a single order
 func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
-	// Get order ID from URL
 	orderID, err := uuid.Parse(mux.Vars(r)["id"])
 	if err != nil {
+		h.logger.Error("Invalid order ID", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid order ID")
 		return
 	}
 
-	// Get order
 	order, err := h.orderService.GetOrder(r.Context(), orderID)
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get order: %v", err))
+		h.logger.Error("Failed to get order", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get order")
 		return
 	}
 
-	// Write response
 	RespondWithJSON(w, http.StatusOK, order)
 }
 
@@ -202,41 +212,34 @@ type PayOrderRequest struct {
 	PhoneNumber string `json:"phoneNumber"`
 }
 
-// PayOrder pays for an order
 func (h *OrderHandler) PayOrder(w http.ResponseWriter, r *http.Request) {
-	// Get payment method from query
 	method := r.URL.Query().Get("method")
-
 	if method == "" {
 		RespondWithError(w, http.StatusBadRequest, "Payment method is required")
 		return
 	}
 
-	// Get payment method from request
 	var req PayOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
 	switch method {
 	case "mpesa":
-		// Pay with M-Pesa
 		err := h.paymentService.PayOrderWithMpesa(r.Context(), req.OrderID, req.PhoneNumber)
 		if err != nil {
-			RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to pay order: %v", err))
+			h.logger.Error("Failed to pay order with M-Pesa", zap.Error(err))
+			RespondWithError(w, http.StatusInternalServerError, "Failed to process payment")
 			return
 		}
-
-		// Write response
 		RespondWithSuccess(w, http.StatusOK, "Order paid successfully")
-
 	default:
 		RespondWithError(w, http.StatusBadRequest, "Invalid payment method")
 	}
 }
 
-// HandleMpesaCallback handles Mpesa callback
 func (h *OrderHandler) HandleMpesaCallback(w http.ResponseWriter, r *http.Request) {
 	var callbackResponse mpesa.MpesaCallbackResponse
 
@@ -268,109 +271,105 @@ func (h *OrderHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request) 
 	status, err := h.paymentService.GetPaymentStatus(r.Context(), orderID)
 	if err != nil {
 		h.logger.Error("Failed to get payment status", zap.Error(err))
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get payment status: %v", err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get payment status")
 		return
 	}
 
 	RespondWithJSON(w, http.StatusOK, status)
 }
 
-// CancelOrder cancels an order
 func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
-	// Get order ID from URL
 	orderID, err := uuid.Parse(mux.Vars(r)["id"])
 	if err != nil {
+		h.logger.Error("Invalid order ID", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid order ID")
 		return
 	}
 
-	// Get reason from body
 	var req struct {
 		Reason string `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	// Cancel order
 	err = h.orderService.CancelOrder(r.Context(), orderID, req.Reason)
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to cancel order: %v", err))
+		h.logger.Error("Failed to cancel order", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to cancel order")
 		return
 	}
 
-	// Write response
 	RespondWithSuccess(w, http.StatusOK, "Order cancelled successfully")
 }
 
-// ChangeOrderPaymentMethod changes the payment method of an order
 func (h *OrderHandler) ChangeOrderPaymentMethod(w http.ResponseWriter, r *http.Request) {
-	// Get order ID from URL
 	orderID, err := uuid.Parse(mux.Vars(r)["id"])
 	if err != nil {
+		h.logger.Error("Invalid order ID", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid order ID")
 		return
 	}
 
-	// Get payment status from body
 	var req struct {
 		Method string `json:"method"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	// Change payment status
 	err = h.orderService.ChangeOrderPaymentMethod(r.Context(), orderID, req.Method)
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to change payment status: %v", err))
+		h.logger.Error("Failed to change payment method", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to change payment method")
 		return
 	}
 
-	// Write response
-	RespondWithSuccess(w, http.StatusOK, "Payment status changed successfully")
+	RespondWithSuccess(w, http.StatusOK, "Payment method changed successfully")
 }
 
-// GetTotalRevenue returns the total revenue
 func (h *OrderHandler) GetTotalRevenue(w http.ResponseWriter, r *http.Request) {
 	totalRevenue, err := h.orderService.GetTotalRevenue(r.Context())
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get total revenue: %v", err))
+		h.logger.Error("Failed to get total revenue", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get total revenue")
 		return
 	}
 
 	RespondWithJSON(w, http.StatusOK, totalRevenue)
 }
 
-// GetMonthlySales returns the total revenue for the last two months
 func (h *OrderHandler) GetMonthlySales(w http.ResponseWriter, r *http.Request) {
 	revenue, err := h.orderService.GetMonthlySales(r.Context())
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get monthly sales: %v", err))
+		h.logger.Error("Failed to get monthly sales", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get monthly sales")
 		return
 	}
 
 	RespondWithJSON(w, http.StatusOK, revenue)
 }
 
-// GetMonthlyRevenue returns the total revenue for the last two months
 func (h *OrderHandler) GetMonthlyRevenue(w http.ResponseWriter, r *http.Request) {
 	revenue, err := h.orderService.GetMonthlyRevenue(r.Context())
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get monthly revenue: %v", err))
+		h.logger.Error("Failed to get monthly revenue", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get monthly revenue")
 		return
 	}
 
 	RespondWithJSON(w, http.StatusOK, revenue)
 }
 
-// GetSalesTrend returns the total revenue for the last two months
 func (h *OrderHandler) GetSalesTrend(w http.ResponseWriter, r *http.Request) {
 	revenue, err := h.orderService.GetSalesTrend(r.Context())
 	if err != nil {
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get sales trend: %v", err))
+		h.logger.Error("Failed to get sales trend", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get sales trend")
 		return
 	}
 

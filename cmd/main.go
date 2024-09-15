@@ -217,6 +217,7 @@ func setupRouter(
 ) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
+	r.Use(middleware.OptionalAuth(logger))
 
 	// health check
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -248,7 +249,7 @@ func setupRouter(
 	userRouter.HandleFunc("/{id}/profile", userHandler.GetUserInfo).Methods(http.MethodGet)
 
 	protectedUserRouter := userRouter.PathPrefix("").Subrouter()
-	protectedUserRouter.Use(middleware.Auth)
+	protectedUserRouter.Use(middleware.Auth(logger))
 	protectedUserRouter.HandleFunc("/admin-requests", userHandler.RequestAdminRole).Methods(http.MethodPost)
 	protectedUserRouter.HandleFunc("/approve", userHandler.ApproveAdminRole).Methods(http.MethodPost)
 	protectedUserRouter.HandleFunc("/profile", userHandler.UpdateUserProfile).Methods(http.MethodPut)
@@ -277,7 +278,7 @@ func setupRouter(
 	adminCategoryRouter.HandleFunc("/{slug}/seo", categoryHandler.GetCategorySEOHandler).Methods(http.MethodGet)
 
 	protectedAdminCategoryRouter := adminCategoryRouter.PathPrefix("").Subrouter()
-	protectedAdminCategoryRouter.Use(middleware.Auth)
+	protectedAdminCategoryRouter.Use(middleware.Auth(logger))
 	protectedAdminCategoryRouter.HandleFunc("", categoryHandler.CreateCategoryHandler).Methods(http.MethodPost)
 	protectedAdminCategoryRouter.HandleFunc("/{id}", categoryHandler.DeleteCategoryHandler).Methods(http.MethodDelete)
 	protectedAdminCategoryRouter.HandleFunc("/{id}", categoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodPut)
@@ -304,7 +305,7 @@ func setupRouter(
 	adminProductRouter.HandleFunc("/meta-fields/{categoryID}", productHandler.GetProductMetaFieldsByCategoryIDHandler).Methods(http.MethodGet)
 
 	protectedAdminProductRouter := adminProductRouter.PathPrefix("").Subrouter()
-	protectedAdminProductRouter.Use(middleware.Auth)
+	protectedAdminProductRouter.Use(middleware.Auth(logger))
 	protectedAdminProductRouter.HandleFunc("", productHandler.CreateV2ProductHandler).Methods(http.MethodPost)
 	protectedAdminProductRouter.HandleFunc("", productHandler.DeleteProductsHandler).Methods(http.MethodDelete)
 	protectedAdminProductRouter.HandleFunc("/{slug}", productHandler.DeleteProductHandler).Methods(http.MethodDelete)
@@ -377,7 +378,7 @@ func setupRouter(
 	adminOrderRouter := r.PathPrefix("/api/v2/orders").Subrouter()
 
 	protectedAdminOrderRouter := adminOrderRouter.PathPrefix("").Subrouter()
-	protectedAdminOrderRouter.Use(middleware.Auth)
+	protectedAdminOrderRouter.Use(middleware.Auth(logger))
 	protectedAdminOrderRouter.HandleFunc("/total-revenue", orderHandler.GetTotalRevenue).Methods(http.MethodGet)
 	protectedAdminOrderRouter.HandleFunc("/monthly-sales", orderHandler.GetMonthlySales).Methods(http.MethodGet)
 	protectedAdminOrderRouter.HandleFunc("/monthly-revenue", orderHandler.GetMonthlyRevenue).Methods(http.MethodGet)
@@ -403,7 +404,7 @@ func setupRouter(
 	adminPromotionRouter.HandleFunc("", promotionHandler.GetV2Promotions).Methods(http.MethodGet)
 
 	protectedAdminPromotionRouter := adminPromotionRouter.PathPrefix("").Subrouter()
-	protectedAdminPromotionRouter.Use(middleware.Auth)
+	protectedAdminPromotionRouter.Use(middleware.Auth(logger))
 	protectedAdminPromotionRouter.HandleFunc("", promotionHandler.CreateOrEditV2Promotion).Methods(http.MethodPost)
 	protectedAdminPromotionRouter.HandleFunc("/{slug}", promotionHandler.GetPromotionDetails).Methods(http.MethodGet)
 
@@ -411,7 +412,7 @@ func setupRouter(
 	discountRouter := r.PathPrefix("/api/discounts").Subrouter()
 
 	protectedDiscountRouter := discountRouter.PathPrefix("").Subrouter()
-	protectedDiscountRouter.Use(middleware.Auth)
+	protectedDiscountRouter.Use(middleware.Auth(logger))
 	protectedDiscountRouter.HandleFunc("", discountHandler.CreateDiscountHandler).Methods(http.MethodPost)
 
 	// Role routes

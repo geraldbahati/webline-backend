@@ -68,103 +68,66 @@ type OrderResponse struct {
 }
 
 // CreateOrder creates a new order with items
-func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.CreateOrderParams, items []model.CreateOrderItemParams) (*OrderResponse, error) {
-	userID := ctx.Value("userId")
-	var userUUID uuid.NullUUID
-
-	// Create or retrieve user or guest checkout
-	if userID != nil {
-		user, err := s.getUserUUID(ctx, userID.(uuid.UUID))
-		if err != nil {
-			return nil, err
-		}
-
-		userUUID = user
-	} else {
-		guestUUID, err := s.createOrRetrieveGuest(ctx, orderParams)
-		if err != nil {
-			return nil, err
-		}
-		userUUID = uuid.NullUUID{UUID: uuid.Nil, Valid: false}
-		orderParams.GuestCheckoutID = uuid.NullUUID{UUID: guestUUID, Valid: true}
-	}
-
-	orderID, err := s.createOrderRecord(ctx, orderParams, userUUID)
+func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.CreateOrderParams, items []model.CreateOrderItemParams) (*uuid.UUID, error) {
+	// Treat all orders as guest checkouts
+	guestID, err := s.createOrRetrieveGuest(ctx, orderParams)
 	if err != nil {
 		return nil, err
 	}
 
+	// Create the order record
+	orderID, err := s.createOrderRecord(ctx, orderParams, guestID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create order items
 	for _, item := range items {
 		if err := s.createOrderItem(ctx, orderID, item); err != nil {
 			return nil, err
 		}
 	}
 
-	orderPayment, err := s.createPayment(ctx, orderID, orderParams.Total, orderParams.PaymentOption)
+	// Prepare order items for email
+	orderItems, err := s.prepareOrderItems(ctx, items)
 	if err != nil {
 		return nil, err
 	}
 
-	orderItems := make([]utils.OrderItem, 0)
-	for _, item := range items {
-		// get the product by id
-		product, err := s.productRepo.GetProductByID(ctx, item.ProductID)
-		if err != nil {
-			s.logger.Error("failed to get product", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product: %w", err)
-		}
-
-		// convert price to kes
-		convertedPrice, err := s.convertPriceToKES(ctx, product.USD)
-		if err != nil {
-			s.logger.Error("failed to convert price to KES", zap.Error(err))
-			return nil, fmt.Errorf("failed to convert price to KES: %w", err)
-		}
-
-		orderItems = append(orderItems, utils.OrderItem{
-			ProductName: product.Name,
-			Quantity:    item.Quantity,
-			Price:       convertedPrice,
-		})
-	}
-
-	payingNow := orderParams.PaymentOption == "now"
-
+	// Send order notification
 	if err := utils.SendOrderNotification(s.cfg, orderID, orderParams, orderItems); err != nil {
 		s.logger.Error("failed to send order notification", zap.Error(err))
+		// Handle email failure as needed
 	}
 
-	return &OrderResponse{OrderID: orderPayment.OrderID, PayingNow: payingNow}, nil
+	return &orderID, nil
 }
 
-func (s *OrderService) convertPriceToKES(ctx context.Context, price string) (float64, error) {
-	// Parse the price
-	p, err := strconv.ParseFloat(price, 64)
-	if err != nil {
-		s.logger.Error("failed to parse product price", zap.Error(err))
-		return 0, fmt.Errorf("failed to parse product price: %w", err)
+func (s *OrderService) createOrRetrieveUser(ctx context.Context, orderParams *model.CreateOrderParams) (uuid.NullUUID, error) {
+	existingUser, err := s.userRepo.GetUserByEmail(ctx, orderParams.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.logger.Error("failed to check if user exists", zap.Error(err))
+		return uuid.NullUUID{}, fmt.Errorf("failed to check if user exists: %w", err)
 	}
 
-	// Get the exchange rate
-	exchangeRate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, "USD")
-	if err != nil {
-		s.logger.Error("failed to get exchange rate by currency", zap.Error(err))
-		return 0, fmt.Errorf("failed to get exchange rate by currency: %w", err)
+	if existingUser != nil {
+		return uuid.NullUUID{UUID: existingUser.ID, Valid: true}, nil
 	}
 
-	// Calculate the price in KES
-	priceToKES := p * exchangeRate
-
-	return priceToKES, nil
-}
-
-func (s *OrderService) getUserUUID(ctx context.Context, userID uuid.UUID) (uuid.NullUUID, error) {
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	// Create new user
+	newUser, err := s.userRepo.CreateUser(ctx, &model.CreateUserParams{
+		Email:     orderParams.Email,
+		Password:  *orderParams.Password, // Assuming Password is a pointer
+		FirstName: orderParams.FirstName,
+		LastName:  orderParams.LastName,
+		Phone:     orderParams.Phone,
+	})
 	if err != nil {
-		s.logger.Error("failed to get user", zap.Error(err))
-		return uuid.NullUUID{}, fmt.Errorf("failed to get user: %w", err)
+		s.logger.Error("failed to create user", zap.Error(err))
+		return uuid.NullUUID{}, fmt.Errorf("failed to create user: %w", err)
 	}
-	return uuid.NullUUID{UUID: user.ID, Valid: true}, nil
+
+	return uuid.NullUUID{UUID: newUser.ID, Valid: true}, nil
 }
 
 func (s *OrderService) createOrRetrieveGuest(ctx context.Context, orderParams *model.CreateOrderParams) (uuid.UUID, error) {
@@ -179,14 +142,12 @@ func (s *OrderService) createOrRetrieveGuest(ctx context.Context, orderParams *m
 	}
 
 	guestParams := &database.CreateGuestCheckoutParams{
-		Email:         orderParams.Email,
-		FirstName:     orderParams.FirstName,
-		LastName:      orderParams.LastName,
-		Phone:         sql.NullString{String: orderParams.Phone, Valid: true},
-		StreetAddress: orderParams.StreetAddress,
-		City:          orderParams.City,
-		State:         orderParams.State,
-		Country:       orderParams.Country,
+		Email:     orderParams.Email,
+		FirstName: orderParams.FirstName,
+		LastName:  orderParams.LastName,
+		Phone:     sql.NullString{String: orderParams.Phone, Valid: true},
+		City:      orderParams.City,
+		Country:   orderParams.Country,
 	}
 	newGuestID, err := s.guestCheckoutRepo.CreateGuestCheckout(ctx, guestParams)
 	if err != nil {
@@ -196,11 +157,14 @@ func (s *OrderService) createOrRetrieveGuest(ctx context.Context, orderParams *m
 	return *newGuestID, nil
 }
 
-func (s *OrderService) createOrderRecord(ctx context.Context, orderParams *model.CreateOrderParams, userUUID uuid.NullUUID) (uuid.UUID, error) {
+func (s *OrderService) createOrderRecord(ctx context.Context, orderParams *model.CreateOrderParams, guestID uuid.UUID) (uuid.UUID, error) {
 	orderParam := &database.CreateOrderParams{
-		UserID:          userUUID,
-		GuestCheckoutID: orderParams.GuestCheckoutID,
+		GuestCheckoutID: uuid.NullUUID{UUID: guestID, Valid: true},
 		Total:           strconv.FormatFloat(orderParams.Total, 'f', -1, 64),
+		CompanyName:     orderParams.CompanyName,
+		KraPIN:          orderParams.KraPIN,
+		OrderNotes:      orderParams.OrderNotes,
+		// Add other fields as necessary
 	}
 	orderID, err := s.orderRepository.CreateOrder(ctx, orderParam)
 	if err != nil {
@@ -208,6 +172,30 @@ func (s *OrderService) createOrderRecord(ctx context.Context, orderParams *model
 		return uuid.UUID{}, fmt.Errorf("failed to create order: %w", err)
 	}
 	return *orderID, nil
+}
+
+func (s *OrderService) prepareOrderItems(ctx context.Context, items []model.CreateOrderItemParams) ([]utils.OrderItem, error) {
+	orderItems := make([]utils.OrderItem, 0, len(items))
+	for _, item := range items {
+		product, err := s.productRepo.GetProductByID(ctx, item.ProductID)
+		if err != nil {
+			s.logger.Error("failed to get product", zap.Error(err))
+			return nil, fmt.Errorf("failed to get product: %w", err)
+		}
+
+		convertedPrice, err := s.convertPriceToKES(ctx, product.USD)
+		if err != nil {
+			s.logger.Error("failed to convert price to KES", zap.Error(err))
+			return nil, fmt.Errorf("failed to convert price to KES: %w", err)
+		}
+
+		orderItems = append(orderItems, utils.OrderItem{
+			ProductName: product.Name,
+			Quantity:    item.Quantity,
+			Price:       convertedPrice,
+		})
+	}
+	return orderItems, nil
 }
 
 func (s *OrderService) createOrderItem(ctx context.Context, orderID uuid.UUID, item model.CreateOrderItemParams) error {
