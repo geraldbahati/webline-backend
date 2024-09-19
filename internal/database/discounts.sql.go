@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createDiscount = `-- name: CreateDiscount :one
@@ -53,6 +54,49 @@ WHERE id = $1
 func (q *Queries) DeleteDiscount(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteDiscount, id)
 	return err
+}
+
+const getActiveDiscountsByProductIDs = `-- name: GetActiveDiscountsByProductIDs :many
+SELECT
+    product_id,
+    discount_percentage
+FROM discounts
+WHERE
+    product_id = ANY($1::uuid[])
+    AND $2 BETWEEN start_date AND end_date
+`
+
+type GetActiveDiscountsByProductIDsParams struct {
+	Column1   []uuid.UUID
+	StartDate sql.NullTime
+}
+
+type GetActiveDiscountsByProductIDsRow struct {
+	ProductID          uuid.NullUUID
+	DiscountPercentage string
+}
+
+func (q *Queries) GetActiveDiscountsByProductIDs(ctx context.Context, arg GetActiveDiscountsByProductIDsParams) ([]GetActiveDiscountsByProductIDsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getActiveDiscountsByProductIDs, pq.Array(arg.Column1), arg.StartDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetActiveDiscountsByProductIDsRow
+	for rows.Next() {
+		var i GetActiveDiscountsByProductIDsRow
+		if err := rows.Scan(&i.ProductID, &i.DiscountPercentage); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getDiscountByID = `-- name: GetDiscountByID :one

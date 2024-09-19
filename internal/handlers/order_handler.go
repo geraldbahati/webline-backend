@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
+	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 	"weblineBackend/pkg/mpesa"
@@ -20,13 +23,15 @@ type OrderHandler struct {
 	logger         *zap.Logger
 	orderService   *services.OrderService
 	paymentService *services.PaymentService
+	userService    *services.UserService
 }
 
-func NewOrderHandler(logger *zap.Logger, orderService *services.OrderService, paymentService *services.PaymentService) *OrderHandler {
+func NewOrderHandler(logger *zap.Logger, orderService *services.OrderService, paymentService *services.PaymentService, userService *services.UserService) *OrderHandler {
 	return &OrderHandler{
 		logger:         logger,
 		orderService:   orderService,
 		paymentService: paymentService,
+		userService:    userService,
 	}
 }
 
@@ -45,7 +50,6 @@ type CreateOrderRequest struct {
 	Password         string                  `json:"password,omitempty"`
 	OrderNotes       string                  `json:"orderNotes"`
 	OrderItems       []CreateOrderItemParams `json:"orderItems"`
-	Total            float64                 `json:"total"`
 }
 
 type CreateOrderItemParams struct {
@@ -71,7 +75,39 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Retrieve userID from context
+	userID, isAuthenticated := middleware.GetUserID(r.Context())
+
+	var userUUID *uuid.UUID
+	var guestUUID *uuid.UUID
+	var err error
+
+	if isAuthenticated {
+		// User is logged in
+		userUUID = &userID
+		err = h.userService.UpdateUserInfo(r.Context(), model.UpdateUserInfoParams{
+			FirstName:   req.FirstName,
+			LastName:    req.LastName,
+			PhoneNumber: req.Phone,
+		}, nil)
+		if err != nil {
+			h.logger.Error("Failed to update user profile", zap.Error(err))
+			RespondWithError(w, http.StatusInternalServerError, "Failed to update user profile")
+			return
+		}
+	} else {
+		// User is not logged in
+		userUUID, guestUUID, err = h.handleGuestOrExistingUser(r.Context(), &req)
+		if err != nil {
+			h.logger.Error("Failed to handle guest or existing user", zap.Error(err))
+			RespondWithError(w, http.StatusInternalServerError, "Failed to process user information")
+			return
+		}
+	}
+
 	orderParams := &model.CreateOrderParams{
+		GuestID:     guestUUID,
+		UserID:      userUUID,
 		FirstName:   req.FirstName,
 		LastName:    req.LastName,
 		Country:     req.Country,
@@ -81,12 +117,18 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		County:      req.County,
 		Phone:       req.Phone,
 		Email:       req.Email,
-		OrderNotes:  &req.OrderNotes,
-		Total:       req.Total,
+		OrderNotes:       &req.OrderNotes,
+		CanCreateAccount: req.CanCreateAccount,
+		Password:         &req.Password,
 	}
 
 	// Convert OrderItems directly from request
-	orderItems := req.OrderItems
+	orderItems, err := h.createOrderItems(req.OrderItems)
+	if err != nil {
+		h.logger.Error("Failed to create order items", zap.Error(err))
+		RespondWithError(w, http.StatusInternalServerError, "Failed to create order items")
+		return
+	}
 
 	orderID, err := h.orderService.CreateOrder(r.Context(), orderParams, orderItems)
 	if err != nil {
@@ -98,6 +140,50 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
 		"orderID": orderID,
 	})
+}
+
+func (h *OrderHandler) handleGuestOrExistingUser(ctx context.Context, req *CreateOrderRequest) (*uuid.UUID, *uuid.UUID, error) {
+	// Check if the email already exists
+	existingUser, err := h.userService.GetUserByEmail(ctx, req.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, err
+	}
+
+	if existingUser != nil {
+		// Email exists, return the user ID
+		return &existingUser.ID, nil, nil
+	}
+
+	if req.CanCreateAccount {
+		// User chose to create an account
+		newUserID, err := h.userService.CreateUserFromOrder(ctx, model.CreateUserParams{
+			Email:       req.Email,
+			Password:    req.Password,
+			FirstName:   req.FirstName,
+			LastName:    req.LastName,
+			PhoneNumber: req.Phone,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newUserID, nil, nil
+	}
+
+	// Create guest user
+	guestID, err := h.userService.CreateGuestUser(ctx, model.CreateGuestUserParams{
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Phone:     req.Phone,
+		City:      req.City,
+		County:    req.County,
+		Country:   req.Country,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return nil, guestID, nil
 }
 
 func (h *OrderHandler) validateCreateOrderRequest(req *CreateOrderRequest) error {

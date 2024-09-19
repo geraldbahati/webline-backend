@@ -63,8 +63,7 @@ func (r *CategoryRepository) CreateCategory(
 	category database.CreateCategoryParams,
 ) error {
 	err := r.execTx(ctx, func(q *database.Queries) error {
-		var err error
-		err = q.CreateCategory(ctx, category)
+		err := q.CreateCategory(ctx, category)
 		if err != nil {
 			return fmt.Errorf("failed to create category: %w", err)
 		}

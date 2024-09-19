@@ -5,9 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
+	"weblineBackend/internal/database"
+	"weblineBackend/internal/model"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"weblineBackend/internal/database"
 )
 
 type DiscountRepository struct {
@@ -80,4 +84,33 @@ func (r *DiscountRepository) GetDiscountByProductID(ctx context.Context, product
 	}
 
 	return &discount, nil
+}
+
+// GetActiveDiscountsByProductIDs fetches active discounts for given product IDs
+func (r *DiscountRepository) GetActiveDiscountsByProductIDs(ctx context.Context, productIDs []uuid.UUID, currentTime time.Time) ([]model.DiscountSchema, error) {
+    discounts, err := r.Queries.GetActiveDiscountsByProductIDs(ctx, database.GetActiveDiscountsByProductIDsParams{
+        Column1:  productIDs,
+        StartDate: sql.NullTime{Time: currentTime, Valid: true},
+    })
+    if err != nil {
+        r.logger.Error("failed to get active discounts", zap.Error(err))
+        return nil, fmt.Errorf("failed to get active discounts: %w", err)
+    }
+
+	discountSchemas := make([]model.DiscountSchema, len(discounts))
+	for i, discount := range discounts {
+
+		discountPercentage, err := strconv.ParseFloat(discount.DiscountPercentage, 64)
+		if err != nil {
+			r.logger.Error("failed to parse discount percentage", zap.Error(err))
+			return nil, fmt.Errorf("failed to parse discount percentage: %w", err)
+		}
+
+		discountSchemas[i] = model.DiscountSchema{
+			ProductID:       discount.ProductID.UUID,
+			DiscountPercentage: discountPercentage,
+		}
+	}
+
+	return discountSchemas, nil
 }

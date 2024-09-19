@@ -3,12 +3,13 @@ package services
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"log"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
+
+	"go.uber.org/zap"
 )
 
 type FilterService struct {
@@ -87,11 +88,13 @@ func (s *FilterService) GetProductsByFilters(ctx context.Context, filterValues *
 				return nil, err
 			}
 
-			// Construct S3 URL for each product image
+			// Construct S3 URL for each product image and update the product price
 			for _, product := range products {
 				if product.ImageURL != "" {
 					product.ImageURL = s.constructS3URL(product.ImageURL)
 				}
+
+				product.Price = utils.RoundPriceString(product.Price)
 			}
 
 			return products, nil
@@ -135,6 +138,8 @@ func (s *FilterService) GetCategoryProductsByFilters(ctx context.Context, filter
 				if product.ImageURL != "" {
 					product.ImageURL = s.constructS3URL(product.ImageURL)
 				}
+
+				product.Price = utils.RoundPriceString(product.Price)
 			}
 
 			return products, nil

@@ -105,7 +105,10 @@ func (s *ProductService) calculatePriceToKES(ctx context.Context, price string) 
 	// Calculate the price in KES
 	priceToKES := p * exchangeRate
 
-	return priceToKES, nil
+	// Apply rounding
+	roundedPrice := utils.RoundPrice(priceToKES)
+
+	return roundedPrice, nil
 }
 
 func (s *ProductService) getProductDiscountPercentage(ctx context.Context, productID uuid.UUID) (float64, error) {
@@ -251,6 +254,7 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 	return *paginatedProductsByCategory, nil
 }
 
+// mapProductsToModel maps database products to model products with rounded prices
 func (s *ProductService) mapProductsToModel(ctx context.Context, products []model.ProductSchema) ([]model.Product, error) {
 	var productSchemas []model.Product
 	for _, product := range products {
@@ -277,11 +281,12 @@ func (s *ProductService) mapProductsToModel(ctx context.Context, products []mode
 			imageUrl = s.constructS3URL(productImages[0].ImageUrl)
 		}
 
+		// Use rounded price
 		productSchemas = append(productSchemas, model.Product{
 			ID:              product.ID,
 			Name:            product.Name,
 			Description:     product.Description,
-			Price:           fmt.Sprintf("%.2f", price),
+			Price:           fmt.Sprintf("%.2f", price), // Rounded price
 			Slug:            product.Slug,
 			ImageURL:        imageUrl,
 			DiscountPercent: discountPercentage,

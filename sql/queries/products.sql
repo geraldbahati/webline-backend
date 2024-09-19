@@ -32,6 +32,11 @@ SELECT id, name, description, usd_price, stock, category_id, created_at, updated
 FROM products
 WHERE id = $1;
 
+-- name: GetProductByIDs :many
+SELECT id, name, description, usd_price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
+FROM products
+WHERE id = ANY($1::uuid[]);
+
 -- name: GetProductBySlug :one
 SELECT p.id, p.name, p.description, p.usd_price, p.stock, c.name AS category_name, p.created_at, p.updated_at, p.status, p.created_by, p.updated_by, p.featured, p.search_keyword, p.slug
 FROM products p

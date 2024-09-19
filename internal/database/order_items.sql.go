@@ -10,27 +10,54 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createOrderItem = `-- name: CreateOrderItem :one
-INSERT INTO order_items (id, order_id, product_id, quantity, price, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())
-RETURNING id
+INSERT INTO order_items (
+    id,
+    order_id,
+    product_id,
+    product_name,
+    product_sku,
+    quantity,
+    unit_price,
+    total_price,
+    created_at,
+    updated_at
+) VALUES (
+    gen_random_uuid(),
+    $1,  -- order_id
+    $2,  -- product_id
+    $3,  -- product_name
+    $4,  -- product_sku
+    $5,  -- quantity
+    $6,  -- unit_price
+    $7,  -- total_price
+    NOW(),
+    NOW()
+) RETURNING id
 `
 
 type CreateOrderItemParams struct {
-	OrderID   uuid.NullUUID
-	ProductID uuid.NullUUID
-	Quantity  int32
-	Price     string
+	OrderID     uuid.NullUUID
+	ProductID   uuid.NullUUID
+	ProductName string
+	ProductSku  string
+	Quantity    int32
+	UnitPrice   string
+	TotalPrice  string
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (uuid.UUID, error) {
 	row := q.db.QueryRowContext(ctx, createOrderItem,
 		arg.OrderID,
 		arg.ProductID,
+		arg.ProductName,
+		arg.ProductSku,
 		arg.Quantity,
-		arg.Price,
+		arg.UnitPrice,
+		arg.TotalPrice,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
@@ -38,8 +65,17 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 }
 
 const createOrderItemOption = `-- name: CreateOrderItemOption :exec
-INSERT INTO order_item_options (order_item_id, option_type, option_value, additional_price)
-VALUES ($1, $2, $3, $4)
+INSERT INTO order_item_options (
+    order_item_id,
+    option_type,
+    option_value,
+    additional_price
+) VALUES (
+    $1,  -- order_item_id
+    $2,  -- option_type
+    $3,  -- option_value
+    $4   -- additional_price
+)
 `
 
 type CreateOrderItemOptionParams struct {
@@ -59,27 +95,100 @@ func (q *Queries) CreateOrderItemOption(ctx context.Context, arg CreateOrderItem
 	return err
 }
 
+const createOrderItems = `-- name: CreateOrderItems :exec
+INSERT INTO order_items (
+    order_id,
+    product_id,
+    quantity,
+    product_name,
+    product_sku,
+    unit_price,
+    discount_amount,
+    total_price
+)
+SELECT
+    unnest($1::uuid[]) AS order_id,
+    unnest($2::uuid[]) AS product_id,
+    unnest($3::integer[]) AS quantity,
+    unnest($4::varchar[]) AS product_name,
+    unnest($5::varchar[]) AS product_sku,
+    unnest($6::numeric(12,2)[]) AS unit_price,
+    unnest($7::numeric(12,2)[]) AS discount_amount,
+    unnest($8::numeric(12,2)[]) AS total_price
+`
+
+type CreateOrderItemsParams struct {
+	Column1 []uuid.UUID
+	Column2 []uuid.UUID
+	Column3 []int32
+	Column4 []string
+	Column5 []string
+	Column6 []string
+	Column7 []string
+	Column8 []string
+}
+
+func (q *Queries) CreateOrderItems(ctx context.Context, arg CreateOrderItemsParams) error {
+	_, err := q.db.ExecContext(ctx, createOrderItems,
+		pq.Array(arg.Column1),
+		pq.Array(arg.Column2),
+		pq.Array(arg.Column3),
+		pq.Array(arg.Column4),
+		pq.Array(arg.Column5),
+		pq.Array(arg.Column6),
+		pq.Array(arg.Column7),
+		pq.Array(arg.Column8),
+	)
+	return err
+}
+
 const getOrderItemsByOrderId = `-- name: GetOrderItemsByOrderId :many
-SELECT id, order_id, product_id, quantity, price, created_at, updated_at
+SELECT
+    id,
+    order_id,
+    product_id,
+    product_name,
+    product_sku,
+    quantity,
+    unit_price,
+    total_price,
+    created_at,
+    updated_at
 FROM order_items
 WHERE order_id = $1
 `
 
-func (q *Queries) GetOrderItemsByOrderId(ctx context.Context, orderID uuid.NullUUID) ([]OrderItem, error) {
+type GetOrderItemsByOrderIdRow struct {
+	ID          uuid.UUID
+	OrderID     uuid.NullUUID
+	ProductID   uuid.NullUUID
+	ProductName string
+	ProductSku  string
+	Quantity    int32
+	UnitPrice   string
+	TotalPrice  string
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
+func (q *Queries) GetOrderItemsByOrderId(ctx context.Context, orderID uuid.NullUUID) ([]GetOrderItemsByOrderIdRow, error) {
 	rows, err := q.db.QueryContext(ctx, getOrderItemsByOrderId, orderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []OrderItem
+	var items []GetOrderItemsByOrderIdRow
 	for rows.Next() {
-		var i OrderItem
+		var i GetOrderItemsByOrderIdRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
 			&i.ProductID,
+			&i.ProductName,
+			&i.ProductSku,
 			&i.Quantity,
-			&i.Price,
+			&i.UnitPrice,
+			&i.TotalPrice,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

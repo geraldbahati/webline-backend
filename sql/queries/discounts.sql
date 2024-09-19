@@ -35,3 +35,12 @@ WHERE id = $1
 -- name: DeleteDiscount :exec
 DELETE FROM discounts
 WHERE id = $1;
+
+-- name: GetActiveDiscountsByProductIDs :many
+SELECT
+    product_id,
+    discount_percentage
+FROM discounts
+WHERE
+    product_id = ANY($1::uuid[])
+    AND $2 BETWEEN start_date AND end_date;

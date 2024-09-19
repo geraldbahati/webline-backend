@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"log"
 	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type ProductRepository struct {
@@ -145,8 +146,7 @@ func (r *ProductRepository) UpdateProduct(
 ) error {
 
 	err := r.execTx(ctx, func(q *database.Queries) error {
-		var err error
-		err = q.UpdateProduct(ctx, params)
+		err := q.UpdateProduct(ctx, params)
 		if err != nil {
 			return fmt.Errorf("failed to update product: %w", err)
 		}
@@ -636,4 +636,26 @@ func (r *ProductRepository) GetProductIDsBySlugs(ctx context.Context, slugs []st
 	}
 
 	return ids, nil
+}
+
+// GetProductsByIDs retrieves products by their IDs
+func (r *ProductRepository) GetProductsByIDs(ctx context.Context, ids []uuid.UUID) ([]model.ProductSchema, error) {
+	products, err := r.Queries.GetProductByIDs(ctx, ids)
+	if err != nil {
+		r.logger.Error("failed to get products by IDs", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products by IDs: %w", err)
+	}
+
+	var productList []model.ProductSchema
+	for _, product := range products {
+		productList = append(productList, model.ProductSchema{
+			ID:          product.ID,
+			Name:        product.Name,
+			Description: product.Description.String,
+			USD:         product.UsdPrice,
+			Slug:        product.Slug,
+		})
+	}
+
+	return productList, nil
 }

@@ -88,10 +88,7 @@ func (r *UserRoleRepository) GetRolesForUser(ctx context.Context, userID uuid.UU
 			return err
 		}
 
-		for _, row := range rows {
-			roles = append(roles, row)
-		}
-
+		roles = append(roles, rows...)
 		return nil
 	})
 	if err != nil {

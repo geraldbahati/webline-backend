@@ -31,6 +31,7 @@ type UserService struct {
 	verificationTokenRepository repository.VerificationTokenRepository
 	passwordResetRepository     repository.PasswordResetRepository
 	adminRequestRepository      repository.AdminRequestRepository
+	guestCheckoutRepository     *repository.GuestCheckoutRepository
 	config                      *appconfig.Config
 	logger                      *zap.Logger
 	s3Client                    *s3.Client
@@ -44,6 +45,7 @@ func NewUserService(
 	passwordResetRepository repository.PasswordResetRepository,
 	adminRequestRepository repository.AdminRequestRepository,
 	tokenRepository *repository.TokenRepository,
+	guestCheckoutRepository *repository.GuestCheckoutRepository,
 	config *appconfig.Config,
 	logger *zap.Logger,
 	s3Client *s3.Client,
@@ -56,6 +58,7 @@ func NewUserService(
 		passwordResetRepository:     passwordResetRepository,
 		adminRequestRepository:      adminRequestRepository,
 		tokenRepository:             tokenRepository,
+		guestCheckoutRepository:     guestCheckoutRepository,
 		config:                      config,
 		logger:                      logger,
 		s3Client:                    s3Client,
@@ -98,6 +101,87 @@ func (s *UserService) CreateUser(ctx context.Context, registerUserParams model.R
 	}
 
 	return nil
+}
+
+// CreateUserFromOrder creates a new user from an order
+func (s *UserService) CreateUserFromOrder(ctx context.Context, userParams model.CreateUserParams) (uuid.UUID, error) {
+	// hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userParams.Password), bcrypt.DefaultCost)
+	if err != nil {
+		s.logger.Error("Failed to hash password", zap.Error(err))
+		return uuid.UUID{}, app_errors.NewInternalError("Failed to process password", err)
+	}
+
+	// create user
+	newUser := database.CreateUserParams{
+		Email:          userParams.Email,
+		HashedPassword: sql.NullString{String: string(hashedPassword), Valid: true},
+	}
+
+	createdUser, err := s.userRepository.CreateUser(ctx, newUser)
+	if err != nil {
+		s.logger.Error("Failed to create user", zap.Error(err))
+		return uuid.UUID{}, app_errors.NewInternalError("Failed to create user", err)
+	}
+
+	// get or create customer role
+	role, err := s.getOrCreateCustomerRole(ctx)
+	if err != nil {
+		s.logger.Error("Failed to get or create customer role", zap.Error(err))
+		return uuid.UUID{}, err
+	}
+
+	// Assign role to user
+	err = s.userRoleRepository.AssignRoleToUser(ctx, createdUser.ID, role.ID)
+	if err != nil {
+		s.logger.Error("Failed to assign role to user", zap.Error(err))
+		return uuid.UUID{}, app_errors.NewInternalError("Failed to assign role to user", err)
+	}
+
+	// update user details
+	err = s.userRepository.UpdateUser(ctx, model.UpdateUserParams{
+		ID:          createdUser.ID,
+		FirstName:   userParams.FirstName,
+		LastName:    userParams.LastName,
+		PhoneNumber: userParams.PhoneNumber,
+	})
+	if err != nil {
+		s.logger.Error("Failed to update user", zap.Error(err))
+		return uuid.UUID{}, app_errors.NewInternalError("Failed to update user", err)
+	}
+
+	return createdUser.ID, nil
+}
+
+// CreateGuestUser creates a new guest user
+func (s *UserService) CreateGuestUser(ctx context.Context, userParams model.CreateGuestUserParams) (*uuid.UUID, error) {
+	existingGuest, err := s.guestCheckoutRepository.GetGuestCheckoutByEmail(ctx, userParams.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.logger.Error("failed to check if guest exists", zap.Error(err))
+		return nil, fmt.Errorf("failed to check if guest exists: %w", err)
+	}
+
+	if existingGuest != nil {
+		return &existingGuest.ID, nil
+	}
+
+	guestParams := &database.CreateGuestCheckoutParams{
+		Email:         userParams.Email,
+		FirstName:     userParams.FirstName,
+		LastName:      userParams.LastName,
+		Phone:         sql.NullString{String: userParams.Phone, Valid: true},
+		StreetAddress: "",
+		City:          userParams.City,
+		State:         userParams.County,
+		Country:       userParams.Country,
+	}
+	newGuestID, err := s.guestCheckoutRepository.CreateGuestCheckout(ctx, guestParams)
+	if err != nil {
+		s.logger.Error("failed to create guest checkout", zap.Error(err))
+		return nil, fmt.Errorf("failed to create guest checkout: %w", err)
+	}
+	return newGuestID, nil
+
 }
 
 // getOrCreateCustomerRole gets the customer role or creates it if it doesn't exist

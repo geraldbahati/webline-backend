@@ -27,9 +27,31 @@ func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) (sql.NullString
 }
 
 const createGuestCheckout = `-- name: CreateGuestCheckout :one
-INSERT INTO guest_checkouts (id, email, first_name, last_name, phone, street_address, city, state, country, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-RETURNING id
+INSERT INTO guest_checkouts (
+    id,
+    email,
+    first_name,
+    last_name,
+    phone,
+    street_address,
+    city,
+    state,
+    country,
+    created_at,
+    updated_at
+) VALUES (
+    gen_random_uuid(),
+    $1,  -- email
+    $2,  -- first_name
+    $3,  -- last_name
+    $4,  -- phone
+    $5,  -- street_address
+    $6,  -- city
+    $7,  -- state
+    $8,  -- country
+    now(),
+    now()
+) RETURNING id
 `
 
 type CreateGuestCheckoutParams struct {
@@ -60,19 +82,67 @@ func (q *Queries) CreateGuestCheckout(ctx context.Context, arg CreateGuestChecko
 }
 
 const createOrder = `-- name: CreateOrder :one
-INSERT INTO orders (user_id, guest_checkout_id, status, payment_status, total)
-VALUES ($1, $2, 'pending', 'pending', $3)
-RETURNING id
+INSERT INTO orders (
+    id,
+    user_id,
+    guest_checkout_id,
+    company_id,
+    company_name,
+    kra_pin,
+    currency_code,
+    subtotal,
+    tax_amount,
+    shipping_amount,
+    discount_amount,
+    grand_total,
+    order_number
+) VALUES (
+    gen_random_uuid(),
+    $1,  -- user_id
+    $2,  -- guest_checkout_id
+    $3,  -- company_id
+    $4,  -- company_name
+    $5,  -- kra_pin
+    COALESCE($6::text, 'USD'), -- currency_code with default 'USD'
+    $7,  -- subtotal
+    $8,  -- tax_amount
+    $9,  -- shipping_amount
+    $10, -- discount_amount
+    $11, -- grand_total
+    $12  -- order_number
+) RETURNING id
 `
 
 type CreateOrderParams struct {
 	UserID          uuid.NullUUID
 	GuestCheckoutID uuid.NullUUID
-	Total           string
+	CompanyID       uuid.NullUUID
+	CompanyName     sql.NullString
+	KraPin          sql.NullString
+	Column6         string
+	Subtotal        string
+	TaxAmount       string
+	ShippingAmount  string
+	DiscountAmount  string
+	GrandTotal      string
+	OrderNumber     sql.NullString
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createOrder, arg.UserID, arg.GuestCheckoutID, arg.Total)
+	row := q.db.QueryRowContext(ctx, createOrder,
+		arg.UserID,
+		arg.GuestCheckoutID,
+		arg.CompanyID,
+		arg.CompanyName,
+		arg.KraPin,
+		arg.Column6,
+		arg.Subtotal,
+		arg.TaxAmount,
+		arg.ShippingAmount,
+		arg.DiscountAmount,
+		arg.GrandTotal,
+		arg.OrderNumber,
+	)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -104,25 +174,18 @@ func (q *Queries) GetGuestCheckoutByEmail(ctx context.Context, email string) (Gu
 }
 
 const getMonthlyRevenue = `-- name: GetMonthlyRevenue :many
-WITH sales_data AS (
-    SELECT
-        created_at AS month,
-        COALESCE(SUM(amount), 0)::numeric AS total_sales
-    FROM
-        order_payments
-    WHERE
-        payment_status_id = $1
-    GROUP BY
-        month
-    ORDER BY
-        month DESC
-    LIMIT 12
-)
-SELECT month, total_sales FROM sales_data
+SELECT
+    date_trunc('month', created_at) AS month,
+    COALESCE(SUM(amount), 0)::numeric AS total_sales
+FROM order_payments
+WHERE payment_status_id = $1
+GROUP BY month
+ORDER BY month DESC
+LIMIT 12
 `
 
 type GetMonthlyRevenueRow struct {
-	Month      sql.NullTime
+	Month      int64
 	TotalSales string
 }
 
@@ -197,19 +260,19 @@ WITH sales_data AS (
     SELECT
         date_trunc('month', created_at) AS month,
         COALESCE(SUM(amount), 0)::numeric AS total_sales
-    FROM
-        order_payments
-    WHERE
-        payment_status_id = $1
-    GROUP BY
-        month
-    ORDER BY
-        month DESC
+    FROM order_payments
+    WHERE payment_status_id = $1
+    GROUP BY month
+    ORDER BY month DESC
     LIMIT 2
 )
 SELECT
-    COALESCE((SELECT total_sales FROM sales_data ORDER BY month DESC LIMIT 1), 0)::numeric AS current_month_sales,
-    COALESCE((SELECT total_sales FROM sales_data ORDER BY month DESC LIMIT 1 OFFSET 1), 0)::numeric AS previous_month_sales
+    COALESCE(MAX(total_sales), 0)::numeric AS current_month_sales,
+    COALESCE(
+        (SELECT total_sales FROM sales_data ORDER BY month DESC OFFSET 1 LIMIT 1),
+        0
+    )::numeric AS previous_month_sales
+FROM sales_data
 `
 
 type GetMonthlySalesForLastTwoMonthsRow struct {
@@ -225,7 +288,24 @@ func (q *Queries) GetMonthlySalesForLastTwoMonths(ctx context.Context, paymentSt
 }
 
 const getOrderById = `-- name: GetOrderById :one
-SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at, order_number
+SELECT
+    id,
+    user_id,
+    guest_checkout_id,
+    company_id,
+    company_name,
+    kra_pin,
+    status,
+    payment_status,
+    currency_code,
+    subtotal,
+    tax_amount,
+    shipping_amount,
+    discount_amount,
+    grand_total,
+    created_at,
+    updated_at,
+    order_number
 FROM orders
 WHERE id = $1
 `
@@ -234,9 +314,17 @@ type GetOrderByIdRow struct {
 	ID              uuid.UUID
 	UserID          uuid.NullUUID
 	GuestCheckoutID uuid.NullUUID
+	CompanyID       uuid.NullUUID
+	CompanyName     sql.NullString
+	KraPin          sql.NullString
 	Status          string
 	PaymentStatus   string
-	Total           string
+	CurrencyCode    string
+	Subtotal        string
+	TaxAmount       string
+	ShippingAmount  string
+	DiscountAmount  string
+	GrandTotal      string
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	OrderNumber     sql.NullString
@@ -249,9 +337,17 @@ func (q *Queries) GetOrderById(ctx context.Context, id uuid.UUID) (GetOrderByIdR
 		&i.ID,
 		&i.UserID,
 		&i.GuestCheckoutID,
+		&i.CompanyID,
+		&i.CompanyName,
+		&i.KraPin,
 		&i.Status,
 		&i.PaymentStatus,
-		&i.Total,
+		&i.CurrencyCode,
+		&i.Subtotal,
+		&i.TaxAmount,
+		&i.ShippingAmount,
+		&i.DiscountAmount,
+		&i.GrandTotal,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.OrderNumber,
@@ -290,7 +386,24 @@ func (q *Queries) GetOrderIDsByUserID(ctx context.Context, userID uuid.NullUUID)
 }
 
 const getOrdersByGuestCheckoutId = `-- name: GetOrdersByGuestCheckoutId :many
-SELECT id, user_id,guest_checkout_id,  status, payment_status, total, created_at, updated_at, order_number
+SELECT
+    id,
+    user_id,
+    guest_checkout_id,
+    company_id,
+    company_name,
+    kra_pin,
+    status,
+    payment_status,
+    currency_code,
+    subtotal,
+    tax_amount,
+    shipping_amount,
+    discount_amount,
+    grand_total,
+    created_at,
+    updated_at,
+    order_number
 FROM orders
 WHERE guest_checkout_id = $1
 ORDER BY created_at DESC
@@ -300,9 +413,17 @@ type GetOrdersByGuestCheckoutIdRow struct {
 	ID              uuid.UUID
 	UserID          uuid.NullUUID
 	GuestCheckoutID uuid.NullUUID
+	CompanyID       uuid.NullUUID
+	CompanyName     sql.NullString
+	KraPin          sql.NullString
 	Status          string
 	PaymentStatus   string
-	Total           string
+	CurrencyCode    string
+	Subtotal        string
+	TaxAmount       string
+	ShippingAmount  string
+	DiscountAmount  string
+	GrandTotal      string
 	CreatedAt       sql.NullTime
 	UpdatedAt       sql.NullTime
 	OrderNumber     sql.NullString
@@ -321,9 +442,17 @@ func (q *Queries) GetOrdersByGuestCheckoutId(ctx context.Context, guestCheckoutI
 			&i.ID,
 			&i.UserID,
 			&i.GuestCheckoutID,
+			&i.CompanyID,
+			&i.CompanyName,
+			&i.KraPin,
 			&i.Status,
 			&i.PaymentStatus,
-			&i.Total,
+			&i.CurrencyCode,
+			&i.Subtotal,
+			&i.TaxAmount,
+			&i.ShippingAmount,
+			&i.DiscountAmount,
+			&i.GrandTotal,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.OrderNumber,
@@ -484,15 +613,15 @@ func (q *Queries) GetSalesTrend(ctx context.Context, paymentStatusID sql.NullInt
 	return i, err
 }
 
-const getTotalRevenueByStatus = `-- name: GetTotalRevenueByStatus :one
+const getTotalRevenueByPaymentStatus = `-- name: GetTotalRevenueByPaymentStatus :one
 SELECT COALESCE(SUM(amount), 0)::numeric AS total_revenue
 FROM order_payments
 WHERE payment_status_id = $1
 `
 
 // GetTotalRevenueByStatus gets the total revenue for orders with a specific payment status
-func (q *Queries) GetTotalRevenueByStatus(ctx context.Context, paymentStatusID sql.NullInt32) (string, error) {
-	row := q.db.QueryRowContext(ctx, getTotalRevenueByStatus, paymentStatusID)
+func (q *Queries) GetTotalRevenueByPaymentStatus(ctx context.Context, paymentStatusID sql.NullInt32) (string, error) {
+	row := q.db.QueryRowContext(ctx, getTotalRevenueByPaymentStatus, paymentStatusID)
 	var total_revenue string
 	err := row.Scan(&total_revenue)
 	return total_revenue, err
@@ -503,19 +632,19 @@ WITH revenue_data AS (
     SELECT
         date_trunc('month', created_at) AS month,
         COALESCE(SUM(amount), 0)::numeric AS total_revenue
-    FROM
-        order_payments
-    WHERE
-        payment_status_id = $1
-    GROUP BY
-        month
-    ORDER BY
-        month DESC
+    FROM order_payments
+    WHERE payment_status_id = $1
+    GROUP BY month
+    ORDER BY month DESC
     LIMIT 2
 )
 SELECT
-    COALESCE((SELECT total_revenue FROM revenue_data ORDER BY month DESC LIMIT 1), 0)::numeric AS current_month_revenue,
-    COALESCE((SELECT total_revenue FROM revenue_data ORDER BY month DESC LIMIT 1 OFFSET 1), 0)::numeric AS previous_month_revenue
+    COALESCE(MAX(total_revenue), 0)::numeric AS current_month_revenue,
+    COALESCE(
+        (SELECT total_revenue FROM revenue_data ORDER BY month DESC OFFSET 1 LIMIT 1),
+        0
+    )::numeric AS previous_month_revenue
+FROM revenue_data
 `
 
 type GetTotalRevenueForLastTwoMonthsRow struct {
@@ -554,12 +683,13 @@ SELECT
     u.phone_number AS user_phone_number,
     g.first_name AS guest_first_name,
     g.last_name AS guest_last_name,
-    g.phone AS guest_phone
+    g.phone AS guest_phone,
+    o.company_name,
+    o.kra_pin
 FROM orders o
 LEFT JOIN users u ON o.user_id = u.id
 LEFT JOIN guest_checkouts g ON o.guest_checkout_id = g.id
 WHERE o.id = $1
-  AND (o.user_id IS NOT NULL OR o.guest_checkout_id IS NOT NULL)
 `
 
 type GetUserOrGuestCheckoutNameByOrderIDRow struct {
@@ -569,6 +699,8 @@ type GetUserOrGuestCheckoutNameByOrderIDRow struct {
 	GuestFirstName  sql.NullString
 	GuestLastName   sql.NullString
 	GuestPhone      sql.NullString
+	CompanyName     sql.NullString
+	KraPin          sql.NullString
 }
 
 func (q *Queries) GetUserOrGuestCheckoutNameByOrderID(ctx context.Context, id uuid.UUID) (GetUserOrGuestCheckoutNameByOrderIDRow, error) {
@@ -581,6 +713,83 @@ func (q *Queries) GetUserOrGuestCheckoutNameByOrderID(ctx context.Context, id uu
 		&i.GuestFirstName,
 		&i.GuestLastName,
 		&i.GuestPhone,
+		&i.CompanyName,
+		&i.KraPin,
+	)
+	return i, err
+}
+
+const updateOrderAmounts = `-- name: UpdateOrderAmounts :one
+WITH vat_rate AS (
+  SELECT vat_percentage / 100.0 AS rate
+  FROM settings
+  WHERE id = TRUE
+),
+updated_values AS (
+  SELECT
+    $1::uuid AS id,
+    $2::numeric AS subtotal,
+    $3::numeric AS tax_amount,
+    $4::numeric AS shipping_amount,
+    $5::numeric AS discount_amount,
+    vr.rate,
+    ($2 * vr.rate) AS vat_amount,
+    ($2 + $3 + $4 + ($2 * vr.rate) - $5) AS grand_total
+  FROM vat_rate vr
+)
+UPDATE orders o
+SET
+  subtotal = uv.subtotal,
+  tax_amount = uv.tax_amount,
+  shipping_amount = uv.shipping_amount,
+  discount_amount = uv.discount_amount,
+  vat_amount = uv.vat_amount,
+  grand_total = uv.grand_total,
+  updated_at = now()
+FROM updated_values uv
+WHERE o.id = uv.id
+RETURNING
+  o.subtotal,
+  o.tax_amount,
+  o.shipping_amount,
+  o.discount_amount,
+  o.vat_amount,
+  o.grand_total
+`
+
+type UpdateOrderAmountsParams struct {
+	Column1 uuid.UUID
+	Column2 string
+	Column3 string
+	Column4 string
+	Column5 string
+}
+
+type UpdateOrderAmountsRow struct {
+	Subtotal       string
+	TaxAmount      string
+	ShippingAmount string
+	DiscountAmount string
+	VatAmount      string
+	GrandTotal     string
+}
+
+func (q *Queries) UpdateOrderAmounts(ctx context.Context, arg UpdateOrderAmountsParams) (UpdateOrderAmountsRow, error) {
+	row := q.db.QueryRowContext(ctx, updateOrderAmounts,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+	)
+	var i UpdateOrderAmountsRow
+	err := row.Scan(
+		&i.Subtotal,
+		&i.TaxAmount,
+		&i.ShippingAmount,
+		&i.DiscountAmount,
+		&i.VatAmount,
+		&i.GrandTotal,
 	)
 	return i, err
 }

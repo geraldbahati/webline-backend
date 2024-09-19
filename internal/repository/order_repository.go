@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"strconv"
+	"time"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type OrderRepository struct {
@@ -46,6 +48,27 @@ func (r *OrderRepository) execTx(ctx context.Context, fn func(*database.Queries)
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 	return nil
+}
+
+// In OrderRepository
+func (r *OrderRepository) ExecTx(ctx context.Context, fn func(*database.Queries) error) error {
+    tx, err := r.db.BeginTx(ctx, &sql.TxOptions{})
+    if err != nil {
+        return fmt.Errorf("begin transaction: %w", err)
+    }
+    q := database.New(tx)
+    defer func() {
+        if p := recover(); p != nil {
+            tx.Rollback()
+            panic(p)
+        } else if err != nil {
+            tx.Rollback()
+        } else {
+            err = tx.Commit()
+        }
+    }()
+    err = fn(q)
+    return err
 }
 
 // CreateOrder creates a new order
@@ -199,7 +222,7 @@ func (r *OrderRepository) CancelOrder(ctx context.Context, orderID uuid.UUID) (s
 
 // GetTotalRevenue retrieves the total revenue
 func (r *OrderRepository) GetTotalRevenue(ctx context.Context, paymentStatus int32) (float64, error) {
-	revenue, err := r.Queries.GetTotalRevenueByStatus(ctx, sql.NullInt32{
+	revenue, err := r.Queries.GetTotalRevenueByPaymentStatus(ctx, sql.NullInt32{
 		Int32: paymentStatus,
 		Valid: true,
 	})
@@ -307,7 +330,7 @@ func (r *OrderRepository) GetMonthlyRevenue(ctx context.Context, paymentStatus i
 		}
 
 		monthlyRevenue = append(monthlyRevenue, &model.MonthlyRevenue{
-			Month:   row.Month.Time,
+			Month:   time.Unix(row.Month, 0),
 			Revenue: totalSales,
 		})
 	}
@@ -381,4 +404,61 @@ func (r *OrderRepository) GetTotalSalesCurrentMonth(ctx context.Context) (int64,
 
 	r.logger.Info("Total sales for current month retrieved successfully", zap.Int64("revenue", revenue))
 	return revenue, nil
+}
+
+// Start of Selection
+// UpdateOrderAmounts updates the amounts for an order
+func (r *OrderRepository) UpdateOrderAmounts(ctx context.Context, orderID uuid.UUID, subtotal, taxAmount, shippingAmount, discountAmount float64) (*model.OrderAmounts, error) {
+	var orderAmounts model.OrderAmounts
+
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		row, err := q.UpdateOrderAmounts(ctx, database.UpdateOrderAmountsParams{
+			Column1: orderID,
+			Column2: fmt.Sprintf("%f", subtotal),
+			Column3: fmt.Sprintf("%f", taxAmount),
+			Column4: fmt.Sprintf("%f", shippingAmount),
+			Column5: fmt.Sprintf("%f", discountAmount),
+		})
+		if err != nil {
+			r.logger.Error("update order amounts failed", zap.Error(err))
+			return fmt.Errorf("update order amounts: %w", err)
+		}
+
+		// Fields to parse from the database response
+		fields := map[string]string{
+			"subtotal":       row.Subtotal,
+			"tax amount":     row.TaxAmount,
+			"shipping amount": row.ShippingAmount,
+			"discount amount": row.DiscountAmount,
+			"vat amount":     row.VatAmount,
+			"grand total":    row.GrandTotal,
+		}
+
+		parsedFields := make(map[string]float64, len(fields))
+		for fieldName, fieldValue := range fields {
+			parsedValue, err := strconv.ParseFloat(fieldValue, 64)
+			if err != nil {
+				r.logger.Error(fmt.Sprintf("failed to parse %s", fieldName), zap.Error(err))
+				return fmt.Errorf("parse %s: %w", fieldName, err)
+			}
+			parsedFields[fieldName] = parsedValue
+		}
+
+		orderAmounts = model.OrderAmounts{
+			SubTotal:       parsedFields["subtotal"],
+			TaxAmount:      parsedFields["tax amount"],
+			ShippingAmount: parsedFields["shipping amount"],
+			DiscountAmount: parsedFields["discount amount"],
+			VatAmount:      parsedFields["vat amount"],
+			GrandTotal:     parsedFields["grand total"],
+		}
+		return nil
+	})
+
+	if err != nil {
+		r.logger.Error("update order amounts transaction failed", zap.Error(err))
+		return nil, fmt.Errorf("update order amounts transaction: %w", err)
+	}
+
+	return &orderAmounts, nil
 }

@@ -523,3 +523,28 @@ func (r *UserRepository) UpdateUserInfo(ctx context.Context, user database.Updat
 	r.logger.Info("User info updated successfully", zap.String("userID", user.ID.String()))
 	return nil
 }
+
+// UpdateUser updates a user
+func (r *UserRepository) UpdateUser(ctx context.Context, user model.UpdateUserParams) error {
+
+	err := r.execTx(ctx, func(q *database.Queries) error {
+		userParams := database.UpdateUserParams{
+			ID:          user.ID,
+			FirstName:   sql.NullString{String: user.FirstName, Valid: true},
+			LastName:    sql.NullString{String: user.LastName, Valid: true},
+			PhoneNumber: sql.NullString{String: user.PhoneNumber, Valid: true},
+		}
+		if err := q.UpdateUser(ctx, userParams); err != nil {
+			r.logger.Error("failed to update user", zap.Error(err))
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error("failed to update user", zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("User updated successfully", zap.String("userID", user.ID.String()))
+	return nil
+}

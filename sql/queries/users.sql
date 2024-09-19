@@ -136,3 +136,12 @@ SET
   date_of_birth     = COALESCE($6, date_of_birth),
   updated_at        = now()
 WHERE id = $1;
+
+-- name: UpdateUser :exec
+UPDATE users
+SET
+  first_name        = COALESCE($2, first_name),
+  last_name         = COALESCE($3, last_name),
+  phone_number      = COALESCE($4, phone_number),
+  updated_at        = now()
+WHERE id = $1;

@@ -84,3 +84,28 @@ type UpdateUserInfoParams struct {
 	AdminRequestReason string `json:"adminRequestReason"`
 	RequestAdmin       bool   `json:"requestAdmin"`
 }
+
+type UpdateUserParams struct {
+	ID          uuid.UUID `json:"id"`
+	FirstName   string    `json:"firstName"`
+	LastName    string    `json:"lastName"`
+	PhoneNumber string    `json:"phoneNumber"`
+}
+
+type CreateUserParams struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	FirstName   string `json:"firstName"`
+	LastName    string `json:"lastName"`
+	PhoneNumber string `json:"phoneNumber"`
+}
+
+type CreateGuestUserParams struct {
+	Email     string `json:"email"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Phone     string `json:"phone"`
+	City      string `json:"city"`
+	Country   string `json:"country"`
+	County    string `json:"county"`
+}

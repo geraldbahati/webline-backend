@@ -151,9 +151,27 @@ FROM users
 WHERE email = $1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+type GetUserByEmailRow struct {
+	ID              uuid.UUID
+	Email           string
+	HashedPassword  sql.NullString
+	FirstName       sql.NullString
+	LastName        sql.NullString
+	PhoneNumber     sql.NullString
+	ProfileImageUrl sql.NullString
+	DateOfBirth     sql.NullTime
+	IsActive        bool
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+	LastLogin       sql.NullTime
+	Provider        sql.NullString
+	ProviderID      sql.NullString
+	EmailVerifiedAt sql.NullTime
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
-	var i User
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -424,6 +442,33 @@ ON CONFLICT (user_id, role_id) DO NOTHING
 
 func (q *Queries) MakeAdmin(ctx context.Context, userID uuid.NullUUID) error {
 	_, err := q.db.ExecContext(ctx, makeAdmin, userID)
+	return err
+}
+
+const updateUser = `-- name: UpdateUser :exec
+UPDATE users
+SET
+  first_name        = COALESCE($2, first_name),
+  last_name         = COALESCE($3, last_name),
+  phone_number      = COALESCE($4, phone_number),
+  updated_at        = now()
+WHERE id = $1
+`
+
+type UpdateUserParams struct {
+	ID          uuid.UUID
+	FirstName   sql.NullString
+	LastName    sql.NullString
+	PhoneNumber sql.NullString
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
+	_, err := q.db.ExecContext(ctx, updateUser,
+		arg.ID,
+		arg.FirstName,
+		arg.LastName,
+		arg.PhoneNumber,
+	)
 	return err
 }
 

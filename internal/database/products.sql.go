@@ -285,6 +285,67 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 	return i, err
 }
 
+const getProductByIDs = `-- name: GetProductByIDs :many
+SELECT id, name, description, usd_price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
+FROM products
+WHERE id = ANY($1::uuid[])
+`
+
+type GetProductByIDsRow struct {
+	ID            uuid.UUID
+	Name          string
+	Description   sql.NullString
+	UsdPrice      string
+	Stock         sql.NullInt32
+	CategoryID    uuid.UUID
+	CreatedAt     sql.NullTime
+	UpdatedAt     sql.NullTime
+	Status        string
+	CreatedBy     uuid.NullUUID
+	UpdatedBy     uuid.NullUUID
+	Featured      sql.NullBool
+	SearchKeyword interface{}
+	Slug          string
+}
+
+func (q *Queries) GetProductByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetProductByIDsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getProductByIDs, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetProductByIDsRow
+	for rows.Next() {
+		var i GetProductByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.UsdPrice,
+			&i.Stock,
+			&i.CategoryID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Status,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.Featured,
+			&i.SearchKeyword,
+			&i.Slug,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getProductBySlug = `-- name: GetProductBySlug :one
 SELECT p.id, p.name, p.description, p.usd_price, p.stock, c.name AS category_name, p.created_at, p.updated_at, p.status, p.created_by, p.updated_by, p.featured, p.search_keyword, p.slug
 FROM products p

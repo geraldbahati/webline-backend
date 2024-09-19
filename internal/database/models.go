@@ -71,6 +71,17 @@ type CategoryHierarchyMv struct {
 	Position int32
 }
 
+type Company struct {
+	ID          uuid.UUID
+	Name        string
+	KraPin      string
+	Address     sql.NullString
+	PhoneNumber sql.NullString
+	Email       sql.NullString
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type Discount struct {
 	ID                 uuid.UUID
 	ProductID          uuid.NullUUID
@@ -113,16 +124,30 @@ type Order struct {
 	PaymentStatus   string
 	GuestCheckoutID uuid.NullUUID
 	OrderNumber     sql.NullString
+	CurrencyCode    string
+	Subtotal        string
+	TaxAmount       string
+	ShippingAmount  string
+	DiscountAmount  string
+	GrandTotal      string
+	CompanyID       uuid.NullUUID
+	CompanyName     sql.NullString
+	KraPin          sql.NullString
+	VatAmount       string
 }
 
 type OrderItem struct {
-	ID        uuid.UUID
-	OrderID   uuid.NullUUID
-	ProductID uuid.NullUUID
-	Quantity  int32
-	Price     string
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
+	ID             uuid.UUID
+	OrderID        uuid.NullUUID
+	ProductID      uuid.NullUUID
+	Quantity       int32
+	CreatedAt      sql.NullTime
+	UpdatedAt      sql.NullTime
+	ProductName    string
+	ProductSku     string
+	UnitPrice      string
+	TotalPrice     string
+	DiscountAmount string
 }
 
 type OrderItemOption struct {
@@ -347,6 +372,11 @@ type Role struct {
 	UpdatedAt   sql.NullTime
 }
 
+type Setting struct {
+	ID            bool
+	VatPercentage string
+}
+
 type Shipment struct {
 	ID             uuid.UUID
 	OrderID        uuid.NullUUID
@@ -384,6 +414,7 @@ type User struct {
 	Provider        sql.NullString
 	ProviderID      sql.NullString
 	EmailVerifiedAt sql.NullTime
+	CompanyID       uuid.NullUUID
 }
 
 type UserAddress struct {

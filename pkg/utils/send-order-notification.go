@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"strings"
+	"time"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 
@@ -18,162 +19,204 @@ type OrderItem struct {
 
 // SendOrderNotification sends an email notification for a new order.
 func SendOrderNotification(emailConfig *appconfig.Config, orderID uuid.UUID, orderParams *model.CreateOrderParams, orderItems []OrderItem) error {
-	if orderParams.PaymentOption == "delivery" {
-		orderParams.PaymentOption = "Pay On Delivery"
-	} else {
-		orderParams.PaymentOption = "Pay Now - Mpesa"
-	}
-	// Create a new email message
-	m := gomail.NewMessage()
-	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
-	m.SetHeader("To", emailConfig.ToEmail)
-	m.SetHeader("Subject", "New Order Notification")
+    // Create a new email message
+    m := gomail.NewMessage()
+    m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+    m.SetHeader("To", emailConfig.ToEmail)
+    m.SetHeader("Subject", "New Order Notification")
 
-	// Generate order items details
-	orderItemsDetails := generateOrderItemsDetails(orderItems)
+    // Generate order items details
+    orderItemsDetails := generateOrderItemsDetails(orderItems)
 
-	// Set email body
-	plainTextBody := fmt.Sprintf("A new order has been placed. Order ID: %s, User Email: %s", orderID, orderParams.Email)
-	htmlBody := fmt.Sprintf(`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<style>
-				body {
-					font-family: Arial, sans-serif;
-					color: #333333;
-				}
-				.container {
-					width: 80%%;
-					margin: auto;
-					padding: 20px;
-					border: 1px solid #dcdcdc;
-					border-radius: 10px;
-					background-color: #f9f9f9;
-				}
-				.header {
-					text-align: center;
-					padding: 10px 0;
-					background-color: #007BFF;
-					color: #ffffff;
-					border-radius: 10px 10px 0 0;
-				}
-				.content {
-					padding: 20px;
-				}
-				.footer {
-					text-align: center;
-					padding: 10px 0;
-					color: #999999;
-					font-size: 12px;
-				}
-				strong {
-					color: #007BFF;
-				}
-				.details {
-					margin: 20px 0;
-				}
-				.details th, .details td {
-					padding: 8px 12px;
-					text-align: left;
-				}
-				.details th {
-					background-color: #007BFF;
-					color: #ffffff;
-				}
-				.details tbody tr:nth-child(odd) {
-					background-color: #f2f2f2;
-				}
-			</style>
-		</head>
-		<body>
-			<div class="container">
-				<div class="header">
-					<h1>New Order Notification</h1>
-				</div>
-				<div class="content">
-					<p><strong>A new order has been placed.</strong></p>
-					<p>Order ID: <strong>%s</strong></p>
-					<p>Customer: <strong>%s %s</strong></p>
-					<p>Email: <strong>%s</strong></p>
-					<p>Phone: <strong>%s</strong></p>
-					<p>Address: <strong>%s, %s, %s, %s</strong></p>
-					<p>Shipping Option: <strong>%s</strong></p>
-					<p>Payment Method: <strong>%s</strong></p>
-					<p>Total: <strong>KES %s</strong></p>
-					<div class="details">
-						<h3>Order Items</h3>
-						<table>
-							<thead>
-								<tr>
-									<th>Product Name</th>
-									<th>Quantity</th>
-									<th>Price (KES)</th>
-								</tr>
-							</thead>
-							<tbody>
-								%s
-							</tbody>
-						</table>
-					</div>
-				</div>
-				<div class="footer">
-					<p>&copy; 2024 Webline Technologies Ltd. All rights reserved.</p>
-				</div>
-			</div>
-		</body>
-		</html>`, orderID, orderParams.FirstName, orderParams.LastName, orderParams.Email, orderParams.Phone, orderParams.StreetAddress, orderParams.City, orderParams.State, orderParams.Country, orderParams.ShippingOption, orderParams.PaymentOption, formatPrice(orderParams.Total), orderItemsDetails)
+    // Format the order date
+    orderDate := formatOrderDate(orderParams.OrderDate.Format(time.RFC3339))
 
-	m.SetBody("text/plain", plainTextBody)
-	m.AddAlternative("text/html", htmlBody)
+    // Set email body
+    plainTextBody := fmt.Sprintf("A new order has been placed. Order ID: %s, User Email: %s", orderID, orderParams.Email)
+    htmlBody := fmt.Sprintf(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>New Order Notification</title>
+        </head>
+        <body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
+            <table width="100%%" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td align="center" style="padding: 20px 0;">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 0 10px rgba(0,0,0,0.1);">
+                            <!-- Header -->
+                            <tr>
+                                <td style="background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%); color:#ffffff; padding: 20px; text-align:center;">
+                                    <h1 style="margin:0; font-size:24px;">New Order Received</h1>
+                                    <p style="margin:5px 0 0 0; font-size:14px;">Order ID: %s</p>
+                                </td>
+                            </tr>
+                            <!-- Content -->
+                            <tr>
+                                <td style="padding: 20px;">
+                                    <!-- Customer Details -->
+                                    <table width="100%%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td width="50%%" style="vertical-align: top;">
+                                                <h2 style="font-size:18px; color:#333333;">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#6a11cb" viewBox="0 0 16 16" style="vertical-align: middle; margin-right:5px;">
+                                                        <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+                                                        <path fill-rule="evenodd" d="M14 14s-1-4-6-4-6 4-6 4V12a6 6 0 1 1 12 0v2z"/>
+                                                    </svg>
+                                                    Customer Details
+                                                </h2>
+                                                <p><strong>Name:</strong> %s %s</p>
+                                                <p><strong>Email:</strong> %s</p>
+                                                <p><strong>Phone:</strong> %s</p>
+                                            </td>
+                                            <td width="50%%" style="vertical-align: top;">
+                                                <h2 style="font-size:18px; color:#333333;">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#6a11cb" viewBox="0 0 16 16" style="vertical-align: middle; margin-right:5px;">
+                                                        <path d="M3 0a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3H3zm10 1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h10z"/>
+                                                        <path d="M4 6h8v2H4V6z"/>
+                                                    </svg>
+                                                    Shipping Address
+                                                </h2>
+                                                <p>%s</p>
+                                                <p>%s, %s</p>
+                                                <p>%s</p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <!-- Order Details -->
+                                    <h2 style="font-size:18px; color:#333333; margin-top:20px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#6a11cb" viewBox="0 0 16 16" style="vertical-align: middle; margin-right:5px;">
+                                            <path d="M1 2a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm1 1v9h12V3H2z"/>
+                                            <path d="M4 6h8v2H4V6z"/>
+                                        </svg>
+                                        Order Details
+                                    </h2>
+                                    <table width="100%%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+                                        <thead>
+                                            <tr>
+                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:left;">Product</th>
+                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:center;">Quantity</th>
+                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:right;">Price (KES)</th>
+                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:right;">Total (KES)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            %s
+                                            <tr>
+                                                <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Subtotal</td>
+                                                <td style="padding:10px; text-align:right;">KES %s</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Discount</td>
+                                                <td style="padding:10px; text-align:right;">KES %s</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Total</td>
+                                                <td style="padding:10px; text-align:right; font-weight:bold;">KES %s</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <!-- Footer -->
+                            <tr>
+                                <td style="background-color:#f4f4f4; padding:20px; text-align:center;">
+                                    <p style="margin:0; font-size:12px; color:#777777;">Order placed on %s</p>
+                                    <a href="%s" style="display:inline-block; margin-top:10px; padding:10px 20px; background-color:#6a11cb; color:#ffffff; text-decoration:none; border-radius:5px; font-weight:bold;">Process Order</a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>`,
+        orderID,
+        orderParams.FirstName, orderParams.LastName,
+        orderParams.Email,
+        orderParams.Phone,
+        formatShippingAddress(orderParams.City, orderParams.County, orderParams.Country),
+        orderItemsDetails,
+        formatPrice(orderParams.SubTotal),
+        formatPrice(orderParams.DiscountAmount),
+        formatPrice(orderParams.GrandTotal),
+        orderDate,
+        fmt.Sprintf("%s/orders/%s", emailConfig.BackendURL, orderID.String()), // Link to process the order
+    )
 
-	// Configure the SMTP dialer
-	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+    m.SetBody("text/plain", plainTextBody)
+    m.AddAlternative("text/html", htmlBody)
 
-	// Send the email
-	if err := dialer.DialAndSend(m); err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
-	}
-	return nil
+    // Configure the SMTP dialer
+    dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+    // Send the email
+    if err := dialer.DialAndSend(m); err != nil {
+        return fmt.Errorf("failed to send email: %w", err)
+    }
+    return nil
 }
 
 // generateOrderItemsDetails creates the HTML rows for the order items table.
 func generateOrderItemsDetails(orderItems []OrderItem) string {
-	var sb strings.Builder
-	for _, item := range orderItems {
-		sb.WriteString(fmt.Sprintf(`
-			<tr>
-				<td>%s</td>
-				<td>%d</td>
-				<td>KES %s</td>
-			</tr>`, item.ProductName, item.Quantity, formatPrice(item.Price)))
-	}
-	return sb.String()
+    var sb strings.Builder
+    for _, item := range orderItems {
+        total := item.Price * float64(item.Quantity)
+        sb.WriteString(fmt.Sprintf(`
+            <tr>
+                <td style="padding:10px; border-bottom:1px solid #dddddd;">%s</td>
+                <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:center;">%d</td>
+                <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:right;">KES %s</td>
+                <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:right;">KES %s</td>
+            </tr>`,
+            item.ProductName,
+            item.Quantity,
+            formatPrice(item.Price),
+            formatPrice(total)))
+    }
+    return sb.String()
 }
 
 // formatPrice formats a float64 price with commas for better readability.
 func formatPrice(price float64) string {
-	priceStr := fmt.Sprintf("%.0f", price)
-	n := len(priceStr)
-	if n <= 3 {
-		return priceStr
-	}
-	var sb strings.Builder
-	mod := n % 3
-	if mod > 0 {
-		sb.WriteString(priceStr[:mod])
-		if n > mod {
-			sb.WriteString(",")
-		}
-	}
-	for i := mod; i < n; i += 3 {
-		if i > 0 {
-			sb.WriteString(",")
-		}
-		sb.WriteString(priceStr[i : i+3])
-	}
-	return sb.String()
+    priceStr := fmt.Sprintf("%.2f", price)
+    n := len(priceStr)
+    if n <= 6 {
+        return priceStr
+    }
+    var sb strings.Builder
+    mod := (n - 3) % 3
+    if mod > 0 {
+        sb.WriteString(priceStr[:mod])
+        if n > mod {
+            sb.WriteString(",")
+        }
+    }
+    for i := mod; i < n-3; i += 3 {
+        sb.WriteString(priceStr[i : i+3])
+        sb.WriteString(",")
+    }
+    sb.WriteString(priceStr[n-3:])
+    return sb.String()
 }
+
+// formatShippingAddress formats the shipping address without AddressLine1, AddressLine2, and ZipCode.
+func formatShippingAddress(city, state, country string) string {
+    return fmt.Sprintf("%s, %s, %s", city, state, country)
+}
+
+// formatOrderDate formats the order date string.
+func formatOrderDate(orderDate string) string {
+    // Assuming orderDate is in RFC3339 format, e.g., "2023-06-15T14:30:00Z"
+    t, err := time.Parse(time.RFC3339, orderDate)
+    if err != nil {
+        return orderDate // Return as is if parsing fails
+    }
+    return t.Format("January 2, 2006 at 15:04 PM MST")
+}
+
 
 // SendInquiryEmail sends an email with the user's product inquiry.
 func SendInquiryEmail(emailConfig *appconfig.Config, productName, userEmail, userMessage string) error {
