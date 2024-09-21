@@ -44,12 +44,12 @@ type GetUserRecommendationsRow struct {
 }
 
 func (q *Queries) GetUserRecommendations(ctx context.Context, arg GetUserRecommendationsParams) ([]GetUserRecommendationsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserRecommendations, arg.UserID, arg.Limit)
+	rows, err := q.query(ctx, q.getUserRecommendationsStmt, getUserRecommendations, arg.UserID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetUserRecommendationsRow
+	items := []GetUserRecommendationsRow{}
 	for rows.Next() {
 		var i GetUserRecommendationsRow
 		if err := rows.Scan(

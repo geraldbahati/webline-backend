@@ -33,7 +33,7 @@ type StoreRefreshTokenRow struct {
 }
 
 func (q *Queries) StoreRefreshToken(ctx context.Context, arg StoreRefreshTokenParams) (StoreRefreshTokenRow, error) {
-	row := q.db.QueryRowContext(ctx, storeRefreshToken, arg.UserID, arg.Token, arg.ExpiresAt)
+	row := q.queryRow(ctx, q.storeRefreshTokenStmt, storeRefreshToken, arg.UserID, arg.Token, arg.ExpiresAt)
 	var i StoreRefreshTokenRow
 	err := row.Scan(
 		&i.ID,

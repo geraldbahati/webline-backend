@@ -42,7 +42,7 @@ type GetProductSEORow struct {
 }
 
 func (q *Queries) GetProductSEO(ctx context.Context, slug string) (GetProductSEORow, error) {
-	row := q.db.QueryRowContext(ctx, getProductSEO, slug)
+	row := q.queryRow(ctx, q.getProductSEOStmt, getProductSEO, slug)
 	var i GetProductSEORow
 	err := row.Scan(
 		&i.ID,
@@ -77,7 +77,7 @@ type UpdateProductSEOParams struct {
 }
 
 func (q *Queries) UpdateProductSEO(ctx context.Context, arg UpdateProductSEOParams) error {
-	_, err := q.db.ExecContext(ctx, updateProductSEO,
+	_, err := q.exec(ctx, q.updateProductSEOStmt, updateProductSEO,
 		arg.ID,
 		arg.PartNumber,
 		arg.MetaTitle,

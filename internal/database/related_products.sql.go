@@ -23,7 +23,7 @@ type CreateRelatedProductParams struct {
 }
 
 func (q *Queries) CreateRelatedProduct(ctx context.Context, arg CreateRelatedProductParams) (RelatedProduct, error) {
-	row := q.db.QueryRowContext(ctx, createRelatedProduct, arg.ProductID, arg.RelatedProductID)
+	row := q.queryRow(ctx, q.createRelatedProductStmt, createRelatedProduct, arg.ProductID, arg.RelatedProductID)
 	var i RelatedProduct
 	err := row.Scan(&i.ProductID, &i.RelatedProductID)
 	return i, err
@@ -40,7 +40,7 @@ type DeleteRelatedProductParams struct {
 }
 
 func (q *Queries) DeleteRelatedProduct(ctx context.Context, arg DeleteRelatedProductParams) error {
-	_, err := q.db.ExecContext(ctx, deleteRelatedProduct, arg.ProductID, arg.RelatedProductID)
+	_, err := q.exec(ctx, q.deleteRelatedProductStmt, deleteRelatedProduct, arg.ProductID, arg.RelatedProductID)
 	return err
 }
 
@@ -51,7 +51,7 @@ WHERE product_id = $1
 `
 
 func (q *Queries) GetRelatedProductByProductID(ctx context.Context, productID uuid.UUID) (RelatedProduct, error) {
-	row := q.db.QueryRowContext(ctx, getRelatedProductByProductID, productID)
+	row := q.queryRow(ctx, q.getRelatedProductByProductIDStmt, getRelatedProductByProductID, productID)
 	var i RelatedProduct
 	err := row.Scan(&i.ProductID, &i.RelatedProductID)
 	return i, err
@@ -65,12 +65,12 @@ ORDER BY related_product_id
 `
 
 func (q *Queries) ListRelatedProductsByProductID(ctx context.Context, productID uuid.UUID) ([]RelatedProduct, error) {
-	rows, err := q.db.QueryContext(ctx, listRelatedProductsByProductID, productID)
+	rows, err := q.query(ctx, q.listRelatedProductsByProductIDStmt, listRelatedProductsByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []RelatedProduct
+	items := []RelatedProduct{}
 	for rows.Next() {
 		var i RelatedProduct
 		if err := rows.Scan(&i.ProductID, &i.RelatedProductID); err != nil {

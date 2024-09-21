@@ -20,7 +20,7 @@ WHERE shopping_cart_id = $1
 
 // Calculate the total price of items in the cart
 func (q *Queries) CalculateCartTotal(ctx context.Context, shoppingCartID uuid.NullUUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, calculateCartTotal, shoppingCartID)
+	row := q.queryRow(ctx, q.calculateCartTotalStmt, calculateCartTotal, shoppingCartID)
 	var total_price int64
 	err := row.Scan(&total_price)
 	return total_price, err
@@ -33,7 +33,7 @@ WHERE shopping_cart_id = $1
 
 // Remove all items from the cart
 func (q *Queries) ClearCart(ctx context.Context, shoppingCartID uuid.NullUUID) error {
-	_, err := q.db.ExecContext(ctx, clearCart, shoppingCartID)
+	_, err := q.exec(ctx, q.clearCartStmt, clearCart, shoppingCartID)
 	return err
 }
 
@@ -55,12 +55,12 @@ type GetAllCartItemsRow struct {
 
 // Get all items in the cart
 func (q *Queries) GetAllCartItems(ctx context.Context, shoppingCartID uuid.NullUUID) ([]GetAllCartItemsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllCartItems, shoppingCartID)
+	rows, err := q.query(ctx, q.getAllCartItemsStmt, getAllCartItems, shoppingCartID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllCartItemsRow
+	items := []GetAllCartItemsRow{}
 	for rows.Next() {
 		var i GetAllCartItemsRow
 		if err := rows.Scan(
@@ -102,7 +102,7 @@ type GetCartItemRow struct {
 
 // Get a cart item
 func (q *Queries) GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCartItemRow, error) {
-	row := q.db.QueryRowContext(ctx, getCartItem, arg.ShoppingCartID, arg.ProductID)
+	row := q.queryRow(ctx, q.getCartItemStmt, getCartItem, arg.ShoppingCartID, arg.ProductID)
 	var i GetCartItemRow
 	err := row.Scan(&i.ID, &i.Quantity)
 	return i, err
@@ -120,7 +120,7 @@ type RemoveCartItemParams struct {
 
 // Remove an item from the cart
 func (q *Queries) RemoveCartItem(ctx context.Context, arg RemoveCartItemParams) error {
-	_, err := q.db.ExecContext(ctx, removeCartItem, arg.ShoppingCartID, arg.ProductID)
+	_, err := q.exec(ctx, q.removeCartItemStmt, removeCartItem, arg.ShoppingCartID, arg.ProductID)
 	return err
 }
 
@@ -138,7 +138,7 @@ type UpdateCartItemQuantityParams struct {
 
 // Update the quantity of an item in the cart
 func (q *Queries) UpdateCartItemQuantity(ctx context.Context, arg UpdateCartItemQuantityParams) error {
-	_, err := q.db.ExecContext(ctx, updateCartItemQuantity, arg.ShoppingCartID, arg.ProductID, arg.Quantity)
+	_, err := q.exec(ctx, q.updateCartItemQuantityStmt, updateCartItemQuantity, arg.ShoppingCartID, arg.ProductID, arg.Quantity)
 	return err
 }
 
@@ -169,7 +169,7 @@ type UpsertCartItemRow struct {
 
 // Insert or update the item in the cart
 func (q *Queries) UpsertCartItem(ctx context.Context, arg UpsertCartItemParams) (UpsertCartItemRow, error) {
-	row := q.db.QueryRowContext(ctx, upsertCartItem,
+	row := q.queryRow(ctx, q.upsertCartItemStmt, upsertCartItem,
 		arg.ShoppingCartID,
 		arg.ProductID,
 		arg.Quantity,

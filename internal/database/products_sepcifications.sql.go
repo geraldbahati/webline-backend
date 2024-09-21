@@ -24,7 +24,7 @@ type CreateProductSpecificationParams struct {
 }
 
 func (q *Queries) CreateProductSpecification(ctx context.Context, arg CreateProductSpecificationParams) (ProductSpecification, error) {
-	row := q.db.QueryRowContext(ctx, createProductSpecification, arg.ProductID, arg.SpecName, arg.SpecValue)
+	row := q.queryRow(ctx, q.createProductSpecificationStmt, createProductSpecification, arg.ProductID, arg.SpecName, arg.SpecValue)
 	var i ProductSpecification
 	err := row.Scan(
 		&i.ID,
@@ -43,7 +43,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteProductSpecification(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductSpecification, id)
+	_, err := q.exec(ctx, q.deleteProductSpecificationStmt, deleteProductSpecification, id)
 	return err
 }
 
@@ -54,7 +54,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetProductSpecificationByID(ctx context.Context, id uuid.UUID) (ProductSpecification, error) {
-	row := q.db.QueryRowContext(ctx, getProductSpecificationByID, id)
+	row := q.queryRow(ctx, q.getProductSpecificationByIDStmt, getProductSpecificationByID, id)
 	var i ProductSpecification
 	err := row.Scan(
 		&i.ID,
@@ -75,12 +75,12 @@ ORDER BY spec_name
 `
 
 func (q *Queries) ListProductSpecificationsByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductSpecification, error) {
-	rows, err := q.db.QueryContext(ctx, listProductSpecificationsByProductID, productID)
+	rows, err := q.query(ctx, q.listProductSpecificationsByProductIDStmt, listProductSpecificationsByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductSpecification
+	items := []ProductSpecification{}
 	for rows.Next() {
 		var i ProductSpecification
 		if err := rows.Scan(
@@ -118,7 +118,7 @@ type UpdateProductSpecificationParams struct {
 }
 
 func (q *Queries) UpdateProductSpecification(ctx context.Context, arg UpdateProductSpecificationParams) (ProductSpecification, error) {
-	row := q.db.QueryRowContext(ctx, updateProductSpecification, arg.ID, arg.SpecName, arg.SpecValue)
+	row := q.queryRow(ctx, q.updateProductSpecificationStmt, updateProductSpecification, arg.ID, arg.SpecName, arg.SpecValue)
 	var i ProductSpecification
 	err := row.Scan(
 		&i.ID,
@@ -146,7 +146,7 @@ type UpsertProductSpecificationParams struct {
 }
 
 func (q *Queries) UpsertProductSpecification(ctx context.Context, arg UpsertProductSpecificationParams) (ProductSpecification, error) {
-	row := q.db.QueryRowContext(ctx, upsertProductSpecification, arg.ProductID, arg.SpecName, arg.SpecValue)
+	row := q.queryRow(ctx, q.upsertProductSpecificationStmt, upsertProductSpecification, arg.ProductID, arg.SpecName, arg.SpecValue)
 	var i ProductSpecification
 	err := row.Scan(
 		&i.ID,

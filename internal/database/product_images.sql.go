@@ -24,7 +24,7 @@ type CreateProductImageParams struct {
 }
 
 func (q *Queries) CreateProductImage(ctx context.Context, arg CreateProductImageParams) (ProductImage, error) {
-	row := q.db.QueryRowContext(ctx, createProductImage, arg.ProductID, arg.ImageUrl)
+	row := q.queryRow(ctx, q.createProductImageStmt, createProductImage, arg.ProductID, arg.ImageUrl)
 	var i ProductImage
 	err := row.Scan(
 		&i.ID,
@@ -43,7 +43,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteProductImage(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductImage, id)
+	_, err := q.exec(ctx, q.deleteProductImageStmt, deleteProductImage, id)
 	return err
 }
 
@@ -52,12 +52,12 @@ SELECT image_url FROM product_images WHERE product_id = $1
 `
 
 func (q *Queries) GetImageKeysByProductID(ctx context.Context, productID uuid.NullUUID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, getImageKeysByProductID, productID)
+	rows, err := q.query(ctx, q.getImageKeysByProductIDStmt, getImageKeysByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	items := []string{}
 	for rows.Next() {
 		var image_url string
 		if err := rows.Scan(&image_url); err != nil {
@@ -81,7 +81,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetProductImageByID(ctx context.Context, id uuid.UUID) (ProductImage, error) {
-	row := q.db.QueryRowContext(ctx, getProductImageByID, id)
+	row := q.queryRow(ctx, q.getProductImageByIDStmt, getProductImageByID, id)
 	var i ProductImage
 	err := row.Scan(
 		&i.ID,
@@ -102,12 +102,12 @@ ORDER BY position
 `
 
 func (q *Queries) ListProductImagesByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductImage, error) {
-	rows, err := q.db.QueryContext(ctx, listProductImagesByProductID, productID)
+	rows, err := q.query(ctx, q.listProductImagesByProductIDStmt, listProductImagesByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductImage
+	items := []ProductImage{}
 	for rows.Next() {
 		var i ProductImage
 		if err := rows.Scan(
@@ -144,7 +144,7 @@ type UpdateProductImageParams struct {
 }
 
 func (q *Queries) UpdateProductImage(ctx context.Context, arg UpdateProductImageParams) (ProductImage, error) {
-	row := q.db.QueryRowContext(ctx, updateProductImage, arg.ID, arg.ImageUrl)
+	row := q.queryRow(ctx, q.updateProductImageStmt, updateProductImage, arg.ID, arg.ImageUrl)
 	var i ProductImage
 	err := row.Scan(
 		&i.ID,
@@ -177,6 +177,6 @@ type UpdateProductImagesParams struct {
 }
 
 func (q *Queries) UpdateProductImages(ctx context.Context, arg UpdateProductImagesParams) error {
-	_, err := q.db.ExecContext(ctx, updateProductImages, arg.ProductID, pq.Array(arg.Column2))
+	_, err := q.exec(ctx, q.updateProductImagesStmt, updateProductImages, arg.ProductID, pq.Array(arg.Column2))
 	return err
 }

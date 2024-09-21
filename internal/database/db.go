@@ -7,6 +7,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"fmt"
 )
 
 type DBTX interface {
@@ -20,12 +21,2368 @@ func New(db DBTX) *Queries {
 	return &Queries{db: db}
 }
 
+func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
+	q := Queries{db: db}
+	var err error
+	if q.activateProductsBySlugsStmt, err = db.PrepareContext(ctx, activateProductsBySlugs); err != nil {
+		return nil, fmt.Errorf("error preparing query ActivateProductsBySlugs: %w", err)
+	}
+	if q.activatePromotionsStmt, err = db.PrepareContext(ctx, activatePromotions); err != nil {
+		return nil, fmt.Errorf("error preparing query ActivatePromotions: %w", err)
+	}
+	if q.addProductToPromotionStmt, err = db.PrepareContext(ctx, addProductToPromotion); err != nil {
+		return nil, fmt.Errorf("error preparing query AddProductToPromotion: %w", err)
+	}
+	if q.addProductsToPromotionStmt, err = db.PrepareContext(ctx, addProductsToPromotion); err != nil {
+		return nil, fmt.Errorf("error preparing query AddProductsToPromotion: %w", err)
+	}
+	if q.approveAdminRequestStmt, err = db.PrepareContext(ctx, approveAdminRequest); err != nil {
+		return nil, fmt.Errorf("error preparing query ApproveAdminRequest: %w", err)
+	}
+	if q.archiveProductByIDStmt, err = db.PrepareContext(ctx, archiveProductByID); err != nil {
+		return nil, fmt.Errorf("error preparing query ArchiveProductByID: %w", err)
+	}
+	if q.archiveProductsBySlugsStmt, err = db.PrepareContext(ctx, archiveProductsBySlugs); err != nil {
+		return nil, fmt.Errorf("error preparing query ArchiveProductsBySlugs: %w", err)
+	}
+	if q.archivePromotionsStmt, err = db.PrepareContext(ctx, archivePromotions); err != nil {
+		return nil, fmt.Errorf("error preparing query ArchivePromotions: %w", err)
+	}
+	if q.assignRoleToUserStmt, err = db.PrepareContext(ctx, assignRoleToUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AssignRoleToUser: %w", err)
+	}
+	if q.calculateCartTotalStmt, err = db.PrepareContext(ctx, calculateCartTotal); err != nil {
+		return nil, fmt.Errorf("error preparing query CalculateCartTotal: %w", err)
+	}
+	if q.cancelOrderStmt, err = db.PrepareContext(ctx, cancelOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query CancelOrder: %w", err)
+	}
+	if q.changeOrderPaymentMethodStmt, err = db.PrepareContext(ctx, changeOrderPaymentMethod); err != nil {
+		return nil, fmt.Errorf("error preparing query ChangeOrderPaymentMethod: %w", err)
+	}
+	if q.checkCategoryExistenceStmt, err = db.PrepareContext(ctx, checkCategoryExistence); err != nil {
+		return nil, fmt.Errorf("error preparing query CheckCategoryExistence: %w", err)
+	}
+	if q.clearCartStmt, err = db.PrepareContext(ctx, clearCart); err != nil {
+		return nil, fmt.Errorf("error preparing query ClearCart: %w", err)
+	}
+	if q.countAllProductsByFiltersStmt, err = db.PrepareContext(ctx, countAllProductsByFilters); err != nil {
+		return nil, fmt.Errorf("error preparing query CountAllProductsByFilters: %w", err)
+	}
+	if q.countAllUsersStmt, err = db.PrepareContext(ctx, countAllUsers); err != nil {
+		return nil, fmt.Errorf("error preparing query CountAllUsers: %w", err)
+	}
+	if q.countProductsStmt, err = db.PrepareContext(ctx, countProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query CountProducts: %w", err)
+	}
+	if q.countProductsByParentCategoryIDStmt, err = db.PrepareContext(ctx, countProductsByParentCategoryID); err != nil {
+		return nil, fmt.Errorf("error preparing query CountProductsByParentCategoryID: %w", err)
+	}
+	if q.createAdminRequestStmt, err = db.PrepareContext(ctx, createAdminRequest); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateAdminRequest: %w", err)
+	}
+	if q.createCategoryStmt, err = db.PrepareContext(ctx, createCategory); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCategory: %w", err)
+	}
+	if q.createCompanyStmt, err = db.PrepareContext(ctx, createCompany); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCompany: %w", err)
+	}
+	if q.createDiscountStmt, err = db.PrepareContext(ctx, createDiscount); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateDiscount: %w", err)
+	}
+	if q.createGuestCheckoutStmt, err = db.PrepareContext(ctx, createGuestCheckout); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateGuestCheckout: %w", err)
+	}
+	if q.createOrderStmt, err = db.PrepareContext(ctx, createOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateOrder: %w", err)
+	}
+	if q.createOrderItemStmt, err = db.PrepareContext(ctx, createOrderItem); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateOrderItem: %w", err)
+	}
+	if q.createOrderItemOptionStmt, err = db.PrepareContext(ctx, createOrderItemOption); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateOrderItemOption: %w", err)
+	}
+	if q.createOrderItemsStmt, err = db.PrepareContext(ctx, createOrderItems); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateOrderItems: %w", err)
+	}
+	if q.createPaymentStmt, err = db.PrepareContext(ctx, createPayment); err != nil {
+		return nil, fmt.Errorf("error preparing query CreatePayment: %w", err)
+	}
+	if q.createProductStmt, err = db.PrepareContext(ctx, createProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProduct: %w", err)
+	}
+	if q.createProductAttributeStmt, err = db.PrepareContext(ctx, createProductAttribute); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductAttribute: %w", err)
+	}
+	if q.createProductAttributeValueStmt, err = db.PrepareContext(ctx, createProductAttributeValue); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductAttributeValue: %w", err)
+	}
+	if q.createProductImageStmt, err = db.PrepareContext(ctx, createProductImage); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductImage: %w", err)
+	}
+	if q.createProductOptionStmt, err = db.PrepareContext(ctx, createProductOption); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductOption: %w", err)
+	}
+	if q.createProductOptionValueStmt, err = db.PrepareContext(ctx, createProductOptionValue); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductOptionValue: %w", err)
+	}
+	if q.createProductSpecificationStmt, err = db.PrepareContext(ctx, createProductSpecification); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductSpecification: %w", err)
+	}
+	if q.createProductToAttributeValueStmt, err = db.PrepareContext(ctx, createProductToAttributeValue); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductToAttributeValue: %w", err)
+	}
+	if q.createProductVariantStmt, err = db.PrepareContext(ctx, createProductVariant); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductVariant: %w", err)
+	}
+	if q.createPromotionStmt, err = db.PrepareContext(ctx, createPromotion); err != nil {
+		return nil, fmt.Errorf("error preparing query CreatePromotion: %w", err)
+	}
+	if q.createRelatedProductStmt, err = db.PrepareContext(ctx, createRelatedProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateRelatedProduct: %w", err)
+	}
+	if q.createRoleStmt, err = db.PrepareContext(ctx, createRole); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateRole: %w", err)
+	}
+	if q.createShoppingCartStmt, err = db.PrepareContext(ctx, createShoppingCart); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateShoppingCart: %w", err)
+	}
+	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
+	}
+	if q.createVerificationTokenStmt, err = db.PrepareContext(ctx, createVerificationToken); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateVerificationToken: %w", err)
+	}
+	if q.deactivateUserStmt, err = db.PrepareContext(ctx, deactivateUser); err != nil {
+		return nil, fmt.Errorf("error preparing query DeactivateUser: %w", err)
+	}
+	if q.deleteApprovalTokenStmt, err = db.PrepareContext(ctx, deleteApprovalToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteApprovalToken: %w", err)
+	}
+	if q.deleteDiscountStmt, err = db.PrepareContext(ctx, deleteDiscount); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteDiscount: %w", err)
+	}
+	if q.deleteExchangeRateStmt, err = db.PrepareContext(ctx, deleteExchangeRate); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExchangeRate: %w", err)
+	}
+	if q.deleteExpiredTResetsStmt, err = db.PrepareContext(ctx, deleteExpiredTResets); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExpiredTResets: %w", err)
+	}
+	if q.deleteExpiredTokensStmt, err = db.PrepareContext(ctx, deleteExpiredTokens); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExpiredTokens: %w", err)
+	}
+	if q.deletePasswordResetTokenStmt, err = db.PrepareContext(ctx, deletePasswordResetToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeletePasswordResetToken: %w", err)
+	}
+	if q.deleteProductByIDStmt, err = db.PrepareContext(ctx, deleteProductByID); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductByID: %w", err)
+	}
+	if q.deleteProductImageStmt, err = db.PrepareContext(ctx, deleteProductImage); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductImage: %w", err)
+	}
+	if q.deleteProductImagesByProductIDStmt, err = db.PrepareContext(ctx, deleteProductImagesByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductImagesByProductID: %w", err)
+	}
+	if q.deleteProductOptionStmt, err = db.PrepareContext(ctx, deleteProductOption); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductOption: %w", err)
+	}
+	if q.deleteProductOptionValueStmt, err = db.PrepareContext(ctx, deleteProductOptionValue); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductOptionValue: %w", err)
+	}
+	if q.deleteProductSpecificationStmt, err = db.PrepareContext(ctx, deleteProductSpecification); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductSpecification: %w", err)
+	}
+	if q.deleteProductSpecificationsByProductIDStmt, err = db.PrepareContext(ctx, deleteProductSpecificationsByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductSpecificationsByProductID: %w", err)
+	}
+	if q.deleteProductVariantStmt, err = db.PrepareContext(ctx, deleteProductVariant); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductVariant: %w", err)
+	}
+	if q.deleteProductsBySlugsStmt, err = db.PrepareContext(ctx, deleteProductsBySlugs); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductsBySlugs: %w", err)
+	}
+	if q.deletePromotionStmt, err = db.PrepareContext(ctx, deletePromotion); err != nil {
+		return nil, fmt.Errorf("error preparing query DeletePromotion: %w", err)
+	}
+	if q.deletePromotionsStmt, err = db.PrepareContext(ctx, deletePromotions); err != nil {
+		return nil, fmt.Errorf("error preparing query DeletePromotions: %w", err)
+	}
+	if q.deleteRelatedProductStmt, err = db.PrepareContext(ctx, deleteRelatedProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteRelatedProduct: %w", err)
+	}
+	if q.deleteRoleStmt, err = db.PrepareContext(ctx, deleteRole); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteRole: %w", err)
+	}
+	if q.deleteShoppingCartStmt, err = db.PrepareContext(ctx, deleteShoppingCart); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteShoppingCart: %w", err)
+	}
+	if q.deleteUserStmt, err = db.PrepareContext(ctx, deleteUser); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteUser: %w", err)
+	}
+	if q.deleteVerificationTokenByTokenStmt, err = db.PrepareContext(ctx, deleteVerificationTokenByToken); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteVerificationTokenByToken: %w", err)
+	}
+	if q.deleteVerificationTokensByEmailStmt, err = db.PrepareContext(ctx, deleteVerificationTokensByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteVerificationTokensByEmail: %w", err)
+	}
+	if q.draftProductsBySlugsStmt, err = db.PrepareContext(ctx, draftProductsBySlugs); err != nil {
+		return nil, fmt.Errorf("error preparing query DraftProductsBySlugs: %w", err)
+	}
+	if q.draftPromotionsStmt, err = db.PrepareContext(ctx, draftPromotions); err != nil {
+		return nil, fmt.Errorf("error preparing query DraftPromotions: %w", err)
+	}
+	if q.getActiveDiscountsByProductIDsStmt, err = db.PrepareContext(ctx, getActiveDiscountsByProductIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetActiveDiscountsByProductIDs: %w", err)
+	}
+	if q.getAdminRequestByIDStmt, err = db.PrepareContext(ctx, getAdminRequestByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAdminRequestByID: %w", err)
+	}
+	if q.getAdminRequestByUserIDStmt, err = db.PrepareContext(ctx, getAdminRequestByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAdminRequestByUserID: %w", err)
+	}
+	if q.getAdminRequestsByUserIDStmt, err = db.PrepareContext(ctx, getAdminRequestsByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAdminRequestsByUserID: %w", err)
+	}
+	if q.getAllCartItemsStmt, err = db.PrepareContext(ctx, getAllCartItems); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllCartItems: %w", err)
+	}
+	if q.getAllExchangeRatesForCurrencyStmt, err = db.PrepareContext(ctx, getAllExchangeRatesForCurrency); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllExchangeRatesForCurrency: %w", err)
+	}
+	if q.getAllPaymentsStmt, err = db.PrepareContext(ctx, getAllPayments); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllPayments: %w", err)
+	}
+	if q.getAllProductsByFiltersNameAscStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNameAsc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNameAsc: %w", err)
+	}
+	if q.getAllProductsByFiltersNameDescStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNameDesc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNameDesc: %w", err)
+	}
+	if q.getAllProductsByFiltersNewestStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNewest); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNewest: %w", err)
+	}
+	if q.getAllProductsByFiltersOldestStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersOldest); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersOldest: %w", err)
+	}
+	if q.getAllProductsByFiltersPriceAscStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersPriceAsc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersPriceAsc: %w", err)
+	}
+	if q.getAllProductsByFiltersPriceDescStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersPriceDesc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersPriceDesc: %w", err)
+	}
+	if q.getAllRolesStmt, err = db.PrepareContext(ctx, getAllRoles); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllRoles: %w", err)
+	}
+	if q.getApprovalTokenStmt, err = db.PrepareContext(ctx, getApprovalToken); err != nil {
+		return nil, fmt.Errorf("error preparing query GetApprovalToken: %w", err)
+	}
+	if q.getBestSellerProductsStmt, err = db.PrepareContext(ctx, getBestSellerProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBestSellerProducts: %w", err)
+	}
+	if q.getCartItemStmt, err = db.PrepareContext(ctx, getCartItem); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCartItem: %w", err)
+	}
+	if q.getCategoriesByParentIDStmt, err = db.PrepareContext(ctx, getCategoriesByParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoriesByParentID: %w", err)
+	}
+	if q.getCategoriesWithProductsCountStmt, err = db.PrepareContext(ctx, getCategoriesWithProductsCount); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoriesWithProductsCount: %w", err)
+	}
+	if q.getCategoriesWithSubcategoryCountStmt, err = db.PrepareContext(ctx, getCategoriesWithSubcategoryCount); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoriesWithSubcategoryCount: %w", err)
+	}
+	if q.getCategoryByIDStmt, err = db.PrepareContext(ctx, getCategoryByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryByID: %w", err)
+	}
+	if q.getCategoryByNameStmt, err = db.PrepareContext(ctx, getCategoryByName); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryByName: %w", err)
+	}
+	if q.getCategoryBySlugStmt, err = db.PrepareContext(ctx, getCategoryBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryBySlug: %w", err)
+	}
+	if q.getCategoryDetailsBySlugStmt, err = db.PrepareContext(ctx, getCategoryDetailsBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryDetailsBySlug: %w", err)
+	}
+	if q.getCategoryProductsByFiltersNameAscStmt, err = db.PrepareContext(ctx, getCategoryProductsByFiltersNameAsc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryProductsByFiltersNameAsc: %w", err)
+	}
+	if q.getCategoryProductsByFiltersNameDescStmt, err = db.PrepareContext(ctx, getCategoryProductsByFiltersNameDesc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryProductsByFiltersNameDesc: %w", err)
+	}
+	if q.getCategoryProductsByFiltersNewestStmt, err = db.PrepareContext(ctx, getCategoryProductsByFiltersNewest); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryProductsByFiltersNewest: %w", err)
+	}
+	if q.getCategoryProductsByFiltersOldestStmt, err = db.PrepareContext(ctx, getCategoryProductsByFiltersOldest); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryProductsByFiltersOldest: %w", err)
+	}
+	if q.getCategoryProductsByFiltersPriceAscStmt, err = db.PrepareContext(ctx, getCategoryProductsByFiltersPriceAsc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryProductsByFiltersPriceAsc: %w", err)
+	}
+	if q.getCategoryProductsByFiltersPriceDescStmt, err = db.PrepareContext(ctx, getCategoryProductsByFiltersPriceDesc); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryProductsByFiltersPriceDesc: %w", err)
+	}
+	if q.getCategorySEOBySlugStmt, err = db.PrepareContext(ctx, getCategorySEOBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategorySEOBySlug: %w", err)
+	}
+	if q.getCategoryTreeStmt, err = db.PrepareContext(ctx, getCategoryTree); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryTree: %w", err)
+	}
+	if q.getCompanyStmt, err = db.PrepareContext(ctx, getCompany); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCompany: %w", err)
+	}
+	if q.getDailyDealsStmt, err = db.PrepareContext(ctx, getDailyDeals); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDailyDeals: %w", err)
+	}
+	if q.getDiscountByIDStmt, err = db.PrepareContext(ctx, getDiscountByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDiscountByID: %w", err)
+	}
+	if q.getDiscountByProductIDStmt, err = db.PrepareContext(ctx, getDiscountByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDiscountByProductID: %w", err)
+	}
+	if q.getFeaturedProductsStmt, err = db.PrepareContext(ctx, getFeaturedProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFeaturedProducts: %w", err)
+	}
+	if q.getGuestCheckoutByEmailStmt, err = db.PrepareContext(ctx, getGuestCheckoutByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetGuestCheckoutByEmail: %w", err)
+	}
+	if q.getImageKeysByProductIDStmt, err = db.PrepareContext(ctx, getImageKeysByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetImageKeysByProductID: %w", err)
+	}
+	if q.getLatestExchangeRateStmt, err = db.PrepareContext(ctx, getLatestExchangeRate); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLatestExchangeRate: %w", err)
+	}
+	if q.getMonthlyRevenueStmt, err = db.PrepareContext(ctx, getMonthlyRevenue); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMonthlyRevenue: %w", err)
+	}
+	if q.getMonthlySalesStmt, err = db.PrepareContext(ctx, getMonthlySales); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMonthlySales: %w", err)
+	}
+	if q.getMonthlySalesForLastTwoMonthsStmt, err = db.PrepareContext(ctx, getMonthlySalesForLastTwoMonths); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMonthlySalesForLastTwoMonths: %w", err)
+	}
+	if q.getNewArrivalProductsStmt, err = db.PrepareContext(ctx, getNewArrivalProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query GetNewArrivalProducts: %w", err)
+	}
+	if q.getOrderByIdStmt, err = db.PrepareContext(ctx, getOrderById); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOrderById: %w", err)
+	}
+	if q.getOrderIDsByUserIDStmt, err = db.PrepareContext(ctx, getOrderIDsByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOrderIDsByUserID: %w", err)
+	}
+	if q.getOrderItemsByOrderIdStmt, err = db.PrepareContext(ctx, getOrderItemsByOrderId); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOrderItemsByOrderId: %w", err)
+	}
+	if q.getOrdersByGuestCheckoutIdStmt, err = db.PrepareContext(ctx, getOrdersByGuestCheckoutId); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOrdersByGuestCheckoutId: %w", err)
+	}
+	if q.getOrdersByUserIdStmt, err = db.PrepareContext(ctx, getOrdersByUserId); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOrdersByUserId: %w", err)
+	}
+	if q.getParentCategoriesStmt, err = db.PrepareContext(ctx, getParentCategories); err != nil {
+		return nil, fmt.Errorf("error preparing query GetParentCategories: %w", err)
+	}
+	if q.getPasswordResetTokenStmt, err = db.PrepareContext(ctx, getPasswordResetToken); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPasswordResetToken: %w", err)
+	}
+	if q.getPaymentByOrderIDStmt, err = db.PrepareContext(ctx, getPaymentByOrderID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPaymentByOrderID: %w", err)
+	}
+	if q.getPaymentStatusIDByStatusStmt, err = db.PrepareContext(ctx, getPaymentStatusIDByStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPaymentStatusIDByStatus: %w", err)
+	}
+	if q.getPendingAdminRequestsStmt, err = db.PrepareContext(ctx, getPendingAdminRequests); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPendingAdminRequests: %w", err)
+	}
+	if q.getProductAttributesStmt, err = db.PrepareContext(ctx, getProductAttributes); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductAttributes: %w", err)
+	}
+	if q.getProductAttributesByCategoryIDStmt, err = db.PrepareContext(ctx, getProductAttributesByCategoryID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductAttributesByCategoryID: %w", err)
+	}
+	if q.getProductAttributesByCategoryNameStmt, err = db.PrepareContext(ctx, getProductAttributesByCategoryName); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductAttributesByCategoryName: %w", err)
+	}
+	if q.getProductAttributesWithValuesStmt, err = db.PrepareContext(ctx, getProductAttributesWithValues); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductAttributesWithValues: %w", err)
+	}
+	if q.getProductByIDStmt, err = db.PrepareContext(ctx, getProductByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductByID: %w", err)
+	}
+	if q.getProductByIDsStmt, err = db.PrepareContext(ctx, getProductByIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductByIDs: %w", err)
+	}
+	if q.getProductBySlugStmt, err = db.PrepareContext(ctx, getProductBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductBySlug: %w", err)
+	}
+	if q.getProductIDsByPromotionIDStmt, err = db.PrepareContext(ctx, getProductIDsByPromotionID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductIDsByPromotionID: %w", err)
+	}
+	if q.getProductIDsBySlugsStmt, err = db.PrepareContext(ctx, getProductIDsBySlugs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductIDsBySlugs: %w", err)
+	}
+	if q.getProductImageByIDStmt, err = db.PrepareContext(ctx, getProductImageByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductImageByID: %w", err)
+	}
+	if q.getProductOptionByIDStmt, err = db.PrepareContext(ctx, getProductOptionByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductOptionByID: %w", err)
+	}
+	if q.getProductOptionValueByIDStmt, err = db.PrepareContext(ctx, getProductOptionValueByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductOptionValueByID: %w", err)
+	}
+	if q.getProductPricingByProductIDStmt, err = db.PrepareContext(ctx, getProductPricingByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductPricingByProductID: %w", err)
+	}
+	if q.getProductSEOStmt, err = db.PrepareContext(ctx, getProductSEO); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductSEO: %w", err)
+	}
+	if q.getProductSpecificationByIDStmt, err = db.PrepareContext(ctx, getProductSpecificationByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductSpecificationByID: %w", err)
+	}
+	if q.getProductSpecsByIDStmt, err = db.PrepareContext(ctx, getProductSpecsByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductSpecsByID: %w", err)
+	}
+	if q.getProductVariantByIDStmt, err = db.PrepareContext(ctx, getProductVariantByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductVariantByID: %w", err)
+	}
+	if q.getProductsByCategoryIDStmt, err = db.PrepareContext(ctx, getProductsByCategoryID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductsByCategoryID: %w", err)
+	}
+	if q.getProductsByParentCategoryIDStmt, err = db.PrepareContext(ctx, getProductsByParentCategoryID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductsByParentCategoryID: %w", err)
+	}
+	if q.getPromotionBySlugStmt, err = db.PrepareContext(ctx, getPromotionBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPromotionBySlug: %w", err)
+	}
+	if q.getPromotionDetailsStmt, err = db.PrepareContext(ctx, getPromotionDetails); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPromotionDetails: %w", err)
+	}
+	if q.getPromotionsStmt, err = db.PrepareContext(ctx, getPromotions); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPromotions: %w", err)
+	}
+	if q.getRecentSalesStmt, err = db.PrepareContext(ctx, getRecentSales); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRecentSales: %w", err)
+	}
+	if q.getRelatedProductByProductIDStmt, err = db.PrepareContext(ctx, getRelatedProductByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRelatedProductByProductID: %w", err)
+	}
+	if q.getRoleByIDStmt, err = db.PrepareContext(ctx, getRoleByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRoleByID: %w", err)
+	}
+	if q.getRoleByNameStmt, err = db.PrepareContext(ctx, getRoleByName); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRoleByName: %w", err)
+	}
+	if q.getSalesTrendStmt, err = db.PrepareContext(ctx, getSalesTrend); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSalesTrend: %w", err)
+	}
+	if q.getShoppingCartBySessionIDStmt, err = db.PrepareContext(ctx, getShoppingCartBySessionID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetShoppingCartBySessionID: %w", err)
+	}
+	if q.getShoppingCartByUserIDStmt, err = db.PrepareContext(ctx, getShoppingCartByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetShoppingCartByUserID: %w", err)
+	}
+	if q.getStatusByIDStmt, err = db.PrepareContext(ctx, getStatusByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetStatusByID: %w", err)
+	}
+	if q.getTotalCategoryProductsByFiltersStmt, err = db.PrepareContext(ctx, getTotalCategoryProductsByFilters); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTotalCategoryProductsByFilters: %w", err)
+	}
+	if q.getTotalRevenueByPaymentStatusStmt, err = db.PrepareContext(ctx, getTotalRevenueByPaymentStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTotalRevenueByPaymentStatus: %w", err)
+	}
+	if q.getTotalRevenueForLastTwoMonthsStmt, err = db.PrepareContext(ctx, getTotalRevenueForLastTwoMonths); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTotalRevenueForLastTwoMonths: %w", err)
+	}
+	if q.getTotalSalesCurrentMonthStmt, err = db.PrepareContext(ctx, getTotalSalesCurrentMonth); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTotalSalesCurrentMonth: %w", err)
+	}
+	if q.getUserByEmailStmt, err = db.PrepareContext(ctx, getUserByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByEmail: %w", err)
+	}
+	if q.getUserByIDStmt, err = db.PrepareContext(ctx, getUserByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByID: %w", err)
+	}
+	if q.getUserByProviderStmt, err = db.PrepareContext(ctx, getUserByProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByProvider: %w", err)
+	}
+	if q.getUserOrGuestCheckoutNameByOrderIDStmt, err = db.PrepareContext(ctx, getUserOrGuestCheckoutNameByOrderID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserOrGuestCheckoutNameByOrderID: %w", err)
+	}
+	if q.getUserProfileByIDStmt, err = db.PrepareContext(ctx, getUserProfileByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserProfileByID: %w", err)
+	}
+	if q.getUserRecommendationsStmt, err = db.PrepareContext(ctx, getUserRecommendations); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserRecommendations: %w", err)
+	}
+	if q.getUserRolesStmt, err = db.PrepareContext(ctx, getUserRoles); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserRoles: %w", err)
+	}
+	if q.getUserRolesByUserIDStmt, err = db.PrepareContext(ctx, getUserRolesByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserRolesByUserID: %w", err)
+	}
+	if q.getUsersByRoleStmt, err = db.PrepareContext(ctx, getUsersByRole); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUsersByRole: %w", err)
+	}
+	if q.getV2CategoryHierarchyStmt, err = db.PrepareContext(ctx, getV2CategoryHierarchy); err != nil {
+		return nil, fmt.Errorf("error preparing query GetV2CategoryHierarchy: %w", err)
+	}
+	if q.getV2ProductDetailBySlugStmt, err = db.PrepareContext(ctx, getV2ProductDetailBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetV2ProductDetailBySlug: %w", err)
+	}
+	if q.getV2ProductsStmt, err = db.PrepareContext(ctx, getV2Products); err != nil {
+		return nil, fmt.Errorf("error preparing query GetV2Products: %w", err)
+	}
+	if q.getV2PromotionsStmt, err = db.PrepareContext(ctx, getV2Promotions); err != nil {
+		return nil, fmt.Errorf("error preparing query GetV2Promotions: %w", err)
+	}
+	if q.getVATPercentageStmt, err = db.PrepareContext(ctx, getVATPercentage); err != nil {
+		return nil, fmt.Errorf("error preparing query GetVATPercentage: %w", err)
+	}
+	if q.getVerificationTokenByEmailStmt, err = db.PrepareContext(ctx, getVerificationTokenByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetVerificationTokenByEmail: %w", err)
+	}
+	if q.getVerificationTokenByTokenStmt, err = db.PrepareContext(ctx, getVerificationTokenByToken); err != nil {
+		return nil, fmt.Errorf("error preparing query GetVerificationTokenByToken: %w", err)
+	}
+	if q.hardDeleteCategoryStmt, err = db.PrepareContext(ctx, hardDeleteCategory); err != nil {
+		return nil, fmt.Errorf("error preparing query HardDeleteCategory: %w", err)
+	}
+	if q.insertExchangeRateStmt, err = db.PrepareContext(ctx, insertExchangeRate); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertExchangeRate: %w", err)
+	}
+	if q.isAdminStmt, err = db.PrepareContext(ctx, isAdmin); err != nil {
+		return nil, fmt.Errorf("error preparing query IsAdmin: %w", err)
+	}
+	if q.listCategoriesStmt, err = db.PrepareContext(ctx, listCategories); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCategories: %w", err)
+	}
+	if q.listDiscountsStmt, err = db.PrepareContext(ctx, listDiscounts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListDiscounts: %w", err)
+	}
+	if q.listDiscountsByProductIDStmt, err = db.PrepareContext(ctx, listDiscountsByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListDiscountsByProductID: %w", err)
+	}
+	if q.listProductImagesByProductIDStmt, err = db.PrepareContext(ctx, listProductImagesByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductImagesByProductID: %w", err)
+	}
+	if q.listProductOptionValuesByOptionIDStmt, err = db.PrepareContext(ctx, listProductOptionValuesByOptionID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductOptionValuesByOptionID: %w", err)
+	}
+	if q.listProductOptionsByProductIDStmt, err = db.PrepareContext(ctx, listProductOptionsByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductOptionsByProductID: %w", err)
+	}
+	if q.listProductSpecificationsByProductIDStmt, err = db.PrepareContext(ctx, listProductSpecificationsByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductSpecificationsByProductID: %w", err)
+	}
+	if q.listProductVariantsByProductIDStmt, err = db.PrepareContext(ctx, listProductVariantsByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductVariantsByProductID: %w", err)
+	}
+	if q.listProductsStmt, err = db.PrepareContext(ctx, listProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProducts: %w", err)
+	}
+	if q.listRelatedProductsByProductIDStmt, err = db.PrepareContext(ctx, listRelatedProductsByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRelatedProductsByProductID: %w", err)
+	}
+	if q.listUsersStmt, err = db.PrepareContext(ctx, listUsers); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUsers: %w", err)
+	}
+	if q.makeAdminStmt, err = db.PrepareContext(ctx, makeAdmin); err != nil {
+		return nil, fmt.Errorf("error preparing query MakeAdmin: %w", err)
+	}
+	if q.rejectAdminRequestStmt, err = db.PrepareContext(ctx, rejectAdminRequest); err != nil {
+		return nil, fmt.Errorf("error preparing query RejectAdminRequest: %w", err)
+	}
+	if q.removeAllRolesFromUserStmt, err = db.PrepareContext(ctx, removeAllRolesFromUser); err != nil {
+		return nil, fmt.Errorf("error preparing query RemoveAllRolesFromUser: %w", err)
+	}
+	if q.removeCartItemStmt, err = db.PrepareContext(ctx, removeCartItem); err != nil {
+		return nil, fmt.Errorf("error preparing query RemoveCartItem: %w", err)
+	}
+	if q.removeProductsFromPromotionStmt, err = db.PrepareContext(ctx, removeProductsFromPromotion); err != nil {
+		return nil, fmt.Errorf("error preparing query RemoveProductsFromPromotion: %w", err)
+	}
+	if q.removeRoleFromUserStmt, err = db.PrepareContext(ctx, removeRoleFromUser); err != nil {
+		return nil, fmt.Errorf("error preparing query RemoveRoleFromUser: %w", err)
+	}
+	if q.searchProductsStmt, err = db.PrepareContext(ctx, searchProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query SearchProducts: %w", err)
+	}
+	if q.softDeleteCategoryStmt, err = db.PrepareContext(ctx, softDeleteCategory); err != nil {
+		return nil, fmt.Errorf("error preparing query SoftDeleteCategory: %w", err)
+	}
+	if q.softDeleteProductStmt, err = db.PrepareContext(ctx, softDeleteProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query SoftDeleteProduct: %w", err)
+	}
+	if q.storeApprovalTokenStmt, err = db.PrepareContext(ctx, storeApprovalToken); err != nil {
+		return nil, fmt.Errorf("error preparing query StoreApprovalToken: %w", err)
+	}
+	if q.storePasswordResetTokenStmt, err = db.PrepareContext(ctx, storePasswordResetToken); err != nil {
+		return nil, fmt.Errorf("error preparing query StorePasswordResetToken: %w", err)
+	}
+	if q.storeRefreshTokenStmt, err = db.PrepareContext(ctx, storeRefreshToken); err != nil {
+		return nil, fmt.Errorf("error preparing query StoreRefreshToken: %w", err)
+	}
+	if q.updateCartItemQuantityStmt, err = db.PrepareContext(ctx, updateCartItemQuantity); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCartItemQuantity: %w", err)
+	}
+	if q.updateCartTotalsStmt, err = db.PrepareContext(ctx, updateCartTotals); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCartTotals: %w", err)
+	}
+	if q.updateCategoryStmt, err = db.PrepareContext(ctx, updateCategory); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCategory: %w", err)
+	}
+	if q.updateCategoryImageStmt, err = db.PrepareContext(ctx, updateCategoryImage); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCategoryImage: %w", err)
+	}
+	if q.updateCheckoutRequestIDByOrderIDStmt, err = db.PrepareContext(ctx, updateCheckoutRequestIDByOrderID); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCheckoutRequestIDByOrderID: %w", err)
+	}
+	if q.updateDiscountStmt, err = db.PrepareContext(ctx, updateDiscount); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateDiscount: %w", err)
+	}
+	if q.updateExchangeRateStmt, err = db.PrepareContext(ctx, updateExchangeRate); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateExchangeRate: %w", err)
+	}
+	if q.updateOrderAmountsStmt, err = db.PrepareContext(ctx, updateOrderAmounts); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateOrderAmounts: %w", err)
+	}
+	if q.updateOrderPaymentStatusStmt, err = db.PrepareContext(ctx, updateOrderPaymentStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateOrderPaymentStatus: %w", err)
+	}
+	if q.updateOrderStatusStmt, err = db.PrepareContext(ctx, updateOrderStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateOrderStatus: %w", err)
+	}
+	if q.updatePaymentStatusStmt, err = db.PrepareContext(ctx, updatePaymentStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdatePaymentStatus: %w", err)
+	}
+	if q.updateProductStmt, err = db.PrepareContext(ctx, updateProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProduct: %w", err)
+	}
+	if q.updateProductImageStmt, err = db.PrepareContext(ctx, updateProductImage); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductImage: %w", err)
+	}
+	if q.updateProductImagesStmt, err = db.PrepareContext(ctx, updateProductImages); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductImages: %w", err)
+	}
+	if q.updateProductOptionStmt, err = db.PrepareContext(ctx, updateProductOption); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductOption: %w", err)
+	}
+	if q.updateProductOptionValueStmt, err = db.PrepareContext(ctx, updateProductOptionValue); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductOptionValue: %w", err)
+	}
+	if q.updateProductSEOStmt, err = db.PrepareContext(ctx, updateProductSEO); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductSEO: %w", err)
+	}
+	if q.updateProductSpecificationStmt, err = db.PrepareContext(ctx, updateProductSpecification); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductSpecification: %w", err)
+	}
+	if q.updateProductVariantStmt, err = db.PrepareContext(ctx, updateProductVariant); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductVariant: %w", err)
+	}
+	if q.updatePromotionStmt, err = db.PrepareContext(ctx, updatePromotion); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdatePromotion: %w", err)
+	}
+	if q.updatePromotionImageStmt, err = db.PrepareContext(ctx, updatePromotionImage); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdatePromotionImage: %w", err)
+	}
+	if q.updateRoleStmt, err = db.PrepareContext(ctx, updateRole); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateRole: %w", err)
+	}
+	if q.updateUserStmt, err = db.PrepareContext(ctx, updateUser); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUser: %w", err)
+	}
+	if q.updateUserCompanyStmt, err = db.PrepareContext(ctx, updateUserCompany); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUserCompany: %w", err)
+	}
+	if q.updateUserEmailVerifiedStmt, err = db.PrepareContext(ctx, updateUserEmailVerified); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUserEmailVerified: %w", err)
+	}
+	if q.updateUserInfoStmt, err = db.PrepareContext(ctx, updateUserInfo); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUserInfo: %w", err)
+	}
+	if q.updateUserLastLoginStmt, err = db.PrepareContext(ctx, updateUserLastLogin); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUserLastLogin: %w", err)
+	}
+	if q.updateUserPasswordStmt, err = db.PrepareContext(ctx, updateUserPassword); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUserPassword: %w", err)
+	}
+	if q.updateUserProfileStmt, err = db.PrepareContext(ctx, updateUserProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUserProfile: %w", err)
+	}
+	if q.updateVATPercentageStmt, err = db.PrepareContext(ctx, updateVATPercentage); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateVATPercentage: %w", err)
+	}
+	if q.upsertCartItemStmt, err = db.PrepareContext(ctx, upsertCartItem); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertCartItem: %w", err)
+	}
+	if q.upsertProductSpecificationStmt, err = db.PrepareContext(ctx, upsertProductSpecification); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertProductSpecification: %w", err)
+	}
+	return &q, nil
+}
+
+func (q *Queries) Close() error {
+	var err error
+	if q.activateProductsBySlugsStmt != nil {
+		if cerr := q.activateProductsBySlugsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing activateProductsBySlugsStmt: %w", cerr)
+		}
+	}
+	if q.activatePromotionsStmt != nil {
+		if cerr := q.activatePromotionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing activatePromotionsStmt: %w", cerr)
+		}
+	}
+	if q.addProductToPromotionStmt != nil {
+		if cerr := q.addProductToPromotionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing addProductToPromotionStmt: %w", cerr)
+		}
+	}
+	if q.addProductsToPromotionStmt != nil {
+		if cerr := q.addProductsToPromotionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing addProductsToPromotionStmt: %w", cerr)
+		}
+	}
+	if q.approveAdminRequestStmt != nil {
+		if cerr := q.approveAdminRequestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing approveAdminRequestStmt: %w", cerr)
+		}
+	}
+	if q.archiveProductByIDStmt != nil {
+		if cerr := q.archiveProductByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing archiveProductByIDStmt: %w", cerr)
+		}
+	}
+	if q.archiveProductsBySlugsStmt != nil {
+		if cerr := q.archiveProductsBySlugsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing archiveProductsBySlugsStmt: %w", cerr)
+		}
+	}
+	if q.archivePromotionsStmt != nil {
+		if cerr := q.archivePromotionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing archivePromotionsStmt: %w", cerr)
+		}
+	}
+	if q.assignRoleToUserStmt != nil {
+		if cerr := q.assignRoleToUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing assignRoleToUserStmt: %w", cerr)
+		}
+	}
+	if q.calculateCartTotalStmt != nil {
+		if cerr := q.calculateCartTotalStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing calculateCartTotalStmt: %w", cerr)
+		}
+	}
+	if q.cancelOrderStmt != nil {
+		if cerr := q.cancelOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cancelOrderStmt: %w", cerr)
+		}
+	}
+	if q.changeOrderPaymentMethodStmt != nil {
+		if cerr := q.changeOrderPaymentMethodStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing changeOrderPaymentMethodStmt: %w", cerr)
+		}
+	}
+	if q.checkCategoryExistenceStmt != nil {
+		if cerr := q.checkCategoryExistenceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing checkCategoryExistenceStmt: %w", cerr)
+		}
+	}
+	if q.clearCartStmt != nil {
+		if cerr := q.clearCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing clearCartStmt: %w", cerr)
+		}
+	}
+	if q.countAllProductsByFiltersStmt != nil {
+		if cerr := q.countAllProductsByFiltersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countAllProductsByFiltersStmt: %w", cerr)
+		}
+	}
+	if q.countAllUsersStmt != nil {
+		if cerr := q.countAllUsersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countAllUsersStmt: %w", cerr)
+		}
+	}
+	if q.countProductsStmt != nil {
+		if cerr := q.countProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countProductsStmt: %w", cerr)
+		}
+	}
+	if q.countProductsByParentCategoryIDStmt != nil {
+		if cerr := q.countProductsByParentCategoryIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countProductsByParentCategoryIDStmt: %w", cerr)
+		}
+	}
+	if q.createAdminRequestStmt != nil {
+		if cerr := q.createAdminRequestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createAdminRequestStmt: %w", cerr)
+		}
+	}
+	if q.createCategoryStmt != nil {
+		if cerr := q.createCategoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCategoryStmt: %w", cerr)
+		}
+	}
+	if q.createCompanyStmt != nil {
+		if cerr := q.createCompanyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCompanyStmt: %w", cerr)
+		}
+	}
+	if q.createDiscountStmt != nil {
+		if cerr := q.createDiscountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createDiscountStmt: %w", cerr)
+		}
+	}
+	if q.createGuestCheckoutStmt != nil {
+		if cerr := q.createGuestCheckoutStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createGuestCheckoutStmt: %w", cerr)
+		}
+	}
+	if q.createOrderStmt != nil {
+		if cerr := q.createOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createOrderStmt: %w", cerr)
+		}
+	}
+	if q.createOrderItemStmt != nil {
+		if cerr := q.createOrderItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createOrderItemStmt: %w", cerr)
+		}
+	}
+	if q.createOrderItemOptionStmt != nil {
+		if cerr := q.createOrderItemOptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createOrderItemOptionStmt: %w", cerr)
+		}
+	}
+	if q.createOrderItemsStmt != nil {
+		if cerr := q.createOrderItemsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createOrderItemsStmt: %w", cerr)
+		}
+	}
+	if q.createPaymentStmt != nil {
+		if cerr := q.createPaymentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createPaymentStmt: %w", cerr)
+		}
+	}
+	if q.createProductStmt != nil {
+		if cerr := q.createProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductStmt: %w", cerr)
+		}
+	}
+	if q.createProductAttributeStmt != nil {
+		if cerr := q.createProductAttributeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductAttributeStmt: %w", cerr)
+		}
+	}
+	if q.createProductAttributeValueStmt != nil {
+		if cerr := q.createProductAttributeValueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductAttributeValueStmt: %w", cerr)
+		}
+	}
+	if q.createProductImageStmt != nil {
+		if cerr := q.createProductImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductImageStmt: %w", cerr)
+		}
+	}
+	if q.createProductOptionStmt != nil {
+		if cerr := q.createProductOptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductOptionStmt: %w", cerr)
+		}
+	}
+	if q.createProductOptionValueStmt != nil {
+		if cerr := q.createProductOptionValueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductOptionValueStmt: %w", cerr)
+		}
+	}
+	if q.createProductSpecificationStmt != nil {
+		if cerr := q.createProductSpecificationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductSpecificationStmt: %w", cerr)
+		}
+	}
+	if q.createProductToAttributeValueStmt != nil {
+		if cerr := q.createProductToAttributeValueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductToAttributeValueStmt: %w", cerr)
+		}
+	}
+	if q.createProductVariantStmt != nil {
+		if cerr := q.createProductVariantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductVariantStmt: %w", cerr)
+		}
+	}
+	if q.createPromotionStmt != nil {
+		if cerr := q.createPromotionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createPromotionStmt: %w", cerr)
+		}
+	}
+	if q.createRelatedProductStmt != nil {
+		if cerr := q.createRelatedProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createRelatedProductStmt: %w", cerr)
+		}
+	}
+	if q.createRoleStmt != nil {
+		if cerr := q.createRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createRoleStmt: %w", cerr)
+		}
+	}
+	if q.createShoppingCartStmt != nil {
+		if cerr := q.createShoppingCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createShoppingCartStmt: %w", cerr)
+		}
+	}
+	if q.createUserStmt != nil {
+		if cerr := q.createUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
+		}
+	}
+	if q.createVerificationTokenStmt != nil {
+		if cerr := q.createVerificationTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createVerificationTokenStmt: %w", cerr)
+		}
+	}
+	if q.deactivateUserStmt != nil {
+		if cerr := q.deactivateUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deactivateUserStmt: %w", cerr)
+		}
+	}
+	if q.deleteApprovalTokenStmt != nil {
+		if cerr := q.deleteApprovalTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteApprovalTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteDiscountStmt != nil {
+		if cerr := q.deleteDiscountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteDiscountStmt: %w", cerr)
+		}
+	}
+	if q.deleteExchangeRateStmt != nil {
+		if cerr := q.deleteExchangeRateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExchangeRateStmt: %w", cerr)
+		}
+	}
+	if q.deleteExpiredTResetsStmt != nil {
+		if cerr := q.deleteExpiredTResetsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExpiredTResetsStmt: %w", cerr)
+		}
+	}
+	if q.deleteExpiredTokensStmt != nil {
+		if cerr := q.deleteExpiredTokensStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExpiredTokensStmt: %w", cerr)
+		}
+	}
+	if q.deletePasswordResetTokenStmt != nil {
+		if cerr := q.deletePasswordResetTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deletePasswordResetTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductByIDStmt != nil {
+		if cerr := q.deleteProductByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductByIDStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductImageStmt != nil {
+		if cerr := q.deleteProductImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductImageStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductImagesByProductIDStmt != nil {
+		if cerr := q.deleteProductImagesByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductImagesByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductOptionStmt != nil {
+		if cerr := q.deleteProductOptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductOptionStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductOptionValueStmt != nil {
+		if cerr := q.deleteProductOptionValueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductOptionValueStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductSpecificationStmt != nil {
+		if cerr := q.deleteProductSpecificationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductSpecificationStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductSpecificationsByProductIDStmt != nil {
+		if cerr := q.deleteProductSpecificationsByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductSpecificationsByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductVariantStmt != nil {
+		if cerr := q.deleteProductVariantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductVariantStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductsBySlugsStmt != nil {
+		if cerr := q.deleteProductsBySlugsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductsBySlugsStmt: %w", cerr)
+		}
+	}
+	if q.deletePromotionStmt != nil {
+		if cerr := q.deletePromotionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deletePromotionStmt: %w", cerr)
+		}
+	}
+	if q.deletePromotionsStmt != nil {
+		if cerr := q.deletePromotionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deletePromotionsStmt: %w", cerr)
+		}
+	}
+	if q.deleteRelatedProductStmt != nil {
+		if cerr := q.deleteRelatedProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteRelatedProductStmt: %w", cerr)
+		}
+	}
+	if q.deleteRoleStmt != nil {
+		if cerr := q.deleteRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteRoleStmt: %w", cerr)
+		}
+	}
+	if q.deleteShoppingCartStmt != nil {
+		if cerr := q.deleteShoppingCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteShoppingCartStmt: %w", cerr)
+		}
+	}
+	if q.deleteUserStmt != nil {
+		if cerr := q.deleteUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteUserStmt: %w", cerr)
+		}
+	}
+	if q.deleteVerificationTokenByTokenStmt != nil {
+		if cerr := q.deleteVerificationTokenByTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteVerificationTokenByTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteVerificationTokensByEmailStmt != nil {
+		if cerr := q.deleteVerificationTokensByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteVerificationTokensByEmailStmt: %w", cerr)
+		}
+	}
+	if q.draftProductsBySlugsStmt != nil {
+		if cerr := q.draftProductsBySlugsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing draftProductsBySlugsStmt: %w", cerr)
+		}
+	}
+	if q.draftPromotionsStmt != nil {
+		if cerr := q.draftPromotionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing draftPromotionsStmt: %w", cerr)
+		}
+	}
+	if q.getActiveDiscountsByProductIDsStmt != nil {
+		if cerr := q.getActiveDiscountsByProductIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getActiveDiscountsByProductIDsStmt: %w", cerr)
+		}
+	}
+	if q.getAdminRequestByIDStmt != nil {
+		if cerr := q.getAdminRequestByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAdminRequestByIDStmt: %w", cerr)
+		}
+	}
+	if q.getAdminRequestByUserIDStmt != nil {
+		if cerr := q.getAdminRequestByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAdminRequestByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getAdminRequestsByUserIDStmt != nil {
+		if cerr := q.getAdminRequestsByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAdminRequestsByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getAllCartItemsStmt != nil {
+		if cerr := q.getAllCartItemsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllCartItemsStmt: %w", cerr)
+		}
+	}
+	if q.getAllExchangeRatesForCurrencyStmt != nil {
+		if cerr := q.getAllExchangeRatesForCurrencyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllExchangeRatesForCurrencyStmt: %w", cerr)
+		}
+	}
+	if q.getAllPaymentsStmt != nil {
+		if cerr := q.getAllPaymentsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllPaymentsStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersNameAscStmt != nil {
+		if cerr := q.getAllProductsByFiltersNameAscStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersNameAscStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersNameDescStmt != nil {
+		if cerr := q.getAllProductsByFiltersNameDescStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersNameDescStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersNewestStmt != nil {
+		if cerr := q.getAllProductsByFiltersNewestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersNewestStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersOldestStmt != nil {
+		if cerr := q.getAllProductsByFiltersOldestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersOldestStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersPriceAscStmt != nil {
+		if cerr := q.getAllProductsByFiltersPriceAscStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersPriceAscStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersPriceDescStmt != nil {
+		if cerr := q.getAllProductsByFiltersPriceDescStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersPriceDescStmt: %w", cerr)
+		}
+	}
+	if q.getAllRolesStmt != nil {
+		if cerr := q.getAllRolesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllRolesStmt: %w", cerr)
+		}
+	}
+	if q.getApprovalTokenStmt != nil {
+		if cerr := q.getApprovalTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getApprovalTokenStmt: %w", cerr)
+		}
+	}
+	if q.getBestSellerProductsStmt != nil {
+		if cerr := q.getBestSellerProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBestSellerProductsStmt: %w", cerr)
+		}
+	}
+	if q.getCartItemStmt != nil {
+		if cerr := q.getCartItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartItemStmt: %w", cerr)
+		}
+	}
+	if q.getCategoriesByParentIDStmt != nil {
+		if cerr := q.getCategoriesByParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoriesByParentIDStmt: %w", cerr)
+		}
+	}
+	if q.getCategoriesWithProductsCountStmt != nil {
+		if cerr := q.getCategoriesWithProductsCountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoriesWithProductsCountStmt: %w", cerr)
+		}
+	}
+	if q.getCategoriesWithSubcategoryCountStmt != nil {
+		if cerr := q.getCategoriesWithSubcategoryCountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoriesWithSubcategoryCountStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryByIDStmt != nil {
+		if cerr := q.getCategoryByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryByIDStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryByNameStmt != nil {
+		if cerr := q.getCategoryByNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryByNameStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryBySlugStmt != nil {
+		if cerr := q.getCategoryBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryDetailsBySlugStmt != nil {
+		if cerr := q.getCategoryDetailsBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryDetailsBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryProductsByFiltersNameAscStmt != nil {
+		if cerr := q.getCategoryProductsByFiltersNameAscStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryProductsByFiltersNameAscStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryProductsByFiltersNameDescStmt != nil {
+		if cerr := q.getCategoryProductsByFiltersNameDescStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryProductsByFiltersNameDescStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryProductsByFiltersNewestStmt != nil {
+		if cerr := q.getCategoryProductsByFiltersNewestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryProductsByFiltersNewestStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryProductsByFiltersOldestStmt != nil {
+		if cerr := q.getCategoryProductsByFiltersOldestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryProductsByFiltersOldestStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryProductsByFiltersPriceAscStmt != nil {
+		if cerr := q.getCategoryProductsByFiltersPriceAscStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryProductsByFiltersPriceAscStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryProductsByFiltersPriceDescStmt != nil {
+		if cerr := q.getCategoryProductsByFiltersPriceDescStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryProductsByFiltersPriceDescStmt: %w", cerr)
+		}
+	}
+	if q.getCategorySEOBySlugStmt != nil {
+		if cerr := q.getCategorySEOBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategorySEOBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getCategoryTreeStmt != nil {
+		if cerr := q.getCategoryTreeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryTreeStmt: %w", cerr)
+		}
+	}
+	if q.getCompanyStmt != nil {
+		if cerr := q.getCompanyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCompanyStmt: %w", cerr)
+		}
+	}
+	if q.getDailyDealsStmt != nil {
+		if cerr := q.getDailyDealsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDailyDealsStmt: %w", cerr)
+		}
+	}
+	if q.getDiscountByIDStmt != nil {
+		if cerr := q.getDiscountByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDiscountByIDStmt: %w", cerr)
+		}
+	}
+	if q.getDiscountByProductIDStmt != nil {
+		if cerr := q.getDiscountByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDiscountByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.getFeaturedProductsStmt != nil {
+		if cerr := q.getFeaturedProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFeaturedProductsStmt: %w", cerr)
+		}
+	}
+	if q.getGuestCheckoutByEmailStmt != nil {
+		if cerr := q.getGuestCheckoutByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getGuestCheckoutByEmailStmt: %w", cerr)
+		}
+	}
+	if q.getImageKeysByProductIDStmt != nil {
+		if cerr := q.getImageKeysByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getImageKeysByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.getLatestExchangeRateStmt != nil {
+		if cerr := q.getLatestExchangeRateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLatestExchangeRateStmt: %w", cerr)
+		}
+	}
+	if q.getMonthlyRevenueStmt != nil {
+		if cerr := q.getMonthlyRevenueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMonthlyRevenueStmt: %w", cerr)
+		}
+	}
+	if q.getMonthlySalesStmt != nil {
+		if cerr := q.getMonthlySalesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMonthlySalesStmt: %w", cerr)
+		}
+	}
+	if q.getMonthlySalesForLastTwoMonthsStmt != nil {
+		if cerr := q.getMonthlySalesForLastTwoMonthsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMonthlySalesForLastTwoMonthsStmt: %w", cerr)
+		}
+	}
+	if q.getNewArrivalProductsStmt != nil {
+		if cerr := q.getNewArrivalProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getNewArrivalProductsStmt: %w", cerr)
+		}
+	}
+	if q.getOrderByIdStmt != nil {
+		if cerr := q.getOrderByIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOrderByIdStmt: %w", cerr)
+		}
+	}
+	if q.getOrderIDsByUserIDStmt != nil {
+		if cerr := q.getOrderIDsByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOrderIDsByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getOrderItemsByOrderIdStmt != nil {
+		if cerr := q.getOrderItemsByOrderIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOrderItemsByOrderIdStmt: %w", cerr)
+		}
+	}
+	if q.getOrdersByGuestCheckoutIdStmt != nil {
+		if cerr := q.getOrdersByGuestCheckoutIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOrdersByGuestCheckoutIdStmt: %w", cerr)
+		}
+	}
+	if q.getOrdersByUserIdStmt != nil {
+		if cerr := q.getOrdersByUserIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOrdersByUserIdStmt: %w", cerr)
+		}
+	}
+	if q.getParentCategoriesStmt != nil {
+		if cerr := q.getParentCategoriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getParentCategoriesStmt: %w", cerr)
+		}
+	}
+	if q.getPasswordResetTokenStmt != nil {
+		if cerr := q.getPasswordResetTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPasswordResetTokenStmt: %w", cerr)
+		}
+	}
+	if q.getPaymentByOrderIDStmt != nil {
+		if cerr := q.getPaymentByOrderIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPaymentByOrderIDStmt: %w", cerr)
+		}
+	}
+	if q.getPaymentStatusIDByStatusStmt != nil {
+		if cerr := q.getPaymentStatusIDByStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPaymentStatusIDByStatusStmt: %w", cerr)
+		}
+	}
+	if q.getPendingAdminRequestsStmt != nil {
+		if cerr := q.getPendingAdminRequestsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPendingAdminRequestsStmt: %w", cerr)
+		}
+	}
+	if q.getProductAttributesStmt != nil {
+		if cerr := q.getProductAttributesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductAttributesStmt: %w", cerr)
+		}
+	}
+	if q.getProductAttributesByCategoryIDStmt != nil {
+		if cerr := q.getProductAttributesByCategoryIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductAttributesByCategoryIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductAttributesByCategoryNameStmt != nil {
+		if cerr := q.getProductAttributesByCategoryNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductAttributesByCategoryNameStmt: %w", cerr)
+		}
+	}
+	if q.getProductAttributesWithValuesStmt != nil {
+		if cerr := q.getProductAttributesWithValuesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductAttributesWithValuesStmt: %w", cerr)
+		}
+	}
+	if q.getProductByIDStmt != nil {
+		if cerr := q.getProductByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductByIDsStmt != nil {
+		if cerr := q.getProductByIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductByIDsStmt: %w", cerr)
+		}
+	}
+	if q.getProductBySlugStmt != nil {
+		if cerr := q.getProductBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getProductIDsByPromotionIDStmt != nil {
+		if cerr := q.getProductIDsByPromotionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductIDsByPromotionIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductIDsBySlugsStmt != nil {
+		if cerr := q.getProductIDsBySlugsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductIDsBySlugsStmt: %w", cerr)
+		}
+	}
+	if q.getProductImageByIDStmt != nil {
+		if cerr := q.getProductImageByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductImageByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductOptionByIDStmt != nil {
+		if cerr := q.getProductOptionByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductOptionByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductOptionValueByIDStmt != nil {
+		if cerr := q.getProductOptionValueByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductOptionValueByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductPricingByProductIDStmt != nil {
+		if cerr := q.getProductPricingByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductPricingByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductSEOStmt != nil {
+		if cerr := q.getProductSEOStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductSEOStmt: %w", cerr)
+		}
+	}
+	if q.getProductSpecificationByIDStmt != nil {
+		if cerr := q.getProductSpecificationByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductSpecificationByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductSpecsByIDStmt != nil {
+		if cerr := q.getProductSpecsByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductSpecsByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductVariantByIDStmt != nil {
+		if cerr := q.getProductVariantByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductVariantByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductsByCategoryIDStmt != nil {
+		if cerr := q.getProductsByCategoryIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductsByCategoryIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductsByParentCategoryIDStmt != nil {
+		if cerr := q.getProductsByParentCategoryIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductsByParentCategoryIDStmt: %w", cerr)
+		}
+	}
+	if q.getPromotionBySlugStmt != nil {
+		if cerr := q.getPromotionBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPromotionBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getPromotionDetailsStmt != nil {
+		if cerr := q.getPromotionDetailsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPromotionDetailsStmt: %w", cerr)
+		}
+	}
+	if q.getPromotionsStmt != nil {
+		if cerr := q.getPromotionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPromotionsStmt: %w", cerr)
+		}
+	}
+	if q.getRecentSalesStmt != nil {
+		if cerr := q.getRecentSalesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRecentSalesStmt: %w", cerr)
+		}
+	}
+	if q.getRelatedProductByProductIDStmt != nil {
+		if cerr := q.getRelatedProductByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRelatedProductByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.getRoleByIDStmt != nil {
+		if cerr := q.getRoleByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRoleByIDStmt: %w", cerr)
+		}
+	}
+	if q.getRoleByNameStmt != nil {
+		if cerr := q.getRoleByNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRoleByNameStmt: %w", cerr)
+		}
+	}
+	if q.getSalesTrendStmt != nil {
+		if cerr := q.getSalesTrendStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSalesTrendStmt: %w", cerr)
+		}
+	}
+	if q.getShoppingCartBySessionIDStmt != nil {
+		if cerr := q.getShoppingCartBySessionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getShoppingCartBySessionIDStmt: %w", cerr)
+		}
+	}
+	if q.getShoppingCartByUserIDStmt != nil {
+		if cerr := q.getShoppingCartByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getShoppingCartByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getStatusByIDStmt != nil {
+		if cerr := q.getStatusByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getStatusByIDStmt: %w", cerr)
+		}
+	}
+	if q.getTotalCategoryProductsByFiltersStmt != nil {
+		if cerr := q.getTotalCategoryProductsByFiltersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTotalCategoryProductsByFiltersStmt: %w", cerr)
+		}
+	}
+	if q.getTotalRevenueByPaymentStatusStmt != nil {
+		if cerr := q.getTotalRevenueByPaymentStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTotalRevenueByPaymentStatusStmt: %w", cerr)
+		}
+	}
+	if q.getTotalRevenueForLastTwoMonthsStmt != nil {
+		if cerr := q.getTotalRevenueForLastTwoMonthsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTotalRevenueForLastTwoMonthsStmt: %w", cerr)
+		}
+	}
+	if q.getTotalSalesCurrentMonthStmt != nil {
+		if cerr := q.getTotalSalesCurrentMonthStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTotalSalesCurrentMonthStmt: %w", cerr)
+		}
+	}
+	if q.getUserByEmailStmt != nil {
+		if cerr := q.getUserByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByEmailStmt: %w", cerr)
+		}
+	}
+	if q.getUserByIDStmt != nil {
+		if cerr := q.getUserByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByIDStmt: %w", cerr)
+		}
+	}
+	if q.getUserByProviderStmt != nil {
+		if cerr := q.getUserByProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByProviderStmt: %w", cerr)
+		}
+	}
+	if q.getUserOrGuestCheckoutNameByOrderIDStmt != nil {
+		if cerr := q.getUserOrGuestCheckoutNameByOrderIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserOrGuestCheckoutNameByOrderIDStmt: %w", cerr)
+		}
+	}
+	if q.getUserProfileByIDStmt != nil {
+		if cerr := q.getUserProfileByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserProfileByIDStmt: %w", cerr)
+		}
+	}
+	if q.getUserRecommendationsStmt != nil {
+		if cerr := q.getUserRecommendationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserRecommendationsStmt: %w", cerr)
+		}
+	}
+	if q.getUserRolesStmt != nil {
+		if cerr := q.getUserRolesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserRolesStmt: %w", cerr)
+		}
+	}
+	if q.getUserRolesByUserIDStmt != nil {
+		if cerr := q.getUserRolesByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserRolesByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getUsersByRoleStmt != nil {
+		if cerr := q.getUsersByRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUsersByRoleStmt: %w", cerr)
+		}
+	}
+	if q.getV2CategoryHierarchyStmt != nil {
+		if cerr := q.getV2CategoryHierarchyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getV2CategoryHierarchyStmt: %w", cerr)
+		}
+	}
+	if q.getV2ProductDetailBySlugStmt != nil {
+		if cerr := q.getV2ProductDetailBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getV2ProductDetailBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getV2ProductsStmt != nil {
+		if cerr := q.getV2ProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getV2ProductsStmt: %w", cerr)
+		}
+	}
+	if q.getV2PromotionsStmt != nil {
+		if cerr := q.getV2PromotionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getV2PromotionsStmt: %w", cerr)
+		}
+	}
+	if q.getVATPercentageStmt != nil {
+		if cerr := q.getVATPercentageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getVATPercentageStmt: %w", cerr)
+		}
+	}
+	if q.getVerificationTokenByEmailStmt != nil {
+		if cerr := q.getVerificationTokenByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getVerificationTokenByEmailStmt: %w", cerr)
+		}
+	}
+	if q.getVerificationTokenByTokenStmt != nil {
+		if cerr := q.getVerificationTokenByTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getVerificationTokenByTokenStmt: %w", cerr)
+		}
+	}
+	if q.hardDeleteCategoryStmt != nil {
+		if cerr := q.hardDeleteCategoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing hardDeleteCategoryStmt: %w", cerr)
+		}
+	}
+	if q.insertExchangeRateStmt != nil {
+		if cerr := q.insertExchangeRateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertExchangeRateStmt: %w", cerr)
+		}
+	}
+	if q.isAdminStmt != nil {
+		if cerr := q.isAdminStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing isAdminStmt: %w", cerr)
+		}
+	}
+	if q.listCategoriesStmt != nil {
+		if cerr := q.listCategoriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCategoriesStmt: %w", cerr)
+		}
+	}
+	if q.listDiscountsStmt != nil {
+		if cerr := q.listDiscountsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listDiscountsStmt: %w", cerr)
+		}
+	}
+	if q.listDiscountsByProductIDStmt != nil {
+		if cerr := q.listDiscountsByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listDiscountsByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.listProductImagesByProductIDStmt != nil {
+		if cerr := q.listProductImagesByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductImagesByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.listProductOptionValuesByOptionIDStmt != nil {
+		if cerr := q.listProductOptionValuesByOptionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductOptionValuesByOptionIDStmt: %w", cerr)
+		}
+	}
+	if q.listProductOptionsByProductIDStmt != nil {
+		if cerr := q.listProductOptionsByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductOptionsByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.listProductSpecificationsByProductIDStmt != nil {
+		if cerr := q.listProductSpecificationsByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductSpecificationsByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.listProductVariantsByProductIDStmt != nil {
+		if cerr := q.listProductVariantsByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductVariantsByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.listProductsStmt != nil {
+		if cerr := q.listProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductsStmt: %w", cerr)
+		}
+	}
+	if q.listRelatedProductsByProductIDStmt != nil {
+		if cerr := q.listRelatedProductsByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRelatedProductsByProductIDStmt: %w", cerr)
+		}
+	}
+	if q.listUsersStmt != nil {
+		if cerr := q.listUsersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUsersStmt: %w", cerr)
+		}
+	}
+	if q.makeAdminStmt != nil {
+		if cerr := q.makeAdminStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing makeAdminStmt: %w", cerr)
+		}
+	}
+	if q.rejectAdminRequestStmt != nil {
+		if cerr := q.rejectAdminRequestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing rejectAdminRequestStmt: %w", cerr)
+		}
+	}
+	if q.removeAllRolesFromUserStmt != nil {
+		if cerr := q.removeAllRolesFromUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing removeAllRolesFromUserStmt: %w", cerr)
+		}
+	}
+	if q.removeCartItemStmt != nil {
+		if cerr := q.removeCartItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing removeCartItemStmt: %w", cerr)
+		}
+	}
+	if q.removeProductsFromPromotionStmt != nil {
+		if cerr := q.removeProductsFromPromotionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing removeProductsFromPromotionStmt: %w", cerr)
+		}
+	}
+	if q.removeRoleFromUserStmt != nil {
+		if cerr := q.removeRoleFromUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing removeRoleFromUserStmt: %w", cerr)
+		}
+	}
+	if q.searchProductsStmt != nil {
+		if cerr := q.searchProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing searchProductsStmt: %w", cerr)
+		}
+	}
+	if q.softDeleteCategoryStmt != nil {
+		if cerr := q.softDeleteCategoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing softDeleteCategoryStmt: %w", cerr)
+		}
+	}
+	if q.softDeleteProductStmt != nil {
+		if cerr := q.softDeleteProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing softDeleteProductStmt: %w", cerr)
+		}
+	}
+	if q.storeApprovalTokenStmt != nil {
+		if cerr := q.storeApprovalTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing storeApprovalTokenStmt: %w", cerr)
+		}
+	}
+	if q.storePasswordResetTokenStmt != nil {
+		if cerr := q.storePasswordResetTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing storePasswordResetTokenStmt: %w", cerr)
+		}
+	}
+	if q.storeRefreshTokenStmt != nil {
+		if cerr := q.storeRefreshTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing storeRefreshTokenStmt: %w", cerr)
+		}
+	}
+	if q.updateCartItemQuantityStmt != nil {
+		if cerr := q.updateCartItemQuantityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCartItemQuantityStmt: %w", cerr)
+		}
+	}
+	if q.updateCartTotalsStmt != nil {
+		if cerr := q.updateCartTotalsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCartTotalsStmt: %w", cerr)
+		}
+	}
+	if q.updateCategoryStmt != nil {
+		if cerr := q.updateCategoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCategoryStmt: %w", cerr)
+		}
+	}
+	if q.updateCategoryImageStmt != nil {
+		if cerr := q.updateCategoryImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCategoryImageStmt: %w", cerr)
+		}
+	}
+	if q.updateCheckoutRequestIDByOrderIDStmt != nil {
+		if cerr := q.updateCheckoutRequestIDByOrderIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCheckoutRequestIDByOrderIDStmt: %w", cerr)
+		}
+	}
+	if q.updateDiscountStmt != nil {
+		if cerr := q.updateDiscountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateDiscountStmt: %w", cerr)
+		}
+	}
+	if q.updateExchangeRateStmt != nil {
+		if cerr := q.updateExchangeRateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateExchangeRateStmt: %w", cerr)
+		}
+	}
+	if q.updateOrderAmountsStmt != nil {
+		if cerr := q.updateOrderAmountsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateOrderAmountsStmt: %w", cerr)
+		}
+	}
+	if q.updateOrderPaymentStatusStmt != nil {
+		if cerr := q.updateOrderPaymentStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateOrderPaymentStatusStmt: %w", cerr)
+		}
+	}
+	if q.updateOrderStatusStmt != nil {
+		if cerr := q.updateOrderStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateOrderStatusStmt: %w", cerr)
+		}
+	}
+	if q.updatePaymentStatusStmt != nil {
+		if cerr := q.updatePaymentStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updatePaymentStatusStmt: %w", cerr)
+		}
+	}
+	if q.updateProductStmt != nil {
+		if cerr := q.updateProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductStmt: %w", cerr)
+		}
+	}
+	if q.updateProductImageStmt != nil {
+		if cerr := q.updateProductImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductImageStmt: %w", cerr)
+		}
+	}
+	if q.updateProductImagesStmt != nil {
+		if cerr := q.updateProductImagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductImagesStmt: %w", cerr)
+		}
+	}
+	if q.updateProductOptionStmt != nil {
+		if cerr := q.updateProductOptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductOptionStmt: %w", cerr)
+		}
+	}
+	if q.updateProductOptionValueStmt != nil {
+		if cerr := q.updateProductOptionValueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductOptionValueStmt: %w", cerr)
+		}
+	}
+	if q.updateProductSEOStmt != nil {
+		if cerr := q.updateProductSEOStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductSEOStmt: %w", cerr)
+		}
+	}
+	if q.updateProductSpecificationStmt != nil {
+		if cerr := q.updateProductSpecificationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductSpecificationStmt: %w", cerr)
+		}
+	}
+	if q.updateProductVariantStmt != nil {
+		if cerr := q.updateProductVariantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductVariantStmt: %w", cerr)
+		}
+	}
+	if q.updatePromotionStmt != nil {
+		if cerr := q.updatePromotionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updatePromotionStmt: %w", cerr)
+		}
+	}
+	if q.updatePromotionImageStmt != nil {
+		if cerr := q.updatePromotionImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updatePromotionImageStmt: %w", cerr)
+		}
+	}
+	if q.updateRoleStmt != nil {
+		if cerr := q.updateRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateRoleStmt: %w", cerr)
+		}
+	}
+	if q.updateUserStmt != nil {
+		if cerr := q.updateUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserStmt: %w", cerr)
+		}
+	}
+	if q.updateUserCompanyStmt != nil {
+		if cerr := q.updateUserCompanyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserCompanyStmt: %w", cerr)
+		}
+	}
+	if q.updateUserEmailVerifiedStmt != nil {
+		if cerr := q.updateUserEmailVerifiedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserEmailVerifiedStmt: %w", cerr)
+		}
+	}
+	if q.updateUserInfoStmt != nil {
+		if cerr := q.updateUserInfoStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserInfoStmt: %w", cerr)
+		}
+	}
+	if q.updateUserLastLoginStmt != nil {
+		if cerr := q.updateUserLastLoginStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserLastLoginStmt: %w", cerr)
+		}
+	}
+	if q.updateUserPasswordStmt != nil {
+		if cerr := q.updateUserPasswordStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserPasswordStmt: %w", cerr)
+		}
+	}
+	if q.updateUserProfileStmt != nil {
+		if cerr := q.updateUserProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserProfileStmt: %w", cerr)
+		}
+	}
+	if q.updateVATPercentageStmt != nil {
+		if cerr := q.updateVATPercentageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateVATPercentageStmt: %w", cerr)
+		}
+	}
+	if q.upsertCartItemStmt != nil {
+		if cerr := q.upsertCartItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertCartItemStmt: %w", cerr)
+		}
+	}
+	if q.upsertProductSpecificationStmt != nil {
+		if cerr := q.upsertProductSpecificationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertProductSpecificationStmt: %w", cerr)
+		}
+	}
+	return err
+}
+
+func (q *Queries) exec(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (sql.Result, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).ExecContext(ctx, args...)
+	case stmt != nil:
+		return stmt.ExecContext(ctx, args...)
+	default:
+		return q.db.ExecContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) query(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (*sql.Rows, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryContext(ctx, args...)
+	default:
+		return q.db.QueryContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) *sql.Row {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryRowContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryRowContext(ctx, args...)
+	default:
+		return q.db.QueryRowContext(ctx, query, args...)
+	}
+}
+
 type Queries struct {
-	db DBTX
+	db                                         DBTX
+	tx                                         *sql.Tx
+	activateProductsBySlugsStmt                *sql.Stmt
+	activatePromotionsStmt                     *sql.Stmt
+	addProductToPromotionStmt                  *sql.Stmt
+	addProductsToPromotionStmt                 *sql.Stmt
+	approveAdminRequestStmt                    *sql.Stmt
+	archiveProductByIDStmt                     *sql.Stmt
+	archiveProductsBySlugsStmt                 *sql.Stmt
+	archivePromotionsStmt                      *sql.Stmt
+	assignRoleToUserStmt                       *sql.Stmt
+	calculateCartTotalStmt                     *sql.Stmt
+	cancelOrderStmt                            *sql.Stmt
+	changeOrderPaymentMethodStmt               *sql.Stmt
+	checkCategoryExistenceStmt                 *sql.Stmt
+	clearCartStmt                              *sql.Stmt
+	countAllProductsByFiltersStmt              *sql.Stmt
+	countAllUsersStmt                          *sql.Stmt
+	countProductsStmt                          *sql.Stmt
+	countProductsByParentCategoryIDStmt        *sql.Stmt
+	createAdminRequestStmt                     *sql.Stmt
+	createCategoryStmt                         *sql.Stmt
+	createCompanyStmt                          *sql.Stmt
+	createDiscountStmt                         *sql.Stmt
+	createGuestCheckoutStmt                    *sql.Stmt
+	createOrderStmt                            *sql.Stmt
+	createOrderItemStmt                        *sql.Stmt
+	createOrderItemOptionStmt                  *sql.Stmt
+	createOrderItemsStmt                       *sql.Stmt
+	createPaymentStmt                          *sql.Stmt
+	createProductStmt                          *sql.Stmt
+	createProductAttributeStmt                 *sql.Stmt
+	createProductAttributeValueStmt            *sql.Stmt
+	createProductImageStmt                     *sql.Stmt
+	createProductOptionStmt                    *sql.Stmt
+	createProductOptionValueStmt               *sql.Stmt
+	createProductSpecificationStmt             *sql.Stmt
+	createProductToAttributeValueStmt          *sql.Stmt
+	createProductVariantStmt                   *sql.Stmt
+	createPromotionStmt                        *sql.Stmt
+	createRelatedProductStmt                   *sql.Stmt
+	createRoleStmt                             *sql.Stmt
+	createShoppingCartStmt                     *sql.Stmt
+	createUserStmt                             *sql.Stmt
+	createVerificationTokenStmt                *sql.Stmt
+	deactivateUserStmt                         *sql.Stmt
+	deleteApprovalTokenStmt                    *sql.Stmt
+	deleteDiscountStmt                         *sql.Stmt
+	deleteExchangeRateStmt                     *sql.Stmt
+	deleteExpiredTResetsStmt                   *sql.Stmt
+	deleteExpiredTokensStmt                    *sql.Stmt
+	deletePasswordResetTokenStmt               *sql.Stmt
+	deleteProductByIDStmt                      *sql.Stmt
+	deleteProductImageStmt                     *sql.Stmt
+	deleteProductImagesByProductIDStmt         *sql.Stmt
+	deleteProductOptionStmt                    *sql.Stmt
+	deleteProductOptionValueStmt               *sql.Stmt
+	deleteProductSpecificationStmt             *sql.Stmt
+	deleteProductSpecificationsByProductIDStmt *sql.Stmt
+	deleteProductVariantStmt                   *sql.Stmt
+	deleteProductsBySlugsStmt                  *sql.Stmt
+	deletePromotionStmt                        *sql.Stmt
+	deletePromotionsStmt                       *sql.Stmt
+	deleteRelatedProductStmt                   *sql.Stmt
+	deleteRoleStmt                             *sql.Stmt
+	deleteShoppingCartStmt                     *sql.Stmt
+	deleteUserStmt                             *sql.Stmt
+	deleteVerificationTokenByTokenStmt         *sql.Stmt
+	deleteVerificationTokensByEmailStmt        *sql.Stmt
+	draftProductsBySlugsStmt                   *sql.Stmt
+	draftPromotionsStmt                        *sql.Stmt
+	getActiveDiscountsByProductIDsStmt         *sql.Stmt
+	getAdminRequestByIDStmt                    *sql.Stmt
+	getAdminRequestByUserIDStmt                *sql.Stmt
+	getAdminRequestsByUserIDStmt               *sql.Stmt
+	getAllCartItemsStmt                        *sql.Stmt
+	getAllExchangeRatesForCurrencyStmt         *sql.Stmt
+	getAllPaymentsStmt                         *sql.Stmt
+	getAllProductsByFiltersNameAscStmt         *sql.Stmt
+	getAllProductsByFiltersNameDescStmt        *sql.Stmt
+	getAllProductsByFiltersNewestStmt          *sql.Stmt
+	getAllProductsByFiltersOldestStmt          *sql.Stmt
+	getAllProductsByFiltersPriceAscStmt        *sql.Stmt
+	getAllProductsByFiltersPriceDescStmt       *sql.Stmt
+	getAllRolesStmt                            *sql.Stmt
+	getApprovalTokenStmt                       *sql.Stmt
+	getBestSellerProductsStmt                  *sql.Stmt
+	getCartItemStmt                            *sql.Stmt
+	getCategoriesByParentIDStmt                *sql.Stmt
+	getCategoriesWithProductsCountStmt         *sql.Stmt
+	getCategoriesWithSubcategoryCountStmt      *sql.Stmt
+	getCategoryByIDStmt                        *sql.Stmt
+	getCategoryByNameStmt                      *sql.Stmt
+	getCategoryBySlugStmt                      *sql.Stmt
+	getCategoryDetailsBySlugStmt               *sql.Stmt
+	getCategoryProductsByFiltersNameAscStmt    *sql.Stmt
+	getCategoryProductsByFiltersNameDescStmt   *sql.Stmt
+	getCategoryProductsByFiltersNewestStmt     *sql.Stmt
+	getCategoryProductsByFiltersOldestStmt     *sql.Stmt
+	getCategoryProductsByFiltersPriceAscStmt   *sql.Stmt
+	getCategoryProductsByFiltersPriceDescStmt  *sql.Stmt
+	getCategorySEOBySlugStmt                   *sql.Stmt
+	getCategoryTreeStmt                        *sql.Stmt
+	getCompanyStmt                             *sql.Stmt
+	getDailyDealsStmt                          *sql.Stmt
+	getDiscountByIDStmt                        *sql.Stmt
+	getDiscountByProductIDStmt                 *sql.Stmt
+	getFeaturedProductsStmt                    *sql.Stmt
+	getGuestCheckoutByEmailStmt                *sql.Stmt
+	getImageKeysByProductIDStmt                *sql.Stmt
+	getLatestExchangeRateStmt                  *sql.Stmt
+	getMonthlyRevenueStmt                      *sql.Stmt
+	getMonthlySalesStmt                        *sql.Stmt
+	getMonthlySalesForLastTwoMonthsStmt        *sql.Stmt
+	getNewArrivalProductsStmt                  *sql.Stmt
+	getOrderByIdStmt                           *sql.Stmt
+	getOrderIDsByUserIDStmt                    *sql.Stmt
+	getOrderItemsByOrderIdStmt                 *sql.Stmt
+	getOrdersByGuestCheckoutIdStmt             *sql.Stmt
+	getOrdersByUserIdStmt                      *sql.Stmt
+	getParentCategoriesStmt                    *sql.Stmt
+	getPasswordResetTokenStmt                  *sql.Stmt
+	getPaymentByOrderIDStmt                    *sql.Stmt
+	getPaymentStatusIDByStatusStmt             *sql.Stmt
+	getPendingAdminRequestsStmt                *sql.Stmt
+	getProductAttributesStmt                   *sql.Stmt
+	getProductAttributesByCategoryIDStmt       *sql.Stmt
+	getProductAttributesByCategoryNameStmt     *sql.Stmt
+	getProductAttributesWithValuesStmt         *sql.Stmt
+	getProductByIDStmt                         *sql.Stmt
+	getProductByIDsStmt                        *sql.Stmt
+	getProductBySlugStmt                       *sql.Stmt
+	getProductIDsByPromotionIDStmt             *sql.Stmt
+	getProductIDsBySlugsStmt                   *sql.Stmt
+	getProductImageByIDStmt                    *sql.Stmt
+	getProductOptionByIDStmt                   *sql.Stmt
+	getProductOptionValueByIDStmt              *sql.Stmt
+	getProductPricingByProductIDStmt           *sql.Stmt
+	getProductSEOStmt                          *sql.Stmt
+	getProductSpecificationByIDStmt            *sql.Stmt
+	getProductSpecsByIDStmt                    *sql.Stmt
+	getProductVariantByIDStmt                  *sql.Stmt
+	getProductsByCategoryIDStmt                *sql.Stmt
+	getProductsByParentCategoryIDStmt          *sql.Stmt
+	getPromotionBySlugStmt                     *sql.Stmt
+	getPromotionDetailsStmt                    *sql.Stmt
+	getPromotionsStmt                          *sql.Stmt
+	getRecentSalesStmt                         *sql.Stmt
+	getRelatedProductByProductIDStmt           *sql.Stmt
+	getRoleByIDStmt                            *sql.Stmt
+	getRoleByNameStmt                          *sql.Stmt
+	getSalesTrendStmt                          *sql.Stmt
+	getShoppingCartBySessionIDStmt             *sql.Stmt
+	getShoppingCartByUserIDStmt                *sql.Stmt
+	getStatusByIDStmt                          *sql.Stmt
+	getTotalCategoryProductsByFiltersStmt      *sql.Stmt
+	getTotalRevenueByPaymentStatusStmt         *sql.Stmt
+	getTotalRevenueForLastTwoMonthsStmt        *sql.Stmt
+	getTotalSalesCurrentMonthStmt              *sql.Stmt
+	getUserByEmailStmt                         *sql.Stmt
+	getUserByIDStmt                            *sql.Stmt
+	getUserByProviderStmt                      *sql.Stmt
+	getUserOrGuestCheckoutNameByOrderIDStmt    *sql.Stmt
+	getUserProfileByIDStmt                     *sql.Stmt
+	getUserRecommendationsStmt                 *sql.Stmt
+	getUserRolesStmt                           *sql.Stmt
+	getUserRolesByUserIDStmt                   *sql.Stmt
+	getUsersByRoleStmt                         *sql.Stmt
+	getV2CategoryHierarchyStmt                 *sql.Stmt
+	getV2ProductDetailBySlugStmt               *sql.Stmt
+	getV2ProductsStmt                          *sql.Stmt
+	getV2PromotionsStmt                        *sql.Stmt
+	getVATPercentageStmt                       *sql.Stmt
+	getVerificationTokenByEmailStmt            *sql.Stmt
+	getVerificationTokenByTokenStmt            *sql.Stmt
+	hardDeleteCategoryStmt                     *sql.Stmt
+	insertExchangeRateStmt                     *sql.Stmt
+	isAdminStmt                                *sql.Stmt
+	listCategoriesStmt                         *sql.Stmt
+	listDiscountsStmt                          *sql.Stmt
+	listDiscountsByProductIDStmt               *sql.Stmt
+	listProductImagesByProductIDStmt           *sql.Stmt
+	listProductOptionValuesByOptionIDStmt      *sql.Stmt
+	listProductOptionsByProductIDStmt          *sql.Stmt
+	listProductSpecificationsByProductIDStmt   *sql.Stmt
+	listProductVariantsByProductIDStmt         *sql.Stmt
+	listProductsStmt                           *sql.Stmt
+	listRelatedProductsByProductIDStmt         *sql.Stmt
+	listUsersStmt                              *sql.Stmt
+	makeAdminStmt                              *sql.Stmt
+	rejectAdminRequestStmt                     *sql.Stmt
+	removeAllRolesFromUserStmt                 *sql.Stmt
+	removeCartItemStmt                         *sql.Stmt
+	removeProductsFromPromotionStmt            *sql.Stmt
+	removeRoleFromUserStmt                     *sql.Stmt
+	searchProductsStmt                         *sql.Stmt
+	softDeleteCategoryStmt                     *sql.Stmt
+	softDeleteProductStmt                      *sql.Stmt
+	storeApprovalTokenStmt                     *sql.Stmt
+	storePasswordResetTokenStmt                *sql.Stmt
+	storeRefreshTokenStmt                      *sql.Stmt
+	updateCartItemQuantityStmt                 *sql.Stmt
+	updateCartTotalsStmt                       *sql.Stmt
+	updateCategoryStmt                         *sql.Stmt
+	updateCategoryImageStmt                    *sql.Stmt
+	updateCheckoutRequestIDByOrderIDStmt       *sql.Stmt
+	updateDiscountStmt                         *sql.Stmt
+	updateExchangeRateStmt                     *sql.Stmt
+	updateOrderAmountsStmt                     *sql.Stmt
+	updateOrderPaymentStatusStmt               *sql.Stmt
+	updateOrderStatusStmt                      *sql.Stmt
+	updatePaymentStatusStmt                    *sql.Stmt
+	updateProductStmt                          *sql.Stmt
+	updateProductImageStmt                     *sql.Stmt
+	updateProductImagesStmt                    *sql.Stmt
+	updateProductOptionStmt                    *sql.Stmt
+	updateProductOptionValueStmt               *sql.Stmt
+	updateProductSEOStmt                       *sql.Stmt
+	updateProductSpecificationStmt             *sql.Stmt
+	updateProductVariantStmt                   *sql.Stmt
+	updatePromotionStmt                        *sql.Stmt
+	updatePromotionImageStmt                   *sql.Stmt
+	updateRoleStmt                             *sql.Stmt
+	updateUserStmt                             *sql.Stmt
+	updateUserCompanyStmt                      *sql.Stmt
+	updateUserEmailVerifiedStmt                *sql.Stmt
+	updateUserInfoStmt                         *sql.Stmt
+	updateUserLastLoginStmt                    *sql.Stmt
+	updateUserPasswordStmt                     *sql.Stmt
+	updateUserProfileStmt                      *sql.Stmt
+	updateVATPercentageStmt                    *sql.Stmt
+	upsertCartItemStmt                         *sql.Stmt
+	upsertProductSpecificationStmt             *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db: tx,
+		db:                                         tx,
+		tx:                                         tx,
+		activateProductsBySlugsStmt:                q.activateProductsBySlugsStmt,
+		activatePromotionsStmt:                     q.activatePromotionsStmt,
+		addProductToPromotionStmt:                  q.addProductToPromotionStmt,
+		addProductsToPromotionStmt:                 q.addProductsToPromotionStmt,
+		approveAdminRequestStmt:                    q.approveAdminRequestStmt,
+		archiveProductByIDStmt:                     q.archiveProductByIDStmt,
+		archiveProductsBySlugsStmt:                 q.archiveProductsBySlugsStmt,
+		archivePromotionsStmt:                      q.archivePromotionsStmt,
+		assignRoleToUserStmt:                       q.assignRoleToUserStmt,
+		calculateCartTotalStmt:                     q.calculateCartTotalStmt,
+		cancelOrderStmt:                            q.cancelOrderStmt,
+		changeOrderPaymentMethodStmt:               q.changeOrderPaymentMethodStmt,
+		checkCategoryExistenceStmt:                 q.checkCategoryExistenceStmt,
+		clearCartStmt:                              q.clearCartStmt,
+		countAllProductsByFiltersStmt:              q.countAllProductsByFiltersStmt,
+		countAllUsersStmt:                          q.countAllUsersStmt,
+		countProductsStmt:                          q.countProductsStmt,
+		countProductsByParentCategoryIDStmt:        q.countProductsByParentCategoryIDStmt,
+		createAdminRequestStmt:                     q.createAdminRequestStmt,
+		createCategoryStmt:                         q.createCategoryStmt,
+		createCompanyStmt:                          q.createCompanyStmt,
+		createDiscountStmt:                         q.createDiscountStmt,
+		createGuestCheckoutStmt:                    q.createGuestCheckoutStmt,
+		createOrderStmt:                            q.createOrderStmt,
+		createOrderItemStmt:                        q.createOrderItemStmt,
+		createOrderItemOptionStmt:                  q.createOrderItemOptionStmt,
+		createOrderItemsStmt:                       q.createOrderItemsStmt,
+		createPaymentStmt:                          q.createPaymentStmt,
+		createProductStmt:                          q.createProductStmt,
+		createProductAttributeStmt:                 q.createProductAttributeStmt,
+		createProductAttributeValueStmt:            q.createProductAttributeValueStmt,
+		createProductImageStmt:                     q.createProductImageStmt,
+		createProductOptionStmt:                    q.createProductOptionStmt,
+		createProductOptionValueStmt:               q.createProductOptionValueStmt,
+		createProductSpecificationStmt:             q.createProductSpecificationStmt,
+		createProductToAttributeValueStmt:          q.createProductToAttributeValueStmt,
+		createProductVariantStmt:                   q.createProductVariantStmt,
+		createPromotionStmt:                        q.createPromotionStmt,
+		createRelatedProductStmt:                   q.createRelatedProductStmt,
+		createRoleStmt:                             q.createRoleStmt,
+		createShoppingCartStmt:                     q.createShoppingCartStmt,
+		createUserStmt:                             q.createUserStmt,
+		createVerificationTokenStmt:                q.createVerificationTokenStmt,
+		deactivateUserStmt:                         q.deactivateUserStmt,
+		deleteApprovalTokenStmt:                    q.deleteApprovalTokenStmt,
+		deleteDiscountStmt:                         q.deleteDiscountStmt,
+		deleteExchangeRateStmt:                     q.deleteExchangeRateStmt,
+		deleteExpiredTResetsStmt:                   q.deleteExpiredTResetsStmt,
+		deleteExpiredTokensStmt:                    q.deleteExpiredTokensStmt,
+		deletePasswordResetTokenStmt:               q.deletePasswordResetTokenStmt,
+		deleteProductByIDStmt:                      q.deleteProductByIDStmt,
+		deleteProductImageStmt:                     q.deleteProductImageStmt,
+		deleteProductImagesByProductIDStmt:         q.deleteProductImagesByProductIDStmt,
+		deleteProductOptionStmt:                    q.deleteProductOptionStmt,
+		deleteProductOptionValueStmt:               q.deleteProductOptionValueStmt,
+		deleteProductSpecificationStmt:             q.deleteProductSpecificationStmt,
+		deleteProductSpecificationsByProductIDStmt: q.deleteProductSpecificationsByProductIDStmt,
+		deleteProductVariantStmt:                   q.deleteProductVariantStmt,
+		deleteProductsBySlugsStmt:                  q.deleteProductsBySlugsStmt,
+		deletePromotionStmt:                        q.deletePromotionStmt,
+		deletePromotionsStmt:                       q.deletePromotionsStmt,
+		deleteRelatedProductStmt:                   q.deleteRelatedProductStmt,
+		deleteRoleStmt:                             q.deleteRoleStmt,
+		deleteShoppingCartStmt:                     q.deleteShoppingCartStmt,
+		deleteUserStmt:                             q.deleteUserStmt,
+		deleteVerificationTokenByTokenStmt:         q.deleteVerificationTokenByTokenStmt,
+		deleteVerificationTokensByEmailStmt:        q.deleteVerificationTokensByEmailStmt,
+		draftProductsBySlugsStmt:                   q.draftProductsBySlugsStmt,
+		draftPromotionsStmt:                        q.draftPromotionsStmt,
+		getActiveDiscountsByProductIDsStmt:         q.getActiveDiscountsByProductIDsStmt,
+		getAdminRequestByIDStmt:                    q.getAdminRequestByIDStmt,
+		getAdminRequestByUserIDStmt:                q.getAdminRequestByUserIDStmt,
+		getAdminRequestsByUserIDStmt:               q.getAdminRequestsByUserIDStmt,
+		getAllCartItemsStmt:                        q.getAllCartItemsStmt,
+		getAllExchangeRatesForCurrencyStmt:         q.getAllExchangeRatesForCurrencyStmt,
+		getAllPaymentsStmt:                         q.getAllPaymentsStmt,
+		getAllProductsByFiltersNameAscStmt:         q.getAllProductsByFiltersNameAscStmt,
+		getAllProductsByFiltersNameDescStmt:        q.getAllProductsByFiltersNameDescStmt,
+		getAllProductsByFiltersNewestStmt:          q.getAllProductsByFiltersNewestStmt,
+		getAllProductsByFiltersOldestStmt:          q.getAllProductsByFiltersOldestStmt,
+		getAllProductsByFiltersPriceAscStmt:        q.getAllProductsByFiltersPriceAscStmt,
+		getAllProductsByFiltersPriceDescStmt:       q.getAllProductsByFiltersPriceDescStmt,
+		getAllRolesStmt:                            q.getAllRolesStmt,
+		getApprovalTokenStmt:                       q.getApprovalTokenStmt,
+		getBestSellerProductsStmt:                  q.getBestSellerProductsStmt,
+		getCartItemStmt:                            q.getCartItemStmt,
+		getCategoriesByParentIDStmt:                q.getCategoriesByParentIDStmt,
+		getCategoriesWithProductsCountStmt:         q.getCategoriesWithProductsCountStmt,
+		getCategoriesWithSubcategoryCountStmt:      q.getCategoriesWithSubcategoryCountStmt,
+		getCategoryByIDStmt:                        q.getCategoryByIDStmt,
+		getCategoryByNameStmt:                      q.getCategoryByNameStmt,
+		getCategoryBySlugStmt:                      q.getCategoryBySlugStmt,
+		getCategoryDetailsBySlugStmt:               q.getCategoryDetailsBySlugStmt,
+		getCategoryProductsByFiltersNameAscStmt:    q.getCategoryProductsByFiltersNameAscStmt,
+		getCategoryProductsByFiltersNameDescStmt:   q.getCategoryProductsByFiltersNameDescStmt,
+		getCategoryProductsByFiltersNewestStmt:     q.getCategoryProductsByFiltersNewestStmt,
+		getCategoryProductsByFiltersOldestStmt:     q.getCategoryProductsByFiltersOldestStmt,
+		getCategoryProductsByFiltersPriceAscStmt:   q.getCategoryProductsByFiltersPriceAscStmt,
+		getCategoryProductsByFiltersPriceDescStmt:  q.getCategoryProductsByFiltersPriceDescStmt,
+		getCategorySEOBySlugStmt:                   q.getCategorySEOBySlugStmt,
+		getCategoryTreeStmt:                        q.getCategoryTreeStmt,
+		getCompanyStmt:                             q.getCompanyStmt,
+		getDailyDealsStmt:                          q.getDailyDealsStmt,
+		getDiscountByIDStmt:                        q.getDiscountByIDStmt,
+		getDiscountByProductIDStmt:                 q.getDiscountByProductIDStmt,
+		getFeaturedProductsStmt:                    q.getFeaturedProductsStmt,
+		getGuestCheckoutByEmailStmt:                q.getGuestCheckoutByEmailStmt,
+		getImageKeysByProductIDStmt:                q.getImageKeysByProductIDStmt,
+		getLatestExchangeRateStmt:                  q.getLatestExchangeRateStmt,
+		getMonthlyRevenueStmt:                      q.getMonthlyRevenueStmt,
+		getMonthlySalesStmt:                        q.getMonthlySalesStmt,
+		getMonthlySalesForLastTwoMonthsStmt:        q.getMonthlySalesForLastTwoMonthsStmt,
+		getNewArrivalProductsStmt:                  q.getNewArrivalProductsStmt,
+		getOrderByIdStmt:                           q.getOrderByIdStmt,
+		getOrderIDsByUserIDStmt:                    q.getOrderIDsByUserIDStmt,
+		getOrderItemsByOrderIdStmt:                 q.getOrderItemsByOrderIdStmt,
+		getOrdersByGuestCheckoutIdStmt:             q.getOrdersByGuestCheckoutIdStmt,
+		getOrdersByUserIdStmt:                      q.getOrdersByUserIdStmt,
+		getParentCategoriesStmt:                    q.getParentCategoriesStmt,
+		getPasswordResetTokenStmt:                  q.getPasswordResetTokenStmt,
+		getPaymentByOrderIDStmt:                    q.getPaymentByOrderIDStmt,
+		getPaymentStatusIDByStatusStmt:             q.getPaymentStatusIDByStatusStmt,
+		getPendingAdminRequestsStmt:                q.getPendingAdminRequestsStmt,
+		getProductAttributesStmt:                   q.getProductAttributesStmt,
+		getProductAttributesByCategoryIDStmt:       q.getProductAttributesByCategoryIDStmt,
+		getProductAttributesByCategoryNameStmt:     q.getProductAttributesByCategoryNameStmt,
+		getProductAttributesWithValuesStmt:         q.getProductAttributesWithValuesStmt,
+		getProductByIDStmt:                         q.getProductByIDStmt,
+		getProductByIDsStmt:                        q.getProductByIDsStmt,
+		getProductBySlugStmt:                       q.getProductBySlugStmt,
+		getProductIDsByPromotionIDStmt:             q.getProductIDsByPromotionIDStmt,
+		getProductIDsBySlugsStmt:                   q.getProductIDsBySlugsStmt,
+		getProductImageByIDStmt:                    q.getProductImageByIDStmt,
+		getProductOptionByIDStmt:                   q.getProductOptionByIDStmt,
+		getProductOptionValueByIDStmt:              q.getProductOptionValueByIDStmt,
+		getProductPricingByProductIDStmt:           q.getProductPricingByProductIDStmt,
+		getProductSEOStmt:                          q.getProductSEOStmt,
+		getProductSpecificationByIDStmt:            q.getProductSpecificationByIDStmt,
+		getProductSpecsByIDStmt:                    q.getProductSpecsByIDStmt,
+		getProductVariantByIDStmt:                  q.getProductVariantByIDStmt,
+		getProductsByCategoryIDStmt:                q.getProductsByCategoryIDStmt,
+		getProductsByParentCategoryIDStmt:          q.getProductsByParentCategoryIDStmt,
+		getPromotionBySlugStmt:                     q.getPromotionBySlugStmt,
+		getPromotionDetailsStmt:                    q.getPromotionDetailsStmt,
+		getPromotionsStmt:                          q.getPromotionsStmt,
+		getRecentSalesStmt:                         q.getRecentSalesStmt,
+		getRelatedProductByProductIDStmt:           q.getRelatedProductByProductIDStmt,
+		getRoleByIDStmt:                            q.getRoleByIDStmt,
+		getRoleByNameStmt:                          q.getRoleByNameStmt,
+		getSalesTrendStmt:                          q.getSalesTrendStmt,
+		getShoppingCartBySessionIDStmt:             q.getShoppingCartBySessionIDStmt,
+		getShoppingCartByUserIDStmt:                q.getShoppingCartByUserIDStmt,
+		getStatusByIDStmt:                          q.getStatusByIDStmt,
+		getTotalCategoryProductsByFiltersStmt:      q.getTotalCategoryProductsByFiltersStmt,
+		getTotalRevenueByPaymentStatusStmt:         q.getTotalRevenueByPaymentStatusStmt,
+		getTotalRevenueForLastTwoMonthsStmt:        q.getTotalRevenueForLastTwoMonthsStmt,
+		getTotalSalesCurrentMonthStmt:              q.getTotalSalesCurrentMonthStmt,
+		getUserByEmailStmt:                         q.getUserByEmailStmt,
+		getUserByIDStmt:                            q.getUserByIDStmt,
+		getUserByProviderStmt:                      q.getUserByProviderStmt,
+		getUserOrGuestCheckoutNameByOrderIDStmt:    q.getUserOrGuestCheckoutNameByOrderIDStmt,
+		getUserProfileByIDStmt:                     q.getUserProfileByIDStmt,
+		getUserRecommendationsStmt:                 q.getUserRecommendationsStmt,
+		getUserRolesStmt:                           q.getUserRolesStmt,
+		getUserRolesByUserIDStmt:                   q.getUserRolesByUserIDStmt,
+		getUsersByRoleStmt:                         q.getUsersByRoleStmt,
+		getV2CategoryHierarchyStmt:                 q.getV2CategoryHierarchyStmt,
+		getV2ProductDetailBySlugStmt:               q.getV2ProductDetailBySlugStmt,
+		getV2ProductsStmt:                          q.getV2ProductsStmt,
+		getV2PromotionsStmt:                        q.getV2PromotionsStmt,
+		getVATPercentageStmt:                       q.getVATPercentageStmt,
+		getVerificationTokenByEmailStmt:            q.getVerificationTokenByEmailStmt,
+		getVerificationTokenByTokenStmt:            q.getVerificationTokenByTokenStmt,
+		hardDeleteCategoryStmt:                     q.hardDeleteCategoryStmt,
+		insertExchangeRateStmt:                     q.insertExchangeRateStmt,
+		isAdminStmt:                                q.isAdminStmt,
+		listCategoriesStmt:                         q.listCategoriesStmt,
+		listDiscountsStmt:                          q.listDiscountsStmt,
+		listDiscountsByProductIDStmt:               q.listDiscountsByProductIDStmt,
+		listProductImagesByProductIDStmt:           q.listProductImagesByProductIDStmt,
+		listProductOptionValuesByOptionIDStmt:      q.listProductOptionValuesByOptionIDStmt,
+		listProductOptionsByProductIDStmt:          q.listProductOptionsByProductIDStmt,
+		listProductSpecificationsByProductIDStmt:   q.listProductSpecificationsByProductIDStmt,
+		listProductVariantsByProductIDStmt:         q.listProductVariantsByProductIDStmt,
+		listProductsStmt:                           q.listProductsStmt,
+		listRelatedProductsByProductIDStmt:         q.listRelatedProductsByProductIDStmt,
+		listUsersStmt:                              q.listUsersStmt,
+		makeAdminStmt:                              q.makeAdminStmt,
+		rejectAdminRequestStmt:                     q.rejectAdminRequestStmt,
+		removeAllRolesFromUserStmt:                 q.removeAllRolesFromUserStmt,
+		removeCartItemStmt:                         q.removeCartItemStmt,
+		removeProductsFromPromotionStmt:            q.removeProductsFromPromotionStmt,
+		removeRoleFromUserStmt:                     q.removeRoleFromUserStmt,
+		searchProductsStmt:                         q.searchProductsStmt,
+		softDeleteCategoryStmt:                     q.softDeleteCategoryStmt,
+		softDeleteProductStmt:                      q.softDeleteProductStmt,
+		storeApprovalTokenStmt:                     q.storeApprovalTokenStmt,
+		storePasswordResetTokenStmt:                q.storePasswordResetTokenStmt,
+		storeRefreshTokenStmt:                      q.storeRefreshTokenStmt,
+		updateCartItemQuantityStmt:                 q.updateCartItemQuantityStmt,
+		updateCartTotalsStmt:                       q.updateCartTotalsStmt,
+		updateCategoryStmt:                         q.updateCategoryStmt,
+		updateCategoryImageStmt:                    q.updateCategoryImageStmt,
+		updateCheckoutRequestIDByOrderIDStmt:       q.updateCheckoutRequestIDByOrderIDStmt,
+		updateDiscountStmt:                         q.updateDiscountStmt,
+		updateExchangeRateStmt:                     q.updateExchangeRateStmt,
+		updateOrderAmountsStmt:                     q.updateOrderAmountsStmt,
+		updateOrderPaymentStatusStmt:               q.updateOrderPaymentStatusStmt,
+		updateOrderStatusStmt:                      q.updateOrderStatusStmt,
+		updatePaymentStatusStmt:                    q.updatePaymentStatusStmt,
+		updateProductStmt:                          q.updateProductStmt,
+		updateProductImageStmt:                     q.updateProductImageStmt,
+		updateProductImagesStmt:                    q.updateProductImagesStmt,
+		updateProductOptionStmt:                    q.updateProductOptionStmt,
+		updateProductOptionValueStmt:               q.updateProductOptionValueStmt,
+		updateProductSEOStmt:                       q.updateProductSEOStmt,
+		updateProductSpecificationStmt:             q.updateProductSpecificationStmt,
+		updateProductVariantStmt:                   q.updateProductVariantStmt,
+		updatePromotionStmt:                        q.updatePromotionStmt,
+		updatePromotionImageStmt:                   q.updatePromotionImageStmt,
+		updateRoleStmt:                             q.updateRoleStmt,
+		updateUserStmt:                             q.updateUserStmt,
+		updateUserCompanyStmt:                      q.updateUserCompanyStmt,
+		updateUserEmailVerifiedStmt:                q.updateUserEmailVerifiedStmt,
+		updateUserInfoStmt:                         q.updateUserInfoStmt,
+		updateUserLastLoginStmt:                    q.updateUserLastLoginStmt,
+		updateUserPasswordStmt:                     q.updateUserPasswordStmt,
+		updateUserProfileStmt:                      q.updateUserProfileStmt,
+		updateVATPercentageStmt:                    q.updateVATPercentageStmt,
+		upsertCartItemStmt:                         q.upsertCartItemStmt,
+		upsertProductSpecificationStmt:             q.upsertProductSpecificationStmt,
 	}
 }

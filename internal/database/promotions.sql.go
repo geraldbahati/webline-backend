@@ -14,6 +14,18 @@ import (
 	"github.com/lib/pq"
 )
 
+const activatePromotions = `-- name: ActivatePromotions :exec
+UPDATE promotions
+SET status = 'active',
+    updated_at = now()
+WHERE slug = ANY($1::text[])
+`
+
+func (q *Queries) ActivatePromotions(ctx context.Context, dollar_1 []string) error {
+	_, err := q.exec(ctx, q.activatePromotionsStmt, activatePromotions, pq.Array(dollar_1))
+	return err
+}
+
 const addProductToPromotion = `-- name: AddProductToPromotion :exec
 INSERT INTO promotion_products (promotion_id, product_id)
 VALUES ($1, $2)
@@ -26,7 +38,7 @@ type AddProductToPromotionParams struct {
 }
 
 func (q *Queries) AddProductToPromotion(ctx context.Context, arg AddProductToPromotionParams) error {
-	_, err := q.db.ExecContext(ctx, addProductToPromotion, arg.PromotionID, arg.ProductID)
+	_, err := q.exec(ctx, q.addProductToPromotionStmt, addProductToPromotion, arg.PromotionID, arg.ProductID)
 	return err
 }
 
@@ -42,7 +54,19 @@ type AddProductsToPromotionParams struct {
 }
 
 func (q *Queries) AddProductsToPromotion(ctx context.Context, arg AddProductsToPromotionParams) error {
-	_, err := q.db.ExecContext(ctx, addProductsToPromotion, arg.PromotionID, pq.Array(arg.Column2))
+	_, err := q.exec(ctx, q.addProductsToPromotionStmt, addProductsToPromotion, arg.PromotionID, pq.Array(arg.Column2))
+	return err
+}
+
+const archivePromotions = `-- name: ArchivePromotions :exec
+UPDATE promotions
+SET status = 'archived',
+    updated_at = now()
+WHERE slug = ANY($1::text[])
+`
+
+func (q *Queries) ArchivePromotions(ctx context.Context, dollar_1 []string) error {
+	_, err := q.exec(ctx, q.archivePromotionsStmt, archivePromotions, pq.Array(dollar_1))
 	return err
 }
 
@@ -72,7 +96,7 @@ type CreatePromotionRow struct {
 }
 
 func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams) (CreatePromotionRow, error) {
-	row := q.db.QueryRowContext(ctx, createPromotion,
+	row := q.queryRow(ctx, q.createPromotionStmt, createPromotion,
 		arg.Title,
 		arg.Description,
 		arg.ImageUrl,
@@ -93,6 +117,38 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 	return i, err
 }
 
+const deletePromotion = `-- name: DeletePromotion :exec
+DELETE FROM promotions
+WHERE slug = $1
+`
+
+func (q *Queries) DeletePromotion(ctx context.Context, slug string) error {
+	_, err := q.exec(ctx, q.deletePromotionStmt, deletePromotion, slug)
+	return err
+}
+
+const deletePromotions = `-- name: DeletePromotions :exec
+DELETE FROM promotions
+WHERE slug = ANY($1::text[])
+`
+
+func (q *Queries) DeletePromotions(ctx context.Context, dollar_1 []string) error {
+	_, err := q.exec(ctx, q.deletePromotionsStmt, deletePromotions, pq.Array(dollar_1))
+	return err
+}
+
+const draftPromotions = `-- name: DraftPromotions :exec
+UPDATE promotions
+SET status = 'draft',
+    updated_at = now()
+WHERE slug = ANY($1::text[])
+`
+
+func (q *Queries) DraftPromotions(ctx context.Context, dollar_1 []string) error {
+	_, err := q.exec(ctx, q.draftPromotionsStmt, draftPromotions, pq.Array(dollar_1))
+	return err
+}
+
 const getProductIDsByPromotionID = `-- name: GetProductIDsByPromotionID :many
 SELECT
     product_id
@@ -103,12 +159,12 @@ WHERE
 `
 
 func (q *Queries) GetProductIDsByPromotionID(ctx context.Context, promotionID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.db.QueryContext(ctx, getProductIDsByPromotionID, promotionID)
+	rows, err := q.query(ctx, q.getProductIDsByPromotionIDStmt, getProductIDsByPromotionID, promotionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	items := []uuid.UUID{}
 	for rows.Next() {
 		var product_id uuid.UUID
 		if err := rows.Scan(&product_id); err != nil {
@@ -150,7 +206,7 @@ LIMIT 1
 `
 
 func (q *Queries) GetPromotionBySlug(ctx context.Context, slug string) (Promotion, error) {
-	row := q.db.QueryRowContext(ctx, getPromotionBySlug, slug)
+	row := q.queryRow(ctx, q.getPromotionBySlugStmt, getPromotionBySlug, slug)
 	var i Promotion
 	err := row.Scan(
 		&i.ID,
@@ -229,12 +285,12 @@ type GetPromotionDetailsRow struct {
 
 // This function will fetch the promotion details along with associated products.
 func (q *Queries) GetPromotionDetails(ctx context.Context, slug string) ([]GetPromotionDetailsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getPromotionDetails, slug)
+	rows, err := q.query(ctx, q.getPromotionDetailsStmt, getPromotionDetails, slug)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetPromotionDetailsRow
+	items := []GetPromotionDetailsRow{}
 	for rows.Next() {
 		var i GetPromotionDetailsRow
 		if err := rows.Scan(
@@ -301,12 +357,12 @@ type GetPromotionsRow struct {
 }
 
 func (q *Queries) GetPromotions(ctx context.Context) ([]GetPromotionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getPromotions)
+	rows, err := q.query(ctx, q.getPromotionsStmt, getPromotions)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetPromotionsRow
+	items := []GetPromotionsRow{}
 	for rows.Next() {
 		var i GetPromotionsRow
 		if err := rows.Scan(
@@ -366,12 +422,12 @@ type GetV2PromotionsRow struct {
 }
 
 func (q *Queries) GetV2Promotions(ctx context.Context) ([]GetV2PromotionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getV2Promotions)
+	rows, err := q.query(ctx, q.getV2PromotionsStmt, getV2Promotions)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetV2PromotionsRow
+	items := []GetV2PromotionsRow{}
 	for rows.Next() {
 		var i GetV2PromotionsRow
 		if err := rows.Scan(
@@ -410,7 +466,7 @@ type RemoveProductsFromPromotionParams struct {
 }
 
 func (q *Queries) RemoveProductsFromPromotion(ctx context.Context, arg RemoveProductsFromPromotionParams) error {
-	_, err := q.db.ExecContext(ctx, removeProductsFromPromotion, arg.PromotionID, pq.Array(arg.Column2))
+	_, err := q.exec(ctx, q.removeProductsFromPromotionStmt, removeProductsFromPromotion, arg.PromotionID, pq.Array(arg.Column2))
 	return err
 }
 
@@ -431,7 +487,7 @@ type UpdatePromotionParams struct {
 }
 
 func (q *Queries) UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) error {
-	_, err := q.db.ExecContext(ctx, updatePromotion,
+	_, err := q.exec(ctx, q.updatePromotionStmt, updatePromotion,
 		arg.ID,
 		arg.Title,
 		arg.Description,
@@ -455,6 +511,6 @@ type UpdatePromotionImageParams struct {
 }
 
 func (q *Queries) UpdatePromotionImage(ctx context.Context, arg UpdatePromotionImageParams) error {
-	_, err := q.db.ExecContext(ctx, updatePromotionImage, arg.ID, arg.ImageUrl)
+	_, err := q.exec(ctx, q.updatePromotionImageStmt, updatePromotionImage, arg.ID, arg.ImageUrl)
 	return err
 }

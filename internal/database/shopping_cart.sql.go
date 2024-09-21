@@ -19,7 +19,7 @@ RETURNING id, user_id, session_id, total_items, total_price, created_at, updated
 
 // Create a new shopping cart
 func (q *Queries) CreateShoppingCart(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error) {
-	row := q.db.QueryRowContext(ctx, createShoppingCart, userID)
+	row := q.queryRow(ctx, q.createShoppingCartStmt, createShoppingCart, userID)
 	var i ShoppingCart
 	err := row.Scan(
 		&i.ID,
@@ -40,7 +40,7 @@ WHERE id = $1
 
 // Delete a shopping cart
 func (q *Queries) DeleteShoppingCart(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteShoppingCart, id)
+	_, err := q.exec(ctx, q.deleteShoppingCartStmt, deleteShoppingCart, id)
 	return err
 }
 
@@ -54,7 +54,7 @@ LIMIT 1
 
 // Get a shopping cart by session ID
 func (q *Queries) GetShoppingCartBySessionID(ctx context.Context, sessionID uuid.NullUUID) (ShoppingCart, error) {
-	row := q.db.QueryRowContext(ctx, getShoppingCartBySessionID, sessionID)
+	row := q.queryRow(ctx, q.getShoppingCartBySessionIDStmt, getShoppingCartBySessionID, sessionID)
 	var i ShoppingCart
 	err := row.Scan(
 		&i.ID,
@@ -78,7 +78,7 @@ LIMIT 1
 
 // Get a shopping cart by user ID
 func (q *Queries) GetShoppingCartByUserID(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error) {
-	row := q.db.QueryRowContext(ctx, getShoppingCartByUserID, userID)
+	row := q.queryRow(ctx, q.getShoppingCartByUserIDStmt, getShoppingCartByUserID, userID)
 	var i ShoppingCart
 	err := row.Scan(
 		&i.ID,
@@ -104,6 +104,6 @@ WHERE sc.id = $1
 `
 
 func (q *Queries) UpdateCartTotals(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, updateCartTotals, id)
+	_, err := q.exec(ctx, q.updateCartTotalsStmt, updateCartTotals, id)
 	return err
 }

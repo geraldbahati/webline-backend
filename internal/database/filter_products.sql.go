@@ -134,7 +134,7 @@ type CountAllProductsByFiltersParams struct {
 }
 
 func (q *Queries) CountAllProductsByFilters(ctx context.Context, arg CountAllProductsByFiltersParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAllProductsByFilters, arg.UsdPrice, arg.UsdPrice_2, arg.Column3)
+	row := q.queryRow(ctx, q.countAllProductsByFiltersStmt, countAllProductsByFilters, arg.UsdPrice, arg.UsdPrice_2, arg.Column3)
 	var total_products int64
 	err := row.Scan(&total_products)
 	return total_products, err
@@ -303,7 +303,7 @@ type GetAllProductsByFiltersNameAscRow struct {
 }
 
 func (q *Queries) GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAllProductsByFiltersNameAscParams) ([]GetAllProductsByFiltersNameAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNameAsc,
+	rows, err := q.query(ctx, q.getAllProductsByFiltersNameAscStmt, getAllProductsByFiltersNameAsc,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
 		arg.Column3,
@@ -314,7 +314,7 @@ func (q *Queries) GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAll
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllProductsByFiltersNameAscRow
+	items := []GetAllProductsByFiltersNameAscRow{}
 	for rows.Next() {
 		var i GetAllProductsByFiltersNameAscRow
 		if err := rows.Scan(
@@ -503,7 +503,7 @@ type GetAllProductsByFiltersNameDescRow struct {
 }
 
 func (q *Queries) GetAllProductsByFiltersNameDesc(ctx context.Context, arg GetAllProductsByFiltersNameDescParams) ([]GetAllProductsByFiltersNameDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNameDesc,
+	rows, err := q.query(ctx, q.getAllProductsByFiltersNameDescStmt, getAllProductsByFiltersNameDesc,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
 		arg.Column3,
@@ -514,7 +514,7 @@ func (q *Queries) GetAllProductsByFiltersNameDesc(ctx context.Context, arg GetAl
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllProductsByFiltersNameDescRow
+	items := []GetAllProductsByFiltersNameDescRow{}
 	for rows.Next() {
 		var i GetAllProductsByFiltersNameDescRow
 		if err := rows.Scan(
@@ -703,7 +703,7 @@ type GetAllProductsByFiltersNewestRow struct {
 }
 
 func (q *Queries) GetAllProductsByFiltersNewest(ctx context.Context, arg GetAllProductsByFiltersNewestParams) ([]GetAllProductsByFiltersNewestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersNewest,
+	rows, err := q.query(ctx, q.getAllProductsByFiltersNewestStmt, getAllProductsByFiltersNewest,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
 		arg.Column3,
@@ -714,7 +714,7 @@ func (q *Queries) GetAllProductsByFiltersNewest(ctx context.Context, arg GetAllP
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllProductsByFiltersNewestRow
+	items := []GetAllProductsByFiltersNewestRow{}
 	for rows.Next() {
 		var i GetAllProductsByFiltersNewestRow
 		if err := rows.Scan(
@@ -903,7 +903,7 @@ type GetAllProductsByFiltersOldestRow struct {
 }
 
 func (q *Queries) GetAllProductsByFiltersOldest(ctx context.Context, arg GetAllProductsByFiltersOldestParams) ([]GetAllProductsByFiltersOldestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersOldest,
+	rows, err := q.query(ctx, q.getAllProductsByFiltersOldestStmt, getAllProductsByFiltersOldest,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
 		arg.Column3,
@@ -914,7 +914,7 @@ func (q *Queries) GetAllProductsByFiltersOldest(ctx context.Context, arg GetAllP
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllProductsByFiltersOldestRow
+	items := []GetAllProductsByFiltersOldestRow{}
 	for rows.Next() {
 		var i GetAllProductsByFiltersOldestRow
 		if err := rows.Scan(
@@ -1103,7 +1103,7 @@ type GetAllProductsByFiltersPriceAscRow struct {
 }
 
 func (q *Queries) GetAllProductsByFiltersPriceAsc(ctx context.Context, arg GetAllProductsByFiltersPriceAscParams) ([]GetAllProductsByFiltersPriceAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersPriceAsc,
+	rows, err := q.query(ctx, q.getAllProductsByFiltersPriceAscStmt, getAllProductsByFiltersPriceAsc,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
 		arg.Column3,
@@ -1114,7 +1114,7 @@ func (q *Queries) GetAllProductsByFiltersPriceAsc(ctx context.Context, arg GetAl
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllProductsByFiltersPriceAscRow
+	items := []GetAllProductsByFiltersPriceAscRow{}
 	for rows.Next() {
 		var i GetAllProductsByFiltersPriceAscRow
 		if err := rows.Scan(
@@ -1303,7 +1303,7 @@ type GetAllProductsByFiltersPriceDescRow struct {
 }
 
 func (q *Queries) GetAllProductsByFiltersPriceDesc(ctx context.Context, arg GetAllProductsByFiltersPriceDescParams) ([]GetAllProductsByFiltersPriceDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllProductsByFiltersPriceDesc,
+	rows, err := q.query(ctx, q.getAllProductsByFiltersPriceDescStmt, getAllProductsByFiltersPriceDesc,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
 		arg.Column3,
@@ -1314,7 +1314,7 @@ func (q *Queries) GetAllProductsByFiltersPriceDesc(ctx context.Context, arg GetA
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllProductsByFiltersPriceDescRow
+	items := []GetAllProductsByFiltersPriceDescRow{}
 	for rows.Next() {
 		var i GetAllProductsByFiltersPriceDescRow
 		if err := rows.Scan(
@@ -1433,7 +1433,7 @@ type GetProductAttributesRow struct {
 }
 
 func (q *Queries) GetProductAttributes(ctx context.Context) (GetProductAttributesRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductAttributes)
+	row := q.queryRow(ctx, q.getProductAttributesStmt, getProductAttributes)
 	var i GetProductAttributesRow
 	err := row.Scan(&i.Attributes, &i.TotalProducts)
 	return i, err

@@ -132,7 +132,7 @@ type GetCategoryProductsByFiltersNameAscRow struct {
 // $5: limit (INTEGER)
 // $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersNameAsc(ctx context.Context, arg GetCategoryProductsByFiltersNameAscParams) ([]GetCategoryProductsByFiltersNameAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersNameAsc,
+	rows, err := q.query(ctx, q.getCategoryProductsByFiltersNameAscStmt, getCategoryProductsByFiltersNameAsc,
 		arg.ID,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
@@ -144,7 +144,7 @@ func (q *Queries) GetCategoryProductsByFiltersNameAsc(ctx context.Context, arg G
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoryProductsByFiltersNameAscRow
+	items := []GetCategoryProductsByFiltersNameAscRow{}
 	for rows.Next() {
 		var i GetCategoryProductsByFiltersNameAscRow
 		if err := rows.Scan(
@@ -289,7 +289,7 @@ type GetCategoryProductsByFiltersNameDescRow struct {
 // $5: limit (INTEGER)
 // $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersNameDesc(ctx context.Context, arg GetCategoryProductsByFiltersNameDescParams) ([]GetCategoryProductsByFiltersNameDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersNameDesc,
+	rows, err := q.query(ctx, q.getCategoryProductsByFiltersNameDescStmt, getCategoryProductsByFiltersNameDesc,
 		arg.ID,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
@@ -301,7 +301,7 @@ func (q *Queries) GetCategoryProductsByFiltersNameDesc(ctx context.Context, arg 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoryProductsByFiltersNameDescRow
+	items := []GetCategoryProductsByFiltersNameDescRow{}
 	for rows.Next() {
 		var i GetCategoryProductsByFiltersNameDescRow
 		if err := rows.Scan(
@@ -440,7 +440,7 @@ type GetCategoryProductsByFiltersNewestRow struct {
 }
 
 func (q *Queries) GetCategoryProductsByFiltersNewest(ctx context.Context, arg GetCategoryProductsByFiltersNewestParams) ([]GetCategoryProductsByFiltersNewestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersNewest,
+	rows, err := q.query(ctx, q.getCategoryProductsByFiltersNewestStmt, getCategoryProductsByFiltersNewest,
 		arg.ID,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
@@ -452,7 +452,7 @@ func (q *Queries) GetCategoryProductsByFiltersNewest(ctx context.Context, arg Ge
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoryProductsByFiltersNewestRow
+	items := []GetCategoryProductsByFiltersNewestRow{}
 	for rows.Next() {
 		var i GetCategoryProductsByFiltersNewestRow
 		if err := rows.Scan(
@@ -597,7 +597,7 @@ type GetCategoryProductsByFiltersOldestRow struct {
 // $5: limit (INTEGER)
 // $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersOldest(ctx context.Context, arg GetCategoryProductsByFiltersOldestParams) ([]GetCategoryProductsByFiltersOldestRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersOldest,
+	rows, err := q.query(ctx, q.getCategoryProductsByFiltersOldestStmt, getCategoryProductsByFiltersOldest,
 		arg.ID,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
@@ -609,7 +609,7 @@ func (q *Queries) GetCategoryProductsByFiltersOldest(ctx context.Context, arg Ge
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoryProductsByFiltersOldestRow
+	items := []GetCategoryProductsByFiltersOldestRow{}
 	for rows.Next() {
 		var i GetCategoryProductsByFiltersOldestRow
 		if err := rows.Scan(
@@ -754,7 +754,7 @@ type GetCategoryProductsByFiltersPriceAscRow struct {
 // $5: limit (INTEGER)
 // $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersPriceAsc(ctx context.Context, arg GetCategoryProductsByFiltersPriceAscParams) ([]GetCategoryProductsByFiltersPriceAscRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersPriceAsc,
+	rows, err := q.query(ctx, q.getCategoryProductsByFiltersPriceAscStmt, getCategoryProductsByFiltersPriceAsc,
 		arg.ID,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
@@ -766,7 +766,7 @@ func (q *Queries) GetCategoryProductsByFiltersPriceAsc(ctx context.Context, arg 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoryProductsByFiltersPriceAscRow
+	items := []GetCategoryProductsByFiltersPriceAscRow{}
 	for rows.Next() {
 		var i GetCategoryProductsByFiltersPriceAscRow
 		if err := rows.Scan(
@@ -911,7 +911,7 @@ type GetCategoryProductsByFiltersPriceDescRow struct {
 // $5: limit (INTEGER)
 // $6: offset (INTEGER)
 func (q *Queries) GetCategoryProductsByFiltersPriceDesc(ctx context.Context, arg GetCategoryProductsByFiltersPriceDescParams) ([]GetCategoryProductsByFiltersPriceDescRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryProductsByFiltersPriceDesc,
+	rows, err := q.query(ctx, q.getCategoryProductsByFiltersPriceDescStmt, getCategoryProductsByFiltersPriceDesc,
 		arg.ID,
 		arg.UsdPrice,
 		arg.UsdPrice_2,
@@ -923,7 +923,7 @@ func (q *Queries) GetCategoryProductsByFiltersPriceDesc(ctx context.Context, arg
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoryProductsByFiltersPriceDescRow
+	items := []GetCategoryProductsByFiltersPriceDescRow{}
 	for rows.Next() {
 		var i GetCategoryProductsByFiltersPriceDescRow
 		if err := rows.Scan(
@@ -1022,7 +1022,7 @@ type GetProductAttributesByCategoryIDRow struct {
 }
 
 func (q *Queries) GetProductAttributesByCategoryID(ctx context.Context, id uuid.UUID) (GetProductAttributesByCategoryIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductAttributesByCategoryID, id)
+	row := q.queryRow(ctx, q.getProductAttributesByCategoryIDStmt, getProductAttributesByCategoryID, id)
 	var i GetProductAttributesByCategoryIDRow
 	err := row.Scan(&i.Attributes, &i.TotalProducts)
 	return i, err
@@ -1117,7 +1117,7 @@ type GetProductAttributesByCategoryNameRow struct {
 }
 
 func (q *Queries) GetProductAttributesByCategoryName(ctx context.Context, name string) (GetProductAttributesByCategoryNameRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductAttributesByCategoryName, name)
+	row := q.queryRow(ctx, q.getProductAttributesByCategoryNameStmt, getProductAttributesByCategoryName, name)
 	var i GetProductAttributesByCategoryNameRow
 	err := row.Scan(&i.Attributes, &i.TotalProducts)
 	return i, err
@@ -1212,7 +1212,7 @@ type GetTotalCategoryProductsByFiltersParams struct {
 // $3: max_price_kes (NUMERIC)
 // $4: selected_attributes (JSONB) -- {"size": ["14-inch", "15-inch"], "color": ["red", "blue"]}
 func (q *Queries) GetTotalCategoryProductsByFilters(ctx context.Context, arg GetTotalCategoryProductsByFiltersParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getTotalCategoryProductsByFilters,
+	row := q.queryRow(ctx, q.getTotalCategoryProductsByFiltersStmt, getTotalCategoryProductsByFilters,
 		arg.ID,
 		arg.UsdPrice,
 		arg.UsdPrice_2,

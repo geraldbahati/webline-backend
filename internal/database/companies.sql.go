@@ -38,7 +38,7 @@ type CreateCompanyParams struct {
 }
 
 func (q *Queries) CreateCompany(ctx context.Context, arg CreateCompanyParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createCompany,
+	row := q.queryRow(ctx, q.createCompanyStmt, createCompany,
 		arg.Name,
 		arg.KraPin,
 		arg.Address,
@@ -63,7 +63,7 @@ type GetCompanyParams struct {
 }
 
 func (q *Queries) GetCompany(ctx context.Context, arg GetCompanyParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, getCompany, arg.Name, arg.KraPin)
+	row := q.queryRow(ctx, q.getCompanyStmt, getCompany, arg.Name, arg.KraPin)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -82,6 +82,6 @@ type UpdateUserCompanyParams struct {
 }
 
 func (q *Queries) UpdateUserCompany(ctx context.Context, arg UpdateUserCompanyParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserCompany, arg.ID, arg.CompanyID)
+	_, err := q.exec(ctx, q.updateUserCompanyStmt, updateUserCompany, arg.ID, arg.CompanyID)
 	return err
 }
