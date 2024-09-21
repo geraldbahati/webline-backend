@@ -156,3 +156,28 @@ FROM
 WHERE
     p.slug = $1;
 
+-- name: DeletePromotion :exec
+DELETE FROM promotions
+WHERE slug = $1;
+
+-- name: DeletePromotions :exec
+DELETE FROM promotions
+WHERE slug = ANY($1::text[]);
+
+-- name: ArchivePromotions :exec
+UPDATE promotions
+SET status = 'archived',
+    updated_at = now()
+WHERE slug = ANY($1::text[]);
+
+-- name: DraftPromotions :exec
+UPDATE promotions
+SET status = 'draft',
+    updated_at = now()
+WHERE slug = ANY($1::text[]);
+
+-- name: ActivatePromotions :exec
+UPDATE promotions
+SET status = 'active',
+    updated_at = now()
+WHERE slug = ANY($1::text[]);
