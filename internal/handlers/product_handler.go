@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 
@@ -169,93 +168,6 @@ func (h *ProductHandler) GetProductsByCategoryIDHandler(w http.ResponseWriter, r
 	RespondWithJSON(w, http.StatusOK, products)
 }
 
-//// GetProductsByParentCategoryIDHandler gets all products by parent category ID
-//func (h *ProductHandler) GetProductsByParentCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
-//	// get category ID
-//	vars := mux.Vars(r)
-//	categoryID := vars["id"]
-//
-//	// get products
-//	products, err := h.productService.GetProductsByParentCategoryID(r.Context(), categoryID)
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by parent category ID")
-//		return
-//	}
-//
-//	// respond with products
-//	RespondWithJSON(w, http.StatusOK, products)
-//}
-
-//func (h *ProductHandler) GetProductsByFiltersHandler(w http.ResponseWriter, r *http.Request) {
-//	categoryID := mux.Vars(r)["category_id"]
-//	categoryNamesStr := r.URL.Query().Get("category_names")
-//	colorsStr := r.URL.Query().Get("colors")
-//	processorsStr := r.URL.Query().Get("processors")
-//	storageStr := r.URL.Query().Get("storage")
-//	sizesStr := r.URL.Query().Get("sizes")
-//	priceFromStr := r.URL.Query().Get("price_from")
-//	priceToStr := r.URL.Query().Get("price_to")
-//	sortBy := r.URL.Query().Get("sort")
-//
-//	categoryNames := parseCommaSeparatedValues(categoryNamesStr)
-//	colors := parseCommaSeparatedValues(colorsStr)
-//	processors := parseCommaSeparatedValues(processorsStr)
-//	storage := parseCommaSeparatedValues(storageStr)
-//	sizes := parseCommaSeparatedValues(sizesStr)
-//
-//	priceFrom, err := parsePrice(priceFromStr, 0)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid price_from")
-//		return
-//	}
-//
-//	priceTo, err := parsePrice(priceToStr, 999999)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid price_to")
-//		return
-//	}
-//
-//	categoryUUID, err := uuid.Parse(categoryID)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
-//		return
-//	}
-//
-//	products, err := h.productService.GetProductsByFilters(
-//		r.Context(),
-//		categoryUUID,
-//		categoryNames,
-//		colors,
-//		processors,
-//		storage,
-//		sizes,
-//		priceFrom,
-//		priceTo,
-//		sortBy,
-//	)
-//
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
-//		return
-//	}
-//
-//	RespondWithJSON(w, http.StatusOK, products)
-//}
-
-func parseCommaSeparatedValues(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Split(s, ",")
-}
-
-func parsePrice(s string, defaultValue float64) (float64, error) {
-	if s == "" {
-		return defaultValue, nil
-	}
-	return strconv.ParseFloat(s, 64)
-}
-
 // SearchProductsHandler searches products by name
 func (h *ProductHandler) SearchProductsHandler(w http.ResponseWriter, r *http.Request) {
 	// get query
@@ -271,20 +183,6 @@ func (h *ProductHandler) SearchProductsHandler(w http.ResponseWriter, r *http.Re
 	// respond with products
 	RespondWithJSON(w, http.StatusOK, products)
 }
-
-// // GetProductsByFilterOptionsHandler gets all products by filter options
-//
-//	func (h *ProductHandler) GetProductsByFilterOptionsHandler(w http.ResponseWriter, r *http.Request) {
-//		// get filter options
-//		filterOptions, err := h.productService.GetFilterOptions(r.Context())
-//		if err != nil {
-//			RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
-//			return
-//		}
-//
-//		// respond with filter options
-//		RespondWithJSON(w, http.StatusOK, filterOptions)
-//	}
 
 // GetFilterOptionsByCategoryNameHandler gets filter options by category name
 func (h *ProductHandler) GetFilterOptionsByCategoryNameHandler(w http.ResponseWriter, r *http.Request) {
@@ -468,9 +366,7 @@ func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.R
 
 	// Process image Urls
 	imageUrls := make([]string, 0)
-	for _, imageUrl := range r.MultipartForm.Value["url"] {
-		imageUrls = append(imageUrls, imageUrl)
-	}
+	imageUrls = append(imageUrls, r.MultipartForm.Value["url"]...)
 	params.ImageUrls = imageUrls
 
 	// Process specifications
