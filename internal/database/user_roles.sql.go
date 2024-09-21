@@ -32,7 +32,7 @@ type AssignRoleToUserRow struct {
 }
 
 func (q *Queries) AssignRoleToUser(ctx context.Context, arg AssignRoleToUserParams) (AssignRoleToUserRow, error) {
-	row := q.db.QueryRowContext(ctx, assignRoleToUser, arg.UserID, arg.RoleID)
+	row := q.queryRow(ctx, q.assignRoleToUserStmt, assignRoleToUser, arg.UserID, arg.RoleID)
 	var i AssignRoleToUserRow
 	err := row.Scan(
 		&i.ID,
@@ -61,12 +61,12 @@ type GetUserRolesRow struct {
 }
 
 func (q *Queries) GetUserRoles(ctx context.Context, userID uuid.NullUUID) ([]GetUserRolesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserRoles, userID)
+	rows, err := q.query(ctx, q.getUserRolesStmt, getUserRoles, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetUserRolesRow
+	items := []GetUserRolesRow{}
 	for rows.Next() {
 		var i GetUserRolesRow
 		if err := rows.Scan(
@@ -98,12 +98,12 @@ WHERE ur.user_id = $1
 `
 
 func (q *Queries) GetUserRolesByUserID(ctx context.Context, userID uuid.NullUUID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, getUserRolesByUserID, userID)
+	rows, err := q.query(ctx, q.getUserRolesByUserIDStmt, getUserRolesByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	items := []string{}
 	for rows.Next() {
 		var role_name string
 		if err := rows.Scan(&role_name); err != nil {
@@ -142,12 +142,12 @@ type GetUsersByRoleRow struct {
 }
 
 func (q *Queries) GetUsersByRole(ctx context.Context, roleID uuid.NullUUID) ([]GetUsersByRoleRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUsersByRole, roleID)
+	rows, err := q.query(ctx, q.getUsersByRoleStmt, getUsersByRole, roleID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetUsersByRoleRow
+	items := []GetUsersByRoleRow{}
 	for rows.Next() {
 		var i GetUsersByRoleRow
 		if err := rows.Scan(
@@ -182,7 +182,7 @@ WHERE user_id = $1
 `
 
 func (q *Queries) RemoveAllRolesFromUser(ctx context.Context, userID uuid.NullUUID) error {
-	_, err := q.db.ExecContext(ctx, removeAllRolesFromUser, userID)
+	_, err := q.exec(ctx, q.removeAllRolesFromUserStmt, removeAllRolesFromUser, userID)
 	return err
 }
 
@@ -197,6 +197,6 @@ type RemoveRoleFromUserParams struct {
 }
 
 func (q *Queries) RemoveRoleFromUser(ctx context.Context, arg RemoveRoleFromUserParams) error {
-	_, err := q.db.ExecContext(ctx, removeRoleFromUser, arg.UserID, arg.RoleID)
+	_, err := q.exec(ctx, q.removeRoleFromUserStmt, removeRoleFromUser, arg.UserID, arg.RoleID)
 	return err
 }

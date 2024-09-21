@@ -30,7 +30,18 @@ type OrderService struct {
 	cfg                 *appconfig.Config
 }
 
-func NewOrderService(logger *zap.Logger, guestCheckoutRepo *repository.GuestCheckoutRepository, orderRepository *repository.OrderRepository, orderItemRepository *repository.OrderItemRepository, paymentRepository *repository.PaymentRepository, userRepo *repository.UserRepository, productRepo *repository.ProductRepository, discountRepo *repository.DiscountRepository, exchangeRateRepo repository.ExchangeRateRepository, companyRepo repository.CompanyRepository, cfg *appconfig.Config) *OrderService {
+func NewOrderService(
+	logger *zap.Logger, 
+	guestCheckoutRepo *repository.GuestCheckoutRepository, 
+	orderRepository *repository.OrderRepository, 
+	orderItemRepository *repository.OrderItemRepository, 
+	paymentRepository *repository.PaymentRepository, 
+	userRepo *repository.UserRepository, 
+	productRepo *repository.ProductRepository, 
+	discountRepo *repository.DiscountRepository, 
+	exchangeRateRepo repository.ExchangeRateRepository, 
+	companyRepo repository.CompanyRepository, 
+	cfg *appconfig.Config) *OrderService {
 	return &OrderService{
 		logger:              logger,
 		guestCheckoutRepo:   guestCheckoutRepo,
@@ -78,10 +89,14 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 
 	err := s.orderRepository.ExecTx(ctx, func(q *database.Queries) error {
 		// Create the order record
-		orderID, err := s.createOrderRecord(ctx, q, orderParams)
+		order, err := s.createOrderRecord(ctx, q, orderParams)
 		if err != nil {
 			return fmt.Errorf("createOrderRecord failed: %w", err)
 		}
+
+		orderID = order.ID
+		orderParams.OrderDate = order.CreatedAt
+		orderParams.OrderNumber = order.OrderNumber
 
 		// Process the order items
 		notifyItems, totalPrice, totalDiscount, err := s.processOrderItems(ctx, q, orderID, items)
@@ -122,7 +137,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 	updateOrderParams(orderParams, &orderAmounts)
 
 	// Send order notification asynchronously
-	go s.sendOrderNotification(ctx, orderID, orderParams, notificationItems)
+	go s.sendOrderNotification(orderID, orderParams, notificationItems)
 
 	return &orderID, nil
 }
@@ -183,12 +198,14 @@ func updateOrderParams(orderParams *model.CreateOrderParams, orderAmounts *model
 	orderParams.VatAmount = orderAmounts.VatAmount
 }
 
-func (s *OrderService) sendOrderNotification(ctx context.Context, orderID uuid.UUID, orderParams *model.CreateOrderParams, items []utils.OrderItem) {
+func (s *OrderService) sendOrderNotification(orderID uuid.UUID, orderParams *model.CreateOrderParams, items []utils.OrderItem) {
 	// Send the order notification using the utils package
 	err := utils.SendOrderNotification(s.cfg, orderID, orderParams, items)
 	if err != nil {
 		s.logger.Error("failed to send order notification", zap.Error(err))
 	}
+
+	s.logger.Info("order notification sent", zap.Any("order", orderID))
 }
 
 func (s *OrderService) processOrderItems(ctx context.Context, q *database.Queries, orderID uuid.UUID, items []model.CreateOrderItemParams) ([]utils.OrderItem, float64, float64, error) {
@@ -286,9 +303,10 @@ func (s *OrderService) processOrderItems(ctx context.Context, q *database.Querie
         discountAmounts[i] = fmt.Sprintf("%.2f", discountAmount)
         totalPrices[i] = fmt.Sprintf("%.2f", itemTotal)
 
+
 		notificationItems = append(notificationItems, utils.OrderItem{
 			ProductName: product.Name,
-			Quantity:    item.Quantity,
+			Quantity:    int(item.Quantity),
 			Price:       itemTotal,
 		})
     }
@@ -318,7 +336,7 @@ func (s *OrderService) processOrderItems(ctx context.Context, q *database.Querie
 
 
 
-func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Queries, orderParams *model.CreateOrderParams) (uuid.UUID, error) {
+func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Queries, orderParams *model.CreateOrderParams) (*model.OrderSchema, error) {
 	// create company if it company name and kra pin are provided
 	var companyID *uuid.UUID
 	var err error
@@ -326,7 +344,7 @@ func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Querie
 		companyID, err = s.companyRepo.CreateCompany(ctx, *orderParams.CompanyName, *orderParams.KraPIN, orderParams.County, orderParams.Phone, orderParams.Email)
 		if err != nil && err != sql.ErrNoRows {
 			s.logger.Error("failed to create company", zap.Error(err))
-			return uuid.UUID{}, fmt.Errorf("failed to create company: %w", err)
+			return nil, fmt.Errorf("failed to create company: %w", err)
 		}
 
 		if err == sql.ErrNoRows {
@@ -334,25 +352,52 @@ func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Querie
 			companyID, err = s.companyRepo.GetCompanyID(ctx, *orderParams.CompanyName, *orderParams.KraPIN)
 			if err != nil {
 				s.logger.Error("failed to get company ID", zap.Error(err))
-				return uuid.UUID{}, fmt.Errorf("failed to get company ID: %w", err)
+				return nil, fmt.Errorf("failed to get company ID: %w", err)
 			}
 		}
 	}
 
+	var userID, guestID, companyUUID uuid.NullUUID
+
+	if orderParams.UserID != nil {
+		userID = uuid.NullUUID{UUID: *orderParams.UserID, Valid: true}
+	}
+
+	if orderParams.GuestID != nil {
+		guestID = uuid.NullUUID{UUID: *orderParams.GuestID, Valid: true}
+	}
+
+	if companyID != nil {
+		companyUUID = uuid.NullUUID{UUID: *companyID, Valid: true}
+	}
+
 	orderParam := database.CreateOrderParams{
-		GuestCheckoutID: uuid.NullUUID{UUID: *orderParams.GuestID, Valid: orderParams.GuestID != nil},
+		GuestCheckoutID: guestID,
 		CompanyName:     sql.NullString{String: *orderParams.CompanyName, Valid: orderParams.CompanyName != nil},
-		UserID:          uuid.NullUUID{UUID: *orderParams.UserID, Valid: orderParams.UserID != nil},
-		CompanyID:       uuid.NullUUID{UUID: *companyID, Valid: companyID != nil},
+		UserID:          userID,
+		CompanyID:       companyUUID,
 		Column6:         "KES",
 		KraPin:          sql.NullString{String: *orderParams.KraPIN, Valid: orderParams.KraPIN != nil},
+		Subtotal:        "0",
+		TaxAmount:       "0",
+		ShippingAmount:  "0",
+		DiscountAmount:  "0",
+		GrandTotal:      "0",
+		Total:           "0",
 	}
-	orderID, err := q.CreateOrder(ctx, orderParam)
+	order, err := q.CreateOrder(ctx, orderParam)
 	if err != nil {
 		s.logger.Error("failed to create order", zap.Error(err))
-		return uuid.UUID{}, fmt.Errorf("failed to create order: %w", err)
+		return nil, fmt.Errorf("failed to create order: %w", err)
 	}
-	return orderID, nil
+
+	orderSchema := &model.OrderSchema{
+		ID:        order.ID,
+		CreatedAt:   order.CreatedAt.Time,
+		OrderNumber: order.OrderNumber.String,
+	}
+
+	return orderSchema, nil
 }
 
 func (s *OrderService) createOrderItem(ctx context.Context, orderID uuid.UUID, item model.CreateOrderItemParams) (float64, error) {
@@ -407,7 +452,7 @@ func (s *OrderService) prepareOrderItems(ctx context.Context, items []model.Crea
 
 		orderItems = append(orderItems, utils.OrderItem{
 			ProductName: product.Name,
-			Quantity:    item.Quantity,
+			Quantity:    int(item.Quantity),
 			Price:       convertedPrice,
 		})
 	}

@@ -25,7 +25,7 @@ type DeleteExchangeRateParams struct {
 }
 
 func (q *Queries) DeleteExchangeRate(ctx context.Context, arg DeleteExchangeRateParams) error {
-	_, err := q.db.ExecContext(ctx, deleteExchangeRate, arg.CurrencyCode, arg.ValidFrom, arg.ValidTo)
+	_, err := q.exec(ctx, q.deleteExchangeRateStmt, deleteExchangeRate, arg.CurrencyCode, arg.ValidFrom, arg.ValidTo)
 	return err
 }
 
@@ -37,12 +37,12 @@ ORDER BY valid_from DESC
 `
 
 func (q *Queries) GetAllExchangeRatesForCurrency(ctx context.Context, currencyCode string) ([]ExchangeRate, error) {
-	rows, err := q.db.QueryContext(ctx, getAllExchangeRatesForCurrency, currencyCode)
+	rows, err := q.query(ctx, q.getAllExchangeRatesForCurrencyStmt, getAllExchangeRatesForCurrency, currencyCode)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ExchangeRate
+	items := []ExchangeRate{}
 	for rows.Next() {
 		var i ExchangeRate
 		if err := rows.Scan(
@@ -76,7 +76,7 @@ LIMIT 1
 `
 
 func (q *Queries) GetLatestExchangeRate(ctx context.Context, currencyCode string) (string, error) {
-	row := q.db.QueryRowContext(ctx, getLatestExchangeRate, currencyCode)
+	row := q.queryRow(ctx, q.getLatestExchangeRateStmt, getLatestExchangeRate, currencyCode)
 	var rate_to_kes string
 	err := row.Scan(&rate_to_kes)
 	return rate_to_kes, err
@@ -95,7 +95,7 @@ type InsertExchangeRateParams struct {
 }
 
 func (q *Queries) InsertExchangeRate(ctx context.Context, arg InsertExchangeRateParams) error {
-	_, err := q.db.ExecContext(ctx, insertExchangeRate,
+	_, err := q.exec(ctx, q.insertExchangeRateStmt, insertExchangeRate,
 		arg.CurrencyCode,
 		arg.RateToKes,
 		arg.ValidFrom,
@@ -118,7 +118,7 @@ type UpdateExchangeRateParams struct {
 }
 
 func (q *Queries) UpdateExchangeRate(ctx context.Context, arg UpdateExchangeRateParams) error {
-	_, err := q.db.ExecContext(ctx, updateExchangeRate,
+	_, err := q.exec(ctx, q.updateExchangeRateStmt, updateExchangeRate,
 		arg.CurrencyCode,
 		arg.RateToKes,
 		arg.ValidFrom,

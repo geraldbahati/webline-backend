@@ -24,7 +24,7 @@ type CreateProductOptionParams struct {
 }
 
 func (q *Queries) CreateProductOption(ctx context.Context, arg CreateProductOptionParams) (ProductOption, error) {
-	row := q.db.QueryRowContext(ctx, createProductOption, arg.ProductID, arg.OptionName)
+	row := q.queryRow(ctx, q.createProductOptionStmt, createProductOption, arg.ProductID, arg.OptionName)
 	var i ProductOption
 	err := row.Scan(
 		&i.ID,
@@ -49,7 +49,7 @@ type CreateProductOptionValueParams struct {
 }
 
 func (q *Queries) CreateProductOptionValue(ctx context.Context, arg CreateProductOptionValueParams) (ProductOptionValue, error) {
-	row := q.db.QueryRowContext(ctx, createProductOptionValue, arg.OptionID, arg.ValueName, arg.AdditionalPrice)
+	row := q.queryRow(ctx, q.createProductOptionValueStmt, createProductOptionValue, arg.OptionID, arg.ValueName, arg.AdditionalPrice)
 	var i ProductOptionValue
 	err := row.Scan(
 		&i.ID,
@@ -68,7 +68,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteProductOption(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductOption, id)
+	_, err := q.exec(ctx, q.deleteProductOptionStmt, deleteProductOption, id)
 	return err
 }
 
@@ -78,7 +78,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteProductOptionValue(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductOptionValue, id)
+	_, err := q.exec(ctx, q.deleteProductOptionValueStmt, deleteProductOptionValue, id)
 	return err
 }
 
@@ -89,7 +89,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetProductOptionByID(ctx context.Context, id uuid.UUID) (ProductOption, error) {
-	row := q.db.QueryRowContext(ctx, getProductOptionByID, id)
+	row := q.queryRow(ctx, q.getProductOptionByIDStmt, getProductOptionByID, id)
 	var i ProductOption
 	err := row.Scan(
 		&i.ID,
@@ -108,7 +108,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetProductOptionValueByID(ctx context.Context, id uuid.UUID) (ProductOptionValue, error) {
-	row := q.db.QueryRowContext(ctx, getProductOptionValueByID, id)
+	row := q.queryRow(ctx, q.getProductOptionValueByIDStmt, getProductOptionValueByID, id)
 	var i ProductOptionValue
 	err := row.Scan(
 		&i.ID,
@@ -129,12 +129,12 @@ ORDER BY created_at
 `
 
 func (q *Queries) ListProductOptionValuesByOptionID(ctx context.Context, optionID uuid.NullUUID) ([]ProductOptionValue, error) {
-	rows, err := q.db.QueryContext(ctx, listProductOptionValuesByOptionID, optionID)
+	rows, err := q.query(ctx, q.listProductOptionValuesByOptionIDStmt, listProductOptionValuesByOptionID, optionID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductOptionValue
+	items := []ProductOptionValue{}
 	for rows.Next() {
 		var i ProductOptionValue
 		if err := rows.Scan(
@@ -166,12 +166,12 @@ ORDER BY created_at
 `
 
 func (q *Queries) ListProductOptionsByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductOption, error) {
-	rows, err := q.db.QueryContext(ctx, listProductOptionsByProductID, productID)
+	rows, err := q.query(ctx, q.listProductOptionsByProductIDStmt, listProductOptionsByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductOption
+	items := []ProductOption{}
 	for rows.Next() {
 		var i ProductOption
 		if err := rows.Scan(
@@ -207,7 +207,7 @@ type UpdateProductOptionParams struct {
 }
 
 func (q *Queries) UpdateProductOption(ctx context.Context, arg UpdateProductOptionParams) (ProductOption, error) {
-	row := q.db.QueryRowContext(ctx, updateProductOption, arg.ID, arg.OptionName)
+	row := q.queryRow(ctx, q.updateProductOptionStmt, updateProductOption, arg.ID, arg.OptionName)
 	var i ProductOption
 	err := row.Scan(
 		&i.ID,
@@ -233,7 +233,7 @@ type UpdateProductOptionValueParams struct {
 }
 
 func (q *Queries) UpdateProductOptionValue(ctx context.Context, arg UpdateProductOptionValueParams) (ProductOptionValue, error) {
-	row := q.db.QueryRowContext(ctx, updateProductOptionValue, arg.ID, arg.ValueName, arg.AdditionalPrice)
+	row := q.queryRow(ctx, q.updateProductOptionValueStmt, updateProductOptionValue, arg.ID, arg.ValueName, arg.AdditionalPrice)
 	var i ProductOptionValue
 	err := row.Scan(
 		&i.ID,

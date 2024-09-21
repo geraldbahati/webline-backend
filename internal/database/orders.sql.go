@@ -20,7 +20,7 @@ RETURNING order_number
 `
 
 func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) (sql.NullString, error) {
-	row := q.db.QueryRowContext(ctx, cancelOrder, id)
+	row := q.queryRow(ctx, q.cancelOrderStmt, cancelOrder, id)
 	var order_number sql.NullString
 	err := row.Scan(&order_number)
 	return order_number, err
@@ -66,7 +66,7 @@ type CreateGuestCheckoutParams struct {
 }
 
 func (q *Queries) CreateGuestCheckout(ctx context.Context, arg CreateGuestCheckoutParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createGuestCheckout,
+	row := q.queryRow(ctx, q.createGuestCheckoutStmt, createGuestCheckout,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
@@ -95,7 +95,8 @@ INSERT INTO orders (
     shipping_amount,
     discount_amount,
     grand_total,
-    order_number
+    order_number,
+    total
 ) VALUES (
     gen_random_uuid(),
     $1,  -- user_id
@@ -109,8 +110,9 @@ INSERT INTO orders (
     $9,  -- shipping_amount
     $10, -- discount_amount
     $11, -- grand_total
-    $12  -- order_number
-) RETURNING id
+    $12,  -- order_number
+    $13  -- total
+) RETURNING id, order_number, created_at
 `
 
 type CreateOrderParams struct {
@@ -126,10 +128,17 @@ type CreateOrderParams struct {
 	DiscountAmount  string
 	GrandTotal      string
 	OrderNumber     sql.NullString
+	Total           string
 }
 
-func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createOrder,
+type CreateOrderRow struct {
+	ID          uuid.UUID
+	OrderNumber sql.NullString
+	CreatedAt   sql.NullTime
+}
+
+func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (CreateOrderRow, error) {
+	row := q.queryRow(ctx, q.createOrderStmt, createOrder,
 		arg.UserID,
 		arg.GuestCheckoutID,
 		arg.CompanyID,
@@ -142,10 +151,11 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (uuid.
 		arg.DiscountAmount,
 		arg.GrandTotal,
 		arg.OrderNumber,
+		arg.Total,
 	)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
+	var i CreateOrderRow
+	err := row.Scan(&i.ID, &i.OrderNumber, &i.CreatedAt)
+	return i, err
 }
 
 const getGuestCheckoutByEmail = `-- name: GetGuestCheckoutByEmail :one
@@ -155,7 +165,7 @@ WHERE email = $1
 `
 
 func (q *Queries) GetGuestCheckoutByEmail(ctx context.Context, email string) (GuestCheckout, error) {
-	row := q.db.QueryRowContext(ctx, getGuestCheckoutByEmail, email)
+	row := q.queryRow(ctx, q.getGuestCheckoutByEmailStmt, getGuestCheckoutByEmail, email)
 	var i GuestCheckout
 	err := row.Scan(
 		&i.ID,
@@ -190,12 +200,12 @@ type GetMonthlyRevenueRow struct {
 }
 
 func (q *Queries) GetMonthlyRevenue(ctx context.Context, paymentStatusID sql.NullInt32) ([]GetMonthlyRevenueRow, error) {
-	rows, err := q.db.QueryContext(ctx, getMonthlyRevenue, paymentStatusID)
+	rows, err := q.query(ctx, q.getMonthlyRevenueStmt, getMonthlyRevenue, paymentStatusID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetMonthlyRevenueRow
+	items := []GetMonthlyRevenueRow{}
 	for rows.Next() {
 		var i GetMonthlyRevenueRow
 		if err := rows.Scan(&i.Month, &i.TotalSales); err != nil {
@@ -233,12 +243,12 @@ type GetMonthlySalesRow struct {
 
 // GetMonthlySales retrieves the total sales for each month from the order_payments table
 func (q *Queries) GetMonthlySales(ctx context.Context, paymentStatusID sql.NullInt32) ([]GetMonthlySalesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getMonthlySales, paymentStatusID)
+	rows, err := q.query(ctx, q.getMonthlySalesStmt, getMonthlySales, paymentStatusID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetMonthlySalesRow
+	items := []GetMonthlySalesRow{}
 	for rows.Next() {
 		var i GetMonthlySalesRow
 		if err := rows.Scan(&i.Month, &i.TotalSales); err != nil {
@@ -281,7 +291,7 @@ type GetMonthlySalesForLastTwoMonthsRow struct {
 }
 
 func (q *Queries) GetMonthlySalesForLastTwoMonths(ctx context.Context, paymentStatusID sql.NullInt32) (GetMonthlySalesForLastTwoMonthsRow, error) {
-	row := q.db.QueryRowContext(ctx, getMonthlySalesForLastTwoMonths, paymentStatusID)
+	row := q.queryRow(ctx, q.getMonthlySalesForLastTwoMonthsStmt, getMonthlySalesForLastTwoMonths, paymentStatusID)
 	var i GetMonthlySalesForLastTwoMonthsRow
 	err := row.Scan(&i.CurrentMonthSales, &i.PreviousMonthSales)
 	return i, err
@@ -331,7 +341,7 @@ type GetOrderByIdRow struct {
 }
 
 func (q *Queries) GetOrderById(ctx context.Context, id uuid.UUID) (GetOrderByIdRow, error) {
-	row := q.db.QueryRowContext(ctx, getOrderById, id)
+	row := q.queryRow(ctx, q.getOrderByIdStmt, getOrderById, id)
 	var i GetOrderByIdRow
 	err := row.Scan(
 		&i.ID,
@@ -363,12 +373,12 @@ ORDER BY created_at DESC
 `
 
 func (q *Queries) GetOrderIDsByUserID(ctx context.Context, userID uuid.NullUUID) ([]uuid.UUID, error) {
-	rows, err := q.db.QueryContext(ctx, getOrderIDsByUserID, userID)
+	rows, err := q.query(ctx, q.getOrderIDsByUserIDStmt, getOrderIDsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	items := []uuid.UUID{}
 	for rows.Next() {
 		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
@@ -430,12 +440,12 @@ type GetOrdersByGuestCheckoutIdRow struct {
 }
 
 func (q *Queries) GetOrdersByGuestCheckoutId(ctx context.Context, guestCheckoutID uuid.NullUUID) ([]GetOrdersByGuestCheckoutIdRow, error) {
-	rows, err := q.db.QueryContext(ctx, getOrdersByGuestCheckoutId, guestCheckoutID)
+	rows, err := q.query(ctx, q.getOrdersByGuestCheckoutIdStmt, getOrdersByGuestCheckoutId, guestCheckoutID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetOrdersByGuestCheckoutIdRow
+	items := []GetOrdersByGuestCheckoutIdRow{}
 	for rows.Next() {
 		var i GetOrdersByGuestCheckoutIdRow
 		if err := rows.Scan(
@@ -490,12 +500,12 @@ type GetOrdersByUserIdRow struct {
 }
 
 func (q *Queries) GetOrdersByUserId(ctx context.Context, userID uuid.NullUUID) ([]GetOrdersByUserIdRow, error) {
-	rows, err := q.db.QueryContext(ctx, getOrdersByUserId, userID)
+	rows, err := q.query(ctx, q.getOrdersByUserIdStmt, getOrdersByUserId, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetOrdersByUserIdRow
+	items := []GetOrdersByUserIdRow{}
 	for rows.Next() {
 		var i GetOrdersByUserIdRow
 		if err := rows.Scan(
@@ -550,12 +560,12 @@ type GetRecentSalesRow struct {
 }
 
 func (q *Queries) GetRecentSales(ctx context.Context) ([]GetRecentSalesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getRecentSales)
+	rows, err := q.query(ctx, q.getRecentSalesStmt, getRecentSales)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetRecentSalesRow
+	items := []GetRecentSalesRow{}
 	for rows.Next() {
 		var i GetRecentSalesRow
 		if err := rows.Scan(
@@ -607,7 +617,7 @@ type GetSalesTrendRow struct {
 }
 
 func (q *Queries) GetSalesTrend(ctx context.Context, paymentStatusID sql.NullInt32) (GetSalesTrendRow, error) {
-	row := q.db.QueryRowContext(ctx, getSalesTrend, paymentStatusID)
+	row := q.queryRow(ctx, q.getSalesTrendStmt, getSalesTrend, paymentStatusID)
 	var i GetSalesTrendRow
 	err := row.Scan(&i.CurrentMonthSales, &i.PreviousMonthSales)
 	return i, err
@@ -621,7 +631,7 @@ WHERE payment_status_id = $1
 
 // GetTotalRevenueByStatus gets the total revenue for orders with a specific payment status
 func (q *Queries) GetTotalRevenueByPaymentStatus(ctx context.Context, paymentStatusID sql.NullInt32) (string, error) {
-	row := q.db.QueryRowContext(ctx, getTotalRevenueByPaymentStatus, paymentStatusID)
+	row := q.queryRow(ctx, q.getTotalRevenueByPaymentStatusStmt, getTotalRevenueByPaymentStatus, paymentStatusID)
 	var total_revenue string
 	err := row.Scan(&total_revenue)
 	return total_revenue, err
@@ -653,7 +663,7 @@ type GetTotalRevenueForLastTwoMonthsRow struct {
 }
 
 func (q *Queries) GetTotalRevenueForLastTwoMonths(ctx context.Context, paymentStatusID sql.NullInt32) (GetTotalRevenueForLastTwoMonthsRow, error) {
-	row := q.db.QueryRowContext(ctx, getTotalRevenueForLastTwoMonths, paymentStatusID)
+	row := q.queryRow(ctx, q.getTotalRevenueForLastTwoMonthsStmt, getTotalRevenueForLastTwoMonths, paymentStatusID)
 	var i GetTotalRevenueForLastTwoMonthsRow
 	err := row.Scan(&i.CurrentMonthRevenue, &i.PreviousMonthRevenue)
 	return i, err
@@ -670,7 +680,7 @@ WHERE
 `
 
 func (q *Queries) GetTotalSalesCurrentMonth(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getTotalSalesCurrentMonth)
+	row := q.queryRow(ctx, q.getTotalSalesCurrentMonthStmt, getTotalSalesCurrentMonth)
 	var total_sales int64
 	err := row.Scan(&total_sales)
 	return total_sales, err
@@ -704,7 +714,7 @@ type GetUserOrGuestCheckoutNameByOrderIDRow struct {
 }
 
 func (q *Queries) GetUserOrGuestCheckoutNameByOrderID(ctx context.Context, id uuid.UUID) (GetUserOrGuestCheckoutNameByOrderIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserOrGuestCheckoutNameByOrderID, id)
+	row := q.queryRow(ctx, q.getUserOrGuestCheckoutNameByOrderIDStmt, getUserOrGuestCheckoutNameByOrderID, id)
 	var i GetUserOrGuestCheckoutNameByOrderIDRow
 	err := row.Scan(
 		&i.UserFirstName,
@@ -775,7 +785,7 @@ type UpdateOrderAmountsRow struct {
 }
 
 func (q *Queries) UpdateOrderAmounts(ctx context.Context, arg UpdateOrderAmountsParams) (UpdateOrderAmountsRow, error) {
-	row := q.db.QueryRowContext(ctx, updateOrderAmounts,
+	row := q.queryRow(ctx, q.updateOrderAmountsStmt, updateOrderAmounts,
 		arg.Column1,
 		arg.Column2,
 		arg.Column3,
@@ -806,7 +816,7 @@ type UpdateOrderPaymentStatusParams struct {
 }
 
 func (q *Queries) UpdateOrderPaymentStatus(ctx context.Context, arg UpdateOrderPaymentStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateOrderPaymentStatus, arg.ID, arg.PaymentStatus)
+	_, err := q.exec(ctx, q.updateOrderPaymentStatusStmt, updateOrderPaymentStatus, arg.ID, arg.PaymentStatus)
 	return err
 }
 
@@ -822,6 +832,6 @@ type UpdateOrderStatusParams struct {
 }
 
 func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateOrderStatus, arg.ID, arg.Status)
+	_, err := q.exec(ctx, q.updateOrderStatusStmt, updateOrderStatus, arg.ID, arg.Status)
 	return err
 }

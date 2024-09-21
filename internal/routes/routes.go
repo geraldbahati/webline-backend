@@ -13,6 +13,7 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers) *mux.Router {
 	r := mux.NewRouter()
 	r.Use(middleware.CORS(logger))
 	r.Use(middleware.OptionalAuth(logger))
+	r.Use(middleware.MetricsMiddleware(logger))
 
 	r.HandleFunc("/health", healthCheckHandler).Methods(http.MethodGet)
 
@@ -22,11 +23,14 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers) *mux.Router {
 
 	// Register routes
 	registerUserRoutes(r, handlers, logger)
-	registerCategoryRoutes(r, handlers, logger)
+	registerCategoryRoutes(r, handlers)
 	registerAdminCategoryRoutes(r, handlers, logger)
-	registerProductRoutes(r, handlers, logger)
+	registerProductRoutes(r, handlers)
 	registerAdminProductRoutes(r, handlers, logger)
+	registerPromotionRoutes(r, handlers)
+	registerAdminPromotionRoutes(r, handlers, logger)
 	registerAdditionalRoutes(r, handlers, logger)
+
 
 	return r
 }
@@ -58,7 +62,7 @@ func registerUserRoutes(router *mux.Router, handlers *handlers.Handlers, logger 
 }
 
 // registerCategoryRoutes registers category-related routes.
-func registerCategoryRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+func registerCategoryRoutes(router *mux.Router, handlers *handlers.Handlers) {
 	categoryRouter := router.PathPrefix("/api/categories").Subrouter()
 	categoryRouter.HandleFunc("/{id}/", handlers.CategoryHandler.GetCategoryByIDHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("", handlers.CategoryHandler.GetCategoriesHandler).Methods(http.MethodGet)
@@ -90,7 +94,7 @@ func registerAdminCategoryRoutes(router *mux.Router, handlers *handlers.Handlers
 }
 
 // registerProductRoutes registers product-related routes.
-func registerProductRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+func registerProductRoutes(router *mux.Router, handlers *handlers.Handlers) {
 	productRouter := router.PathPrefix("/api/products").Subrouter()
 	productRouter.HandleFunc("/{slug}", handlers.ProductHandler.GetProductBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/images", handlers.ProductHandler.GetProductImagesBySlugHandler).Methods(http.MethodGet)
@@ -122,6 +126,29 @@ func registerAdminProductRoutes(router *mux.Router, handlers *handlers.Handlers,
 	protected.HandleFunc("/draft", handlers.ProductHandler.DraftProductsHandler).Methods(http.MethodPut)
 	protected.HandleFunc("/active", handlers.ProductHandler.ActivateProductsHandler).Methods(http.MethodPut)
 	protected.HandleFunc("/{slug}/archive", handlers.ProductHandler.ArchiveProductHandler).Methods(http.MethodPut)
+}
+
+// registerPromotionRoutes registers promotion-related routes.
+func registerPromotionRoutes(router *mux.Router, handlers *handlers.Handlers) {
+	// Promotion routes
+	promotionRouter := router.PathPrefix("/api/promotions").Subrouter()
+	NamedHandleFunc(promotionRouter, "", handlers.PromotionHandler.GetPromotions, []string{http.MethodGet}, "GetPromotions")
+}
+
+// registerAdminPromotionRoutes registers admin promotion-related routes.
+func registerAdminPromotionRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+	adminPromotionRouter := router.PathPrefix("/api/v2/promotions").Subrouter()
+	NamedHandleFunc(adminPromotionRouter, "", handlers.PromotionHandler.GetV2Promotions, []string{http.MethodGet}, "GetV2Promotions")
+
+	protectedAdminPromotionRouter := adminPromotionRouter.PathPrefix("").Subrouter()
+	protectedAdminPromotionRouter.Use(middleware.Auth(logger))
+	NamedHandleFunc(protectedAdminPromotionRouter, "", handlers.PromotionHandler.CreateOrEditV2Promotion, []string{http.MethodPost}, "CreateOrEditV2Promotion")
+	NamedHandleFunc(protectedAdminPromotionRouter, "/{slug}", handlers.PromotionHandler.GetPromotionDetails, []string{http.MethodGet}, "GetPromotionDetails")
+	NamedHandleFunc(protectedAdminPromotionRouter, "/{slug}", handlers.PromotionHandler.DeletePromotion, []string{http.MethodDelete}, "DeletePromotion")
+	NamedHandleFunc(protectedAdminPromotionRouter, "/archive", handlers.PromotionHandler.ArchivePromotions, []string{http.MethodPut}, "ArchivePromotions")
+	NamedHandleFunc(protectedAdminPromotionRouter, "/draft", handlers.PromotionHandler.DraftPromotions, []string{http.MethodPut}, "DraftPromotions")
+	NamedHandleFunc(protectedAdminPromotionRouter, "/active", handlers.PromotionHandler.ActivatePromotions, []string{http.MethodPut}, "ActivatePromotions")
+	NamedHandleFunc(protectedAdminPromotionRouter, "/delete", handlers.PromotionHandler.DeletePromotions, []string{http.MethodDelete}, "DeletePromotions")
 }
 
 // registerAdditionalRoutes registers other related routes like variants, images, specifications, options, cart, orders, promotions, etc.
@@ -201,22 +228,10 @@ func registerAdditionalRoutes(r *mux.Router, handlers *handlers.Handlers, logger
 
 	// Product Analytic routes
 	productAnalyticRouter := r.PathPrefix("/api/product-analytics").Subrouter()
-	productAnalyticRouter.HandleFunc("/best-sellers", handlers.ProductAnalyticHandler.GetBestSellerProducts).Methods(http.MethodGet)
-	productAnalyticRouter.HandleFunc("/featured", handlers.ProductAnalyticHandler.GetFeaturedProducts).Methods(http.MethodGet)
-	productAnalyticRouter.HandleFunc("/new-arrivals", handlers.ProductAnalyticHandler.GetNewArrivalProducts).Methods(http.MethodGet)
-	productAnalyticRouter.HandleFunc("/daily-deals", handlers.ProductAnalyticHandler.GetDailyDealsProducts).Methods(http.MethodGet)
-
-	// Promotion routes
-	promotionRouter := r.PathPrefix("/api/promotions").Subrouter()
-	promotionRouter.HandleFunc("", handlers.PromotionHandler.GetPromotions).Methods(http.MethodGet)
-
-	// Admin promotion routes
-	adminPromotionRouter := r.PathPrefix("/api/v2/promotions").Subrouter()
-	adminPromotionRouter.HandleFunc("", handlers.PromotionHandler.GetV2Promotions).Methods(http.MethodGet)
-	protectedAdminPromotionRouter := adminPromotionRouter.PathPrefix("").Subrouter()
-	protectedAdminPromotionRouter.Use(middleware.Auth(logger))
-	protectedAdminPromotionRouter.HandleFunc("", handlers.PromotionHandler.CreateOrEditV2Promotion).Methods(http.MethodPost)
-	protectedAdminPromotionRouter.HandleFunc("/{slug}", handlers.PromotionHandler.GetPromotionDetails).Methods(http.MethodGet)
+	NamedHandleFunc(productAnalyticRouter, "/best-sellers", handlers.ProductAnalyticHandler.GetBestSellerProducts, []string{http.MethodGet}, "GetBestSellerProducts")
+	NamedHandleFunc(productAnalyticRouter, "/featured", handlers.ProductAnalyticHandler.GetFeaturedProducts, []string{http.MethodGet}, "GetFeaturedProducts")
+	NamedHandleFunc(productAnalyticRouter, "/new-arrivals", handlers.ProductAnalyticHandler.GetNewArrivalProducts, []string{http.MethodGet}, "GetNewArrivalProducts")
+	NamedHandleFunc(productAnalyticRouter, "/daily-deals", handlers.ProductAnalyticHandler.GetDailyDealsProducts, []string{http.MethodGet}, "GetDailyDealsProducts")
 
 	// Discount routes
 	discountRouter := r.PathPrefix("/api/discounts").Subrouter()

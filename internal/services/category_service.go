@@ -451,18 +451,6 @@ type Category struct {
 	ParentID         uuid.UUID   `json:"-"` // Exclude from JSON output, used for processing
 }
 
-func uniqueStrings(input []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range input {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
-}
-
 // constructS3URL constructs the S3 URL for a given file path
 func (s *CategoryService) constructS3URL(filePath string) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)

@@ -188,22 +188,27 @@ func (h *OrderHandler) handleGuestOrExistingUser(ctx context.Context, req *Creat
 
 func (h *OrderHandler) validateCreateOrderRequest(req *CreateOrderRequest) error {
 	if req.FirstName == "" || req.LastName == "" || req.Country == "" || req.City == "" || req.County == "" || req.Phone == "" || req.Email == "" {
+		h.logger.Error("missing required fields", zap.Any("request", req))
 		return errors.New("missing required fields")
 	}
 
 	if !slices.Contains(model.AVAILABLE_COUNTRIES, req.Country) {
+		h.logger.Error("invalid country", zap.String("country", req.Country))
 		return errors.New("invalid country")
 	}
 
 	if !slices.Contains(model.COUNTIES, req.County) {
+		h.logger.Error("invalid county", zap.String("county", req.County))
 		return errors.New("invalid county")
 	}
 
 	if req.CanCreateAccount && req.Password == "" {
+		h.logger.Error("password is required when creating an account", zap.Any("request", req))
 		return errors.New("password is required when creating an account")
 	}
 
 	if len(req.OrderItems) == 0 {
+		h.logger.Error("order must contain at least one item", zap.Any("request", req))
 		return errors.New("order must contain at least one item")
 	}
 

@@ -50,7 +50,7 @@ type CreateOrderItemParams struct {
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createOrderItem,
+	row := q.queryRow(ctx, q.createOrderItemStmt, createOrderItem,
 		arg.OrderID,
 		arg.ProductID,
 		arg.ProductName,
@@ -86,7 +86,7 @@ type CreateOrderItemOptionParams struct {
 }
 
 func (q *Queries) CreateOrderItemOption(ctx context.Context, arg CreateOrderItemOptionParams) error {
-	_, err := q.db.ExecContext(ctx, createOrderItemOption,
+	_, err := q.exec(ctx, q.createOrderItemOptionStmt, createOrderItemOption,
 		arg.OrderItemID,
 		arg.OptionType,
 		arg.OptionValue,
@@ -129,7 +129,7 @@ type CreateOrderItemsParams struct {
 }
 
 func (q *Queries) CreateOrderItems(ctx context.Context, arg CreateOrderItemsParams) error {
-	_, err := q.db.ExecContext(ctx, createOrderItems,
+	_, err := q.exec(ctx, q.createOrderItemsStmt, createOrderItems,
 		pq.Array(arg.Column1),
 		pq.Array(arg.Column2),
 		pq.Array(arg.Column3),
@@ -172,12 +172,12 @@ type GetOrderItemsByOrderIdRow struct {
 }
 
 func (q *Queries) GetOrderItemsByOrderId(ctx context.Context, orderID uuid.NullUUID) ([]GetOrderItemsByOrderIdRow, error) {
-	rows, err := q.db.QueryContext(ctx, getOrderItemsByOrderId, orderID)
+	rows, err := q.query(ctx, q.getOrderItemsByOrderIdStmt, getOrderItemsByOrderId, orderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetOrderItemsByOrderIdRow
+	items := []GetOrderItemsByOrderIdRow{}
 	for rows.Next() {
 		var i GetOrderItemsByOrderIdRow
 		if err := rows.Scan(

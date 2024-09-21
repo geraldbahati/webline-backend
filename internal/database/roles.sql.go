@@ -24,7 +24,7 @@ type CreateRoleParams struct {
 }
 
 func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error) {
-	row := q.db.QueryRowContext(ctx, createRole, arg.RoleName, arg.Description)
+	row := q.queryRow(ctx, q.createRoleStmt, createRole, arg.RoleName, arg.Description)
 	var i Role
 	err := row.Scan(
 		&i.ID,
@@ -42,7 +42,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteRole(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteRole, id)
+	_, err := q.exec(ctx, q.deleteRoleStmt, deleteRole, id)
 	return err
 }
 
@@ -53,12 +53,12 @@ ORDER BY role_name
 `
 
 func (q *Queries) GetAllRoles(ctx context.Context) ([]Role, error) {
-	rows, err := q.db.QueryContext(ctx, getAllRoles)
+	rows, err := q.query(ctx, q.getAllRolesStmt, getAllRoles)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Role
+	items := []Role{}
 	for rows.Next() {
 		var i Role
 		if err := rows.Scan(
@@ -88,7 +88,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error) {
-	row := q.db.QueryRowContext(ctx, getRoleByID, id)
+	row := q.queryRow(ctx, q.getRoleByIDStmt, getRoleByID, id)
 	var i Role
 	err := row.Scan(
 		&i.ID,
@@ -112,7 +112,7 @@ type GetRoleByNameRow struct {
 }
 
 func (q *Queries) GetRoleByName(ctx context.Context, roleName string) (GetRoleByNameRow, error) {
-	row := q.db.QueryRowContext(ctx, getRoleByName, roleName)
+	row := q.queryRow(ctx, q.getRoleByNameStmt, getRoleByName, roleName)
 	var i GetRoleByNameRow
 	err := row.Scan(&i.ID, &i.RoleName)
 	return i, err
@@ -132,7 +132,7 @@ type UpdateRoleParams struct {
 }
 
 func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error) {
-	row := q.db.QueryRowContext(ctx, updateRole, arg.ID, arg.RoleName, arg.Description)
+	row := q.queryRow(ctx, q.updateRoleStmt, updateRole, arg.ID, arg.RoleName, arg.Description)
 	var i Role
 	err := row.Scan(
 		&i.ID,

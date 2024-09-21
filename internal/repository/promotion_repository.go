@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type PromotionRepository struct {
@@ -322,4 +323,98 @@ func (r *PromotionRepository) GetPromotionDetails(ctx context.Context, slug stri
 		EndDate:     promotions[0].EndDate,
 		Products:    products,
 	}, nil
+}
+
+// DeletePromotion deletes a promotion by its slug
+func (r *PromotionRepository) DeletePromotion(ctx context.Context, slug string) error {
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		err := q.DeletePromotion(ctx, slug)
+		if err != nil {
+			r.logger.Error("failed to delete promotion", zap.String("slug", slug), zap.Error(err))
+			return fmt.Errorf("delete promotion: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		r.logger.Error("delete promotion transaction failed", zap.String("slug", slug), zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("Promotion deleted successfully", zap.String("slug", slug))
+	return nil
+}
+
+// DeletePromotions deletes multiple promotions
+func (r *PromotionRepository) DeletePromotions(ctx context.Context, slugs []string) error {
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		err := q.DeletePromotions(ctx, slugs)
+		if err != nil {
+			r.logger.Error("failed to delete promotions", zap.Strings("slugs", slugs), zap.Error(err))
+			return fmt.Errorf("delete promotions: %w", err)
+		}
+		return nil
+	}); err != nil {
+		r.logger.Error("delete promotions transaction failed", zap.Strings("slugs", slugs), zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("Promotions deleted successfully", zap.Strings("slugs", slugs))
+	return nil
+}
+
+// ArchivePromotions archives multiple promotions
+func (r *PromotionRepository) ArchivePromotions(ctx context.Context, slugs []string) error {
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		err := q.ArchivePromotions(ctx, slugs)
+		if err != nil {
+			r.logger.Error("failed to archive promotions", zap.Strings("slugs", slugs), zap.Error(err))
+			return fmt.Errorf("archive promotions: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		r.logger.Error("archive promotions transaction failed", zap.Strings("slugs", slugs), zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("Promotions archived successfully", zap.Strings("slugs", slugs))
+	return nil
+}
+
+// DraftPromotions drafts multiple promotions
+func (r *PromotionRepository) DraftPromotions(ctx context.Context, slugs []string) error {
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		err := q.DraftPromotions(ctx, slugs)
+		if err != nil {
+			r.logger.Error("failed to draft promotions", zap.Strings("slugs", slugs), zap.Error(err))
+			return fmt.Errorf("draft promotions: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		r.logger.Error("draft promotions transaction failed", zap.Strings("slugs", slugs), zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("Promotions drafted successfully", zap.Strings("slugs", slugs))
+	return nil
+}
+
+// ActivatePromotions activates multiple promotions
+func (r *PromotionRepository) ActivatePromotions(ctx context.Context, slugs []string) error {
+	if err := r.execTx(ctx, func(q *database.Queries) error {
+		err := q.ActivatePromotions(ctx, slugs)
+		if err != nil {
+			r.logger.Error("failed to activate promotions", zap.Strings("slugs", slugs), zap.Error(err))
+			return fmt.Errorf("activate promotions: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		r.logger.Error("activate promotions transaction failed", zap.Strings("slugs", slugs), zap.Error(err))
+		return err
+	}
+
+	r.logger.Info("Promotions activated successfully", zap.Strings("slugs", slugs))
+	return nil
 }

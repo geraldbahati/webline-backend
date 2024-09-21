@@ -26,7 +26,7 @@ type CreateVerificationTokenParams struct {
 }
 
 func (q *Queries) CreateVerificationToken(ctx context.Context, arg CreateVerificationTokenParams) (VerificationToken, error) {
-	row := q.db.QueryRowContext(ctx, createVerificationToken, arg.Email, arg.Token, arg.ExpiresAt)
+	row := q.queryRow(ctx, q.createVerificationTokenStmt, createVerificationToken, arg.Email, arg.Token, arg.ExpiresAt)
 	var i VerificationToken
 	err := row.Scan(
 		&i.ID,
@@ -44,7 +44,7 @@ WHERE expires_at < now()
 `
 
 func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, deleteExpiredTokens)
+	_, err := q.exec(ctx, q.deleteExpiredTokensStmt, deleteExpiredTokens)
 	return err
 }
 
@@ -54,7 +54,7 @@ WHERE token = $1
 `
 
 func (q *Queries) DeleteVerificationTokenByToken(ctx context.Context, token string) error {
-	_, err := q.db.ExecContext(ctx, deleteVerificationTokenByToken, token)
+	_, err := q.exec(ctx, q.deleteVerificationTokenByTokenStmt, deleteVerificationTokenByToken, token)
 	return err
 }
 
@@ -64,7 +64,7 @@ WHERE email = $1
 `
 
 func (q *Queries) DeleteVerificationTokensByEmail(ctx context.Context, email string) error {
-	_, err := q.db.ExecContext(ctx, deleteVerificationTokensByEmail, email)
+	_, err := q.exec(ctx, q.deleteVerificationTokensByEmailStmt, deleteVerificationTokensByEmail, email)
 	return err
 }
 
@@ -77,7 +77,7 @@ LIMIT 1
 `
 
 func (q *Queries) GetVerificationTokenByEmail(ctx context.Context, email string) (VerificationToken, error) {
-	row := q.db.QueryRowContext(ctx, getVerificationTokenByEmail, email)
+	row := q.queryRow(ctx, q.getVerificationTokenByEmailStmt, getVerificationTokenByEmail, email)
 	var i VerificationToken
 	err := row.Scan(
 		&i.ID,
@@ -96,7 +96,7 @@ WHERE token = $1
 `
 
 func (q *Queries) GetVerificationTokenByToken(ctx context.Context, token string) (VerificationToken, error) {
-	row := q.db.QueryRowContext(ctx, getVerificationTokenByToken, token)
+	row := q.queryRow(ctx, q.getVerificationTokenByTokenStmt, getVerificationTokenByToken, token)
 	var i VerificationToken
 	err := row.Scan(
 		&i.ID,

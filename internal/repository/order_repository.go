@@ -76,11 +76,13 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, order *database.Creat
 	var orderID uuid.UUID
 	if err := r.execTx(ctx, func(q *database.Queries) error {
 		var err error
-		orderID, err = q.CreateOrder(ctx, *order)
+		order, err := q.CreateOrder(ctx, *order)
 		if err != nil {
 			r.logger.Error("Failed to create order", zap.Error(err), zap.Any("orderParams", order))
 			return fmt.Errorf("create order: %w", err)
 		}
+
+		orderID = order.ID
 		return nil
 	}); err != nil {
 		r.logger.Error("Create order transaction failed", zap.Error(err))

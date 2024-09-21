@@ -12,7 +12,8 @@ INSERT INTO orders (
     shipping_amount,
     discount_amount,
     grand_total,
-    order_number
+    order_number,
+    total
 ) VALUES (
     gen_random_uuid(),
     $1,  -- user_id
@@ -26,8 +27,9 @@ INSERT INTO orders (
     $9,  -- shipping_amount
     $10, -- discount_amount
     $11, -- grand_total
-    $12  -- order_number
-) RETURNING id;
+    $12,  -- order_number
+    $13  -- total
+) RETURNING id, order_number, created_at;
 
 -- name: UpdateOrderStatus :exec
 UPDATE orders

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"time"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/handlers"
 	"weblineBackend/internal/repository"
@@ -15,48 +16,68 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
+// Server represents the application server with its dependencies.
 type Server struct {
-	config   appconfig.Config
-	logger   *zap.Logger
-	db       *sql.DB
-	s3Client *s3.Client
-	router   http.Handler
+	Config   appconfig.Config
+	Logger   *zap.Logger
+	DB       *sql.DB
+	S3Client *s3.Client
+	Router   http.Handler
 }
 
+// NewServer initializes the server with configuration, logger, database, S3 client, repositories, services, and handlers.
+// It returns a Server instance and an error if any step fails.
 func NewServer(cfg appconfig.Config) (*Server, error) {
 	logger := initLogger()
+
+	// 1. Establish Database Connection
 	db, err := appconfig.NewDatabaseConnection(cfg.DbUrl)
 	if err != nil {
+		logger.Error("Failed to connect to database", zap.Error(err))
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// 2. Initialize AWS S3 Client
 	s3Client, err := initS3Client(cfg, logger)
 	if err != nil {
+		logger.Error("Failed to initialize S3 client", zap.Error(err))
 		return nil, fmt.Errorf("failed to initialize S3 client: %w", err)
 	}
 
+	// 3. Initialize Redis Client
+	redisClient, err := initRedisClient(cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize Redis client", zap.Error(err))
+		return nil, fmt.Errorf("failed to initialize Redis client: %w", err)
+	}
+
+	// 4. Initialize Repositories
 	repos := initializeRepositories(db, logger)
-	services := initializeServices(repos, cfg, logger, s3Client)
+
+	// 5. Initialize Services
+	services := initializeServices(repos, cfg, logger, s3Client, redisClient)
+
+	// 6. Initialize Handlers
 	handlers := initializeHandlers(services, cfg, logger)
 
+	// 7. Set Up Router
 	router := routes.SetupRouter(logger, handlers)
 
-	return &Server{
-		config:   cfg,
-		logger:   logger,
-		db:       db,
-		s3Client: s3Client,
-		router:   router,
-	}, nil
-}
+	// 8. Construct Server Instance
+	server := &Server{
+		Config:   cfg,
+		Logger:   logger,
+		DB:       db,
+		S3Client: s3Client,
+		Router:   router,
+	}
 
-func (s *Server) Run() error {
-	s.logger.Info("Server starting", zap.String("port", s.config.Port))
-	return http.ListenAndServe(":"+s.config.Port, s.router)
+	return server, nil
 }
 
 func initLogger() *zap.Logger {
@@ -86,6 +107,29 @@ func initS3Client(cfg appconfig.Config, logger *zap.Logger) (*s3.Client, error) 
 	}
 	logger.Info("AWS S3 client initialized successfully")
 	return s3.NewFromConfig(awsCfg), nil
+}
+
+// initRedisClient initializes the Redis client.
+func initRedisClient(cfg appconfig.Config, logger *zap.Logger) (*redis.Client, error) {
+	logger.Info("Initializing Redis client...")
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+		PoolSize:     cfg.RedisPoolSize,
+		MinIdleConns: cfg.RedisMinIdleConns,
+	})
+
+	// Ping Redis to verify the connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		logger.Error("Failed to connect to Redis", zap.Error(err))
+		return nil, err
+	}
+
+	logger.Info("Redis client initialized successfully")
+	return rdb, nil
 }
 
 func initializeRepositories(db *sql.DB, logger *zap.Logger) *repository.Repositories {
@@ -119,17 +163,21 @@ func initializeRepositories(db *sql.DB, logger *zap.Logger) *repository.Reposito
 	}
 }
 
-func initializeServices(repos *repository.Repositories, cfg appconfig.Config, logger *zap.Logger, s3Client *s3.Client) *services.Services {
+func initializeServices(repos *repository.Repositories, cfg appconfig.Config, logger *zap.Logger, s3Client *s3.Client, redisClient *redis.Client) *services.Services {
+
+	cacheService := services.NewCacheService(redisClient, logger, cfg.RedisTTL, cfg.RedisRateLimit)
+
 	return &services.Services{
+		CacheService: cacheService,
 		UserService:             services.NewUserService(repos.UserRepo, repos.RoleRepo, repos.UserRoleRepo, repos.VerificationTokenRepo, repos.PasswordResetRepo, repos.AdminRequestRepo, repos.TokenRepo, repos.GuestCheckoutRepo, &cfg, logger, s3Client),
 		CategoryService:         services.NewCategoryService(repos.CategoryRepo, repos.UserRepo, logger, &cfg, s3Client),
-		ProductService:          services.NewProductService(repos.ProductRepo, repos.ProductVariantRepo, repos.ProductImageRepo, repos.ProductSpecificationRepo, repos.CategoryRepo, repos.ProductOptionRepo, repos.DiscountRepo, repos.UserRepo, repos.ExchangeRateRepo, logger, &cfg, s3Client),
+		ProductService:          services.NewProductService(repos.ProductRepo, repos.ProductVariantRepo, repos.ProductImageRepo, repos.ProductSpecificationRepo, repos.CategoryRepo, repos.ProductOptionRepo, repos.DiscountRepo, repos.UserRepo, repos.ExchangeRateRepo, cacheService, logger, &cfg, s3Client),
 		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo),
 		OrderService:            services.NewOrderService(logger, repos.GuestCheckoutRepo, repos.OrderRepo, repos.OrderItemRepo, repos.PaymentRepo, repos.UserRepo, repos.ProductRepo, repos.DiscountRepo, repos.ExchangeRateRepo, repos.CompanyRepository, &cfg),
 		PaymentService:          services.NewPaymentService(repos.PaymentRepo, repos.OrderRepo, repos.OrderItemRepo, logger, &cfg),
 		InquiryService:          services.NewInquiryService(repos.ProductRepo, logger, &cfg),
 		ProductSEOService:       services.NewProductSEOService(logger, &cfg, repos.ProductRepo),
-		ProductAnalyticService:  services.NewProductAnalyticService(logger, &cfg, repos.ProductAnalyticRepo, repos.ProductImageRepo, repos.DiscountRepo),
+		ProductAnalyticService:  services.NewProductAnalyticService(logger, &cfg, repos.ProductAnalyticRepo, repos.ProductImageRepo, repos.DiscountRepo, cacheService),
 		PromotionService:        services.NewPromotionService(logger, &cfg, s3Client, repos.PromotionRepo, repos.ProductRepo, repos.ProductImageRepo, repos.DiscountRepo, repos.UserRepo),
 		DiscountService:         services.NewDiscountService(logger, repos.DiscountRepo, repos.ProductRepo),
 		AdminRequestService:     services.NewAdminRequestService(repos.AdminRequestRepo, repos.UserRepo, logger, &cfg),

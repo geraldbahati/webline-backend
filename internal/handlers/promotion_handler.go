@@ -1,13 +1,15 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"time"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
+
+	"github.com/gorilla/mux"
 )
 
 type PromotionHandler struct {
@@ -139,4 +141,111 @@ func (h *PromotionHandler) GetPromotionDetails(w http.ResponseWriter, r *http.Re
 
 	// Respond with the promotion details
 	RespondWithJSON(w, http.StatusOK, promotion)
+}
+
+// DeletePromotion deletes a promotion
+func (h *PromotionHandler) DeletePromotion(w http.ResponseWriter, r *http.Request) {
+	// Extract the promotion slug
+	slug := mux.Vars(r)["slug"]
+
+	// Delete the promotion
+	if err := h.promotionService.DeletePromotion(r.Context(), slug); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete promotion: %w", err).Error())
+		return
+	}
+
+	// Respond with success
+	RespondWithSuccess(w, http.StatusOK, "Promotion deleted successfully")
+}
+
+// DeletePromotions deletes multiple promotions
+func (h *PromotionHandler) DeletePromotions(w http.ResponseWriter, r *http.Request) {
+	// Extract the promotion slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// Delete the promotions
+	if err := h.promotionService.DeletePromotions(r.Context(), params.Slugs); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete promotions: %w", err).Error())
+		return
+	}
+
+	// Respond with success
+	RespondWithSuccess(w, http.StatusOK, "Promotions deleted successfully")
+}
+
+// ArchivePromotions archives multiple promotions
+func (h *PromotionHandler) ArchivePromotions(w http.ResponseWriter, r *http.Request) {
+	// Extract the promotion slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// Archive the promotions
+	if err := h.promotionService.ArchivePromotions(r.Context(), params.Slugs); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to archive promotions: %w", err).Error())
+		return
+	}
+
+	// Respond with success
+	RespondWithSuccess(w, http.StatusOK, "Promotions archived successfully")
+}
+
+// DraftPromotions drafts multiple promotions
+func (h *PromotionHandler) DraftPromotions(w http.ResponseWriter, r *http.Request) {
+	// Extract the promotion slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// Draft the promotions
+	if err := h.promotionService.DraftPromotions(r.Context(), params.Slugs); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to draft promotions: %w", err).Error())
+		return
+	}
+
+	// Respond with success
+	RespondWithSuccess(w, http.StatusOK, "Promotions drafted successfully")
+}
+
+// ActivatePromotions activates multiple promotions
+func (h *PromotionHandler) ActivatePromotions(w http.ResponseWriter, r *http.Request) {
+	// Extract the promotion slugs
+	var params struct {
+		Slugs []string `json:"slugs"`
+	}
+
+	// decode request body
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to decode request body")
+		return
+	}
+
+	// Activate the promotions
+	if err := h.promotionService.ActivatePromotions(r.Context(), params.Slugs); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, fmt.Errorf("failed to activate promotions: %w", err).Error())
+		return
+	}
+
+	// Respond with success
+	RespondWithSuccess(w, http.StatusOK, "Promotions activated successfully")
 }

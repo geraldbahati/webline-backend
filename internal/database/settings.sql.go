@@ -14,7 +14,7 @@ SELECT vat_percentage FROM settings WHERE id = TRUE
 `
 
 func (q *Queries) GetVATPercentage(ctx context.Context) (string, error) {
-	row := q.db.QueryRowContext(ctx, getVATPercentage)
+	row := q.queryRow(ctx, q.getVATPercentageStmt, getVATPercentage)
 	var vat_percentage string
 	err := row.Scan(&vat_percentage)
 	return vat_percentage, err
@@ -25,6 +25,6 @@ UPDATE settings SET vat_percentage = $1 WHERE id = TRUE
 `
 
 func (q *Queries) UpdateVATPercentage(ctx context.Context, vatPercentage string) error {
-	_, err := q.db.ExecContext(ctx, updateVATPercentage, vatPercentage)
+	_, err := q.exec(ctx, q.updateVATPercentageStmt, updateVATPercentage, vatPercentage)
 	return err
 }

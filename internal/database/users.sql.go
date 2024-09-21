@@ -17,7 +17,7 @@ SELECT count(*) FROM users
 `
 
 func (q *Queries) CountAllUsers(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAllUsers)
+	row := q.queryRow(ctx, q.countAllUsersStmt, countAllUsers)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -63,7 +63,7 @@ type CreateUserRow struct {
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
+	row := q.queryRow(ctx, q.createUserStmt, createUser,
 		arg.Email,
 		arg.HashedPassword,
 		arg.FirstName,
@@ -115,7 +115,7 @@ type DeactivateUserRow struct {
 }
 
 func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID) (DeactivateUserRow, error) {
-	row := q.db.QueryRowContext(ctx, deactivateUser, id)
+	row := q.queryRow(ctx, q.deactivateUserStmt, deactivateUser, id)
 	var i DeactivateUserRow
 	err := row.Scan(
 		&i.ID,
@@ -140,7 +140,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteUser, id)
+	_, err := q.exec(ctx, q.deleteUserStmt, deleteUser, id)
 	return err
 }
 
@@ -170,7 +170,7 @@ type GetUserByEmailRow struct {
 }
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+	row := q.queryRow(ctx, q.getUserByEmailStmt, getUserByEmail, email)
 	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
@@ -230,7 +230,7 @@ type GetUserByIDRow struct {
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByID, id)
+	row := q.queryRow(ctx, q.getUserByIDStmt, getUserByID, id)
 	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -281,7 +281,7 @@ type GetUserByProviderRow struct {
 }
 
 func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderParams) (GetUserByProviderRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByProvider, arg.Provider, arg.ProviderID)
+	row := q.queryRow(ctx, q.getUserByProviderStmt, getUserByProvider, arg.Provider, arg.ProviderID)
 	var i GetUserByProviderRow
 	err := row.Scan(
 		&i.ID,
@@ -331,7 +331,7 @@ type GetUserProfileByIDRow struct {
 }
 
 func (q *Queries) GetUserProfileByID(ctx context.Context, id uuid.UUID) (GetUserProfileByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserProfileByID, id)
+	row := q.queryRow(ctx, q.getUserProfileByIDStmt, getUserProfileByID, id)
 	var i GetUserProfileByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -357,7 +357,7 @@ SELECT EXISTS (
 `
 
 func (q *Queries) IsAdmin(ctx context.Context, userID uuid.NullUUID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, isAdmin, userID)
+	row := q.queryRow(ctx, q.isAdminStmt, isAdmin, userID)
 	var is_admin bool
 	err := row.Scan(&is_admin)
 	return is_admin, err
@@ -400,12 +400,12 @@ type ListUsersRow struct {
 }
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUsers, arg.Limit, arg.Offset)
+	rows, err := q.query(ctx, q.listUsersStmt, listUsers, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListUsersRow
+	items := []ListUsersRow{}
 	for rows.Next() {
 		var i ListUsersRow
 		if err := rows.Scan(
@@ -441,7 +441,7 @@ ON CONFLICT (user_id, role_id) DO NOTHING
 `
 
 func (q *Queries) MakeAdmin(ctx context.Context, userID uuid.NullUUID) error {
-	_, err := q.db.ExecContext(ctx, makeAdmin, userID)
+	_, err := q.exec(ctx, q.makeAdminStmt, makeAdmin, userID)
 	return err
 }
 
@@ -463,7 +463,7 @@ type UpdateUserParams struct {
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
-	_, err := q.db.ExecContext(ctx, updateUser,
+	_, err := q.exec(ctx, q.updateUserStmt, updateUser,
 		arg.ID,
 		arg.FirstName,
 		arg.LastName,
@@ -479,7 +479,7 @@ WHERE email = $1
 `
 
 func (q *Queries) UpdateUserEmailVerified(ctx context.Context, email string) error {
-	_, err := q.db.ExecContext(ctx, updateUserEmailVerified, email)
+	_, err := q.exec(ctx, q.updateUserEmailVerifiedStmt, updateUserEmailVerified, email)
 	return err
 }
 
@@ -505,7 +505,7 @@ type UpdateUserInfoParams struct {
 }
 
 func (q *Queries) UpdateUserInfo(ctx context.Context, arg UpdateUserInfoParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserInfo,
+	_, err := q.exec(ctx, q.updateUserInfoStmt, updateUserInfo,
 		arg.ID,
 		arg.ProfileImageUrl,
 		arg.FirstName,
@@ -537,7 +537,7 @@ type UpdateUserLastLoginRow struct {
 }
 
 func (q *Queries) UpdateUserLastLogin(ctx context.Context, id uuid.UUID) (UpdateUserLastLoginRow, error) {
-	row := q.db.QueryRowContext(ctx, updateUserLastLogin, id)
+	row := q.queryRow(ctx, q.updateUserLastLoginStmt, updateUserLastLogin, id)
 	var i UpdateUserLastLoginRow
 	err := row.Scan(
 		&i.ID,
@@ -582,7 +582,7 @@ type UpdateUserPasswordRow struct {
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (UpdateUserPasswordRow, error) {
-	row := q.db.QueryRowContext(ctx, updateUserPassword, arg.ID, arg.HashedPassword)
+	row := q.queryRow(ctx, q.updateUserPasswordStmt, updateUserPassword, arg.ID, arg.HashedPassword)
 	var i UpdateUserPasswordRow
 	err := row.Scan(
 		&i.ID,
@@ -641,7 +641,7 @@ type UpdateUserProfileRow struct {
 }
 
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error) {
-	row := q.db.QueryRowContext(ctx, updateUserProfile,
+	row := q.queryRow(ctx, q.updateUserProfileStmt, updateUserProfile,
 		arg.ID,
 		arg.FirstName,
 		arg.LastName,

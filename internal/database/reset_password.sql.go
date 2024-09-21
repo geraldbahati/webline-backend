@@ -16,7 +16,7 @@ WHERE expires_at < now()
 `
 
 func (q *Queries) DeleteExpiredTResets(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, deleteExpiredTResets)
+	_, err := q.exec(ctx, q.deleteExpiredTResetsStmt, deleteExpiredTResets)
 	return err
 }
 
@@ -26,7 +26,7 @@ WHERE email = $1
 `
 
 func (q *Queries) DeletePasswordResetToken(ctx context.Context, email string) error {
-	_, err := q.db.ExecContext(ctx, deletePasswordResetToken, email)
+	_, err := q.exec(ctx, q.deletePasswordResetTokenStmt, deletePasswordResetToken, email)
 	return err
 }
 
@@ -37,7 +37,7 @@ WHERE email = $1
 `
 
 func (q *Queries) GetPasswordResetToken(ctx context.Context, email string) (PasswordResetToken, error) {
-	row := q.db.QueryRowContext(ctx, getPasswordResetToken, email)
+	row := q.queryRow(ctx, q.getPasswordResetTokenStmt, getPasswordResetToken, email)
 	var i PasswordResetToken
 	err := row.Scan(
 		&i.ID,
@@ -61,6 +61,6 @@ type StorePasswordResetTokenParams struct {
 }
 
 func (q *Queries) StorePasswordResetToken(ctx context.Context, arg StorePasswordResetTokenParams) error {
-	_, err := q.db.ExecContext(ctx, storePasswordResetToken, arg.Email, arg.Token, arg.ExpiresAt)
+	_, err := q.exec(ctx, q.storePasswordResetTokenStmt, storePasswordResetToken, arg.Email, arg.Token, arg.ExpiresAt)
 	return err
 }

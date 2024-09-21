@@ -65,12 +65,12 @@ type GetBestSellerProductsRow struct {
 }
 
 func (q *Queries) GetBestSellerProducts(ctx context.Context, limit int32) ([]GetBestSellerProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getBestSellerProducts, limit)
+	rows, err := q.query(ctx, q.getBestSellerProductsStmt, getBestSellerProducts, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetBestSellerProductsRow
+	items := []GetBestSellerProductsRow{}
 	for rows.Next() {
 		var i GetBestSellerProductsRow
 		if err := rows.Scan(
@@ -169,12 +169,12 @@ type GetDailyDealsRow struct {
 }
 
 func (q *Queries) GetDailyDeals(ctx context.Context) ([]GetDailyDealsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getDailyDeals)
+	rows, err := q.query(ctx, q.getDailyDealsStmt, getDailyDeals)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetDailyDealsRow
+	items := []GetDailyDealsRow{}
 	for rows.Next() {
 		var i GetDailyDealsRow
 		if err := rows.Scan(
@@ -257,12 +257,12 @@ type GetFeaturedProductsRow struct {
 }
 
 func (q *Queries) GetFeaturedProducts(ctx context.Context, limit int32) ([]GetFeaturedProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFeaturedProducts, limit)
+	rows, err := q.query(ctx, q.getFeaturedProductsStmt, getFeaturedProducts, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetFeaturedProductsRow
+	items := []GetFeaturedProductsRow{}
 	for rows.Next() {
 		var i GetFeaturedProductsRow
 		if err := rows.Scan(
@@ -340,12 +340,12 @@ type GetNewArrivalProductsRow struct {
 }
 
 func (q *Queries) GetNewArrivalProducts(ctx context.Context, limit int32) ([]GetNewArrivalProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getNewArrivalProducts, limit)
+	rows, err := q.query(ctx, q.getNewArrivalProductsStmt, getNewArrivalProducts, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetNewArrivalProductsRow
+	items := []GetNewArrivalProductsRow{}
 	for rows.Next() {
 		var i GetNewArrivalProductsRow
 		if err := rows.Scan(

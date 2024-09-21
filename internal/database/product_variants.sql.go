@@ -27,7 +27,7 @@ type CreateProductVariantParams struct {
 }
 
 func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (ProductVariant, error) {
-	row := q.db.QueryRowContext(ctx, createProductVariant,
+	row := q.queryRow(ctx, q.createProductVariantStmt, createProductVariant,
 		arg.ProductID,
 		arg.VariantName,
 		arg.VariantValue,
@@ -54,7 +54,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteProductVariant(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductVariant, id)
+	_, err := q.exec(ctx, q.deleteProductVariantStmt, deleteProductVariant, id)
 	return err
 }
 
@@ -65,7 +65,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetProductVariantByID(ctx context.Context, id uuid.UUID) (ProductVariant, error) {
-	row := q.db.QueryRowContext(ctx, getProductVariantByID, id)
+	row := q.queryRow(ctx, q.getProductVariantByIDStmt, getProductVariantByID, id)
 	var i ProductVariant
 	err := row.Scan(
 		&i.ID,
@@ -88,12 +88,12 @@ ORDER BY variant_name
 `
 
 func (q *Queries) ListProductVariantsByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductVariant, error) {
-	rows, err := q.db.QueryContext(ctx, listProductVariantsByProductID, productID)
+	rows, err := q.query(ctx, q.listProductVariantsByProductIDStmt, listProductVariantsByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductVariant
+	items := []ProductVariant{}
 	for rows.Next() {
 		var i ProductVariant
 		if err := rows.Scan(
@@ -135,7 +135,7 @@ type UpdateProductVariantParams struct {
 }
 
 func (q *Queries) UpdateProductVariant(ctx context.Context, arg UpdateProductVariantParams) (ProductVariant, error) {
-	row := q.db.QueryRowContext(ctx, updateProductVariant,
+	row := q.queryRow(ctx, q.updateProductVariantStmt, updateProductVariant,
 		arg.ID,
 		arg.VariantName,
 		arg.VariantValue,

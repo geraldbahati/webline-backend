@@ -21,7 +21,7 @@ SELECT EXISTS (
 `
 
 func (q *Queries) CheckCategoryExistence(ctx context.Context, id uuid.UUID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, checkCategoryExistence, id)
+	row := q.queryRow(ctx, q.checkCategoryExistenceStmt, checkCategoryExistence, id)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -42,7 +42,7 @@ type CreateCategoryParams struct {
 }
 
 func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) error {
-	_, err := q.db.ExecContext(ctx, createCategory,
+	_, err := q.exec(ctx, q.createCategoryStmt, createCategory,
 		arg.Name,
 		arg.ParentID,
 		arg.ImageUrl,
@@ -72,12 +72,12 @@ type GetCategoriesByParentIDRow struct {
 }
 
 func (q *Queries) GetCategoriesByParentID(ctx context.Context, parentID uuid.NullUUID) ([]GetCategoriesByParentIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoriesByParentID, parentID)
+	rows, err := q.query(ctx, q.getCategoriesByParentIDStmt, getCategoriesByParentID, parentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoriesByParentIDRow
+	items := []GetCategoriesByParentIDRow{}
 	for rows.Next() {
 		var i GetCategoriesByParentIDRow
 		if err := rows.Scan(
@@ -124,12 +124,12 @@ type GetCategoriesWithProductsCountRow struct {
 }
 
 func (q *Queries) GetCategoriesWithProductsCount(ctx context.Context) ([]GetCategoriesWithProductsCountRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoriesWithProductsCount)
+	rows, err := q.query(ctx, q.getCategoriesWithProductsCountStmt, getCategoriesWithProductsCount)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoriesWithProductsCountRow
+	items := []GetCategoriesWithProductsCountRow{}
 	for rows.Next() {
 		var i GetCategoriesWithProductsCountRow
 		if err := rows.Scan(
@@ -177,12 +177,12 @@ type GetCategoriesWithSubcategoryCountRow struct {
 }
 
 func (q *Queries) GetCategoriesWithSubcategoryCount(ctx context.Context) ([]GetCategoriesWithSubcategoryCountRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoriesWithSubcategoryCount)
+	rows, err := q.query(ctx, q.getCategoriesWithSubcategoryCountStmt, getCategoriesWithSubcategoryCount)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoriesWithSubcategoryCountRow
+	items := []GetCategoriesWithSubcategoryCountRow{}
 	for rows.Next() {
 		var i GetCategoriesWithSubcategoryCountRow
 		if err := rows.Scan(
@@ -227,7 +227,7 @@ type GetCategoryByIDRow struct {
 }
 
 func (q *Queries) GetCategoryByID(ctx context.Context, id uuid.UUID) (GetCategoryByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getCategoryByID, id)
+	row := q.queryRow(ctx, q.getCategoryByIDStmt, getCategoryByID, id)
 	var i GetCategoryByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -260,7 +260,7 @@ type GetCategoryByNameRow struct {
 }
 
 func (q *Queries) GetCategoryByName(ctx context.Context, name string) (GetCategoryByNameRow, error) {
-	row := q.db.QueryRowContext(ctx, getCategoryByName, name)
+	row := q.queryRow(ctx, q.getCategoryByNameStmt, getCategoryByName, name)
 	var i GetCategoryByNameRow
 	err := row.Scan(
 		&i.ID,
@@ -282,7 +282,7 @@ WHERE slug = $1
 `
 
 func (q *Queries) GetCategoryBySlug(ctx context.Context, slug string) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, getCategoryBySlug, slug)
+	row := q.queryRow(ctx, q.getCategoryBySlugStmt, getCategoryBySlug, slug)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -310,7 +310,7 @@ type GetCategoryDetailsBySlugRow struct {
 }
 
 func (q *Queries) GetCategoryDetailsBySlug(ctx context.Context, slug string) (GetCategoryDetailsBySlugRow, error) {
-	row := q.db.QueryRowContext(ctx, getCategoryDetailsBySlug, slug)
+	row := q.queryRow(ctx, q.getCategoryDetailsBySlugStmt, getCategoryDetailsBySlug, slug)
 	var i GetCategoryDetailsBySlugRow
 	err := row.Scan(
 		&i.ID,
@@ -341,7 +341,7 @@ type GetCategorySEOBySlugRow struct {
 }
 
 func (q *Queries) GetCategorySEOBySlug(ctx context.Context, slug string) (GetCategorySEOBySlugRow, error) {
-	row := q.db.QueryRowContext(ctx, getCategorySEOBySlug, slug)
+	row := q.queryRow(ctx, q.getCategorySEOBySlugStmt, getCategorySEOBySlug, slug)
 	var i GetCategorySEOBySlugRow
 	err := row.Scan(&i.MetaTitle, &i.MetaDescription)
 	return i, err
@@ -377,12 +377,12 @@ type GetCategoryTreeRow struct {
 }
 
 func (q *Queries) GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoryTree)
+	rows, err := q.query(ctx, q.getCategoryTreeStmt, getCategoryTree)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCategoryTreeRow
+	items := []GetCategoryTreeRow{}
 	for rows.Next() {
 		var i GetCategoryTreeRow
 		if err := rows.Scan(
@@ -428,12 +428,12 @@ type GetParentCategoriesRow struct {
 }
 
 func (q *Queries) GetParentCategories(ctx context.Context) ([]GetParentCategoriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getParentCategories)
+	rows, err := q.query(ctx, q.getParentCategoriesStmt, getParentCategories)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetParentCategoriesRow
+	items := []GetParentCategoriesRow{}
 	for rows.Next() {
 		var i GetParentCategoriesRow
 		if err := rows.Scan(
@@ -509,12 +509,12 @@ type GetV2CategoryHierarchyRow struct {
 }
 
 func (q *Queries) GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHierarchyRow, error) {
-	rows, err := q.db.QueryContext(ctx, getV2CategoryHierarchy)
+	rows, err := q.query(ctx, q.getV2CategoryHierarchyStmt, getV2CategoryHierarchy)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetV2CategoryHierarchyRow
+	items := []GetV2CategoryHierarchyRow{}
 	for rows.Next() {
 		var i GetV2CategoryHierarchyRow
 		if err := rows.Scan(
@@ -547,7 +547,7 @@ WHERE id = $1
 `
 
 func (q *Queries) HardDeleteCategory(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, hardDeleteCategory, id)
+	_, err := q.exec(ctx, q.hardDeleteCategoryStmt, hardDeleteCategory, id)
 	return err
 }
 
@@ -569,12 +569,12 @@ type ListCategoriesRow struct {
 }
 
 func (q *Queries) ListCategories(ctx context.Context) ([]ListCategoriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listCategories)
+	rows, err := q.query(ctx, q.listCategoriesStmt, listCategories)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListCategoriesRow
+	items := []ListCategoriesRow{}
 	for rows.Next() {
 		var i ListCategoriesRow
 		if err := rows.Scan(
@@ -607,7 +607,7 @@ WHERE id = $1
 `
 
 func (q *Queries) SoftDeleteCategory(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, softDeleteCategory, id)
+	_, err := q.exec(ctx, q.softDeleteCategoryStmt, softDeleteCategory, id)
 	return err
 }
 
@@ -645,7 +645,7 @@ type UpdateCategoryRow struct {
 }
 
 func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (UpdateCategoryRow, error) {
-	row := q.db.QueryRowContext(ctx, updateCategory,
+	row := q.queryRow(ctx, q.updateCategoryStmt, updateCategory,
 		arg.ID,
 		arg.Name,
 		arg.ParentID,
@@ -694,7 +694,7 @@ type UpdateCategoryImageRow struct {
 }
 
 func (q *Queries) UpdateCategoryImage(ctx context.Context, arg UpdateCategoryImageParams) (UpdateCategoryImageRow, error) {
-	row := q.db.QueryRowContext(ctx, updateCategoryImage, arg.ID, arg.ImageUrl)
+	row := q.queryRow(ctx, q.updateCategoryImageStmt, updateCategoryImage, arg.ID, arg.ImageUrl)
 	var i UpdateCategoryImageRow
 	err := row.Scan(
 		&i.ID,
