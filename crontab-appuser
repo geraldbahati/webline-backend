@@ -1,0 +1,2 @@
+# Runs backup.sh every day at 2 AM
+0 2 * * * /app/backup.sh >> /app/backups/backup.log 2>&1
