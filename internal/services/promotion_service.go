@@ -5,16 +5,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"sync"
 	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
+	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
+
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type PromotionService struct {
@@ -122,6 +124,7 @@ func (s *PromotionService) CreateOrEditV2Promotion(ctx context.Context, params *
 func (s *PromotionService) createPromotion(ctx context.Context, params *model.CreatePromotionParams, image *model.ImageFile) error {
 	filePath, err := s.handlePromotionImage(ctx, image, "")
 	if err != nil {
+		s.logger.Error("failed to upload promotion image", zap.Error(err))
 		return s.logAndReturnError("failed to upload promotion image", err)
 	}
 
@@ -133,6 +136,7 @@ func (s *PromotionService) createPromotion(ctx context.Context, params *model.Cr
 		EndDate:     params.EndDate,
 	})
 	if err != nil {
+		s.logger.Error("failed to create promotion", zap.Error(err))
 		return s.logAndReturnError("failed to create promotion", err)
 	}
 
@@ -142,6 +146,7 @@ func (s *PromotionService) createPromotion(ctx context.Context, params *model.Cr
 func (s *PromotionService) updatePromotion(ctx context.Context, promotion *model.PromotionSchema, params *model.CreatePromotionParams, image *model.ImageFile) error {
 	filePath, err := s.handlePromotionImage(ctx, image, promotion.ImageUrl)
 	if err != nil {
+		s.logger.Error("failed to upload promotion image", zap.Error(err))
 		return s.logAndReturnError("failed to upload promotion image", err)
 	}
 
@@ -155,6 +160,7 @@ func (s *PromotionService) updatePromotion(ctx context.Context, promotion *model
 	}
 
 	if err := s.promotionRepo.UpdatePromotion(ctx, updateParams); err != nil {
+		s.logger.Error("failed to update promotion", zap.Error(err))
 		return s.logAndReturnError("failed to update promotion", err)
 	}
 
@@ -280,8 +286,9 @@ func (s *PromotionService) getProductsToRemove(existingProductIDs, addedProductI
 }
 
 func (s *PromotionService) getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
-	userID, ok := ctx.Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
+		s.logger.Error("failed to get user ID from context")
 		return uuid.Nil, app_errors.NewUnauthorizedUserError()
 	}
 	return userID, nil
@@ -295,6 +302,7 @@ func (s *PromotionService) logAndReturnError(message string, err error) error {
 func (s *PromotionService) verifyAdminStatus(ctx context.Context, userID uuid.UUID) error {
 	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
 	if err != nil || !isAdmin {
+		s.logger.Error("failed to verify admin status", zap.Error(err))
 		return app_errors.NewUnauthorizedUserError()
 	}
 	return nil
@@ -338,4 +346,119 @@ func (s *PromotionService) GetPromotionDetails(ctx context.Context, slug string)
 	}
 
 	return promotion, nil
+}
+
+// DeletePromotion deletes a promotion
+func (s *PromotionService) DeletePromotion(ctx context.Context, slug string) error {
+	// check if is admin
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+		return err
+	}
+
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		s.logger.Error("failed to verify admin status", zap.Error(err))
+		return err
+	}
+
+	// delete the promotion
+	if err := s.promotionRepo.DeletePromotion(ctx, slug); err != nil {
+		s.logger.Error("failed to delete promotion", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// DeletePromotions deletes multiple promotions
+func (s *PromotionService) DeletePromotions(ctx context.Context, slugs []string) error {
+	// check if is admin
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+		return err
+	}
+
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		s.logger.Error("failed to verify admin status", zap.Error(err))
+		return err
+	}
+
+	// delete the promotions
+	if err := s.promotionRepo.DeletePromotions(ctx, slugs); err != nil {
+		s.logger.Error("failed to delete promotions", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// ArchivePromotions archives multiple promotions
+func (s *PromotionService) ArchivePromotions(ctx context.Context, slugs []string) error {
+	// check if is admin
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+		return err
+	}
+
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		s.logger.Error("failed to verify admin status", zap.Error(err))
+		return err
+	}
+
+	// archive the promotions
+	if err := s.promotionRepo.ArchivePromotions(ctx, slugs); err != nil {
+		s.logger.Error("failed to archive promotions", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// DraftPromotions drafts multiple promotions
+func (s *PromotionService) DraftPromotions(ctx context.Context, slugs []string) error {
+	// check if is admin
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+		return err
+	}
+
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		s.logger.Error("failed to verify admin status", zap.Error(err))
+		return err
+	}
+
+	// draft the promotions
+	if err := s.promotionRepo.DraftPromotions(ctx, slugs); err != nil {
+		s.logger.Error("failed to draft promotions", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// ActivatePromotions activates multiple promotions
+func (s *PromotionService) ActivatePromotions(ctx context.Context, slugs []string) error {
+	// check if is admin
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		s.logger.Error("failed to get user ID from context", zap.Error(err))
+		return err
+	}
+
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		s.logger.Error("failed to verify admin status", zap.Error(err))
+		return err
+	}
+
+	// activate the promotions
+	if err := s.promotionRepo.ActivatePromotions(ctx, slugs); err != nil {
+		s.logger.Error("failed to activate promotions", zap.Error(err))
+		return err
+	}
+
+	return nil
 }

@@ -14,14 +14,14 @@ import (
 )
 
 type CartRepository struct {
-	*database.Queries
+	database.Querier
 	db     *sql.DB
 	logger *zap.Logger
 }
 
 func NewCartRepository(db *sql.DB, logger *zap.Logger) *CartRepository {
 	return &CartRepository{
-		Queries: database.New(db),
+		Querier: database.New(db),
 		db:      db,
 		logger:  logger,
 	}
@@ -52,6 +52,7 @@ func (r *CartRepository) execTx(ctx context.Context, fn func(*database.Queries) 
 
 // AddToCart adds an item to the cart or updates the quantity if it already exists
 func (r *CartRepository) AddToCart(ctx context.Context, cartID, productID uuid.NullUUID, quantity int32, price float64) error {
+	r.logger.Info("adding item to cart", zap.String("cartID", cartID.UUID.String()), zap.String("productID", productID.UUID.String()), zap.Int("quantity", int(quantity)), zap.Float64("price", price))
 	return r.execTx(ctx, func(q *database.Queries) error {
 		// Check if the item exists in the cart
 		_, err := q.GetCartItem(ctx, database.GetCartItemParams{
@@ -157,7 +158,7 @@ func (r *CartRepository) CalculateCartTotal(ctx context.Context, cartID uuid.Nul
 
 // CreateShoppingCart creates a new shopping cart
 func (r *CartRepository) CreateShoppingCart(ctx context.Context, userID uuid.NullUUID) (model.ShoppingCart, error) {
-	cartID, err := r.Queries.CreateShoppingCart(ctx, userID)
+	cartID, err := r.Querier.CreateShoppingCart(ctx, userID)
 	if err != nil {
 		return model.ShoppingCart{}, fmt.Errorf("create shopping cart: %w", err)
 	}
@@ -181,7 +182,7 @@ func (r *CartRepository) CreateShoppingCart(ctx context.Context, userID uuid.Nul
 
 // GetShoppingCartByUserID retrieves the shopping cart for a user
 func (r *CartRepository) GetShoppingCartByUserID(ctx context.Context, userID uuid.NullUUID) (model.ShoppingCart, error) {
-	cart, err := r.Queries.GetShoppingCartByUserID(ctx, userID)
+	cart, err := r.Querier.GetShoppingCartByUserID(ctx, userID)
 	if err != nil {
 		return model.ShoppingCart{}, fmt.Errorf("get shopping cart by user ID: %w", err)
 	}
@@ -202,7 +203,7 @@ func (r *CartRepository) GetShoppingCartByUserID(ctx context.Context, userID uui
 
 // GetShoppingCartBySessionID retrieves the shopping cart for a session
 func (r *CartRepository) GetShoppingCartBySessionID(ctx context.Context, sessionID uuid.NullUUID) (model.ShoppingCart, error) {
-	cart, err := r.Queries.GetShoppingCartBySessionID(ctx, sessionID)
+	cart, err := r.Querier.GetShoppingCartBySessionID(ctx, sessionID)
 	if err != nil {
 		return model.ShoppingCart{}, fmt.Errorf("get shopping cart by session ID: %w", err)
 	}

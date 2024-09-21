@@ -66,6 +66,7 @@ type CreateOrderParams struct {
 	VatAmount        float64    `json:"vatAmount"`
 	SubTotal         float64    `json:"subTotal"`
 	OrderDate        time.Time  `json:"orderDate"`
+	OrderNumber      string     `json:"orderNumber"`
 }
 
 type OrderClientResponse struct {
@@ -101,4 +102,10 @@ type OrderAmounts struct {
 	DiscountAmount float64 `json:"discountAmount"`
 	VatAmount    float64 `json:"vatAmount"`
 	GrandTotal   float64 `json:"grandTotal"`
+}
+
+type OrderSchema struct {
+	ID             uuid.UUID
+	OrderNumber    string
+	CreatedAt      time.Time
 }
