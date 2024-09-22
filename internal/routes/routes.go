@@ -144,7 +144,7 @@ func registerAdminPromotionRoutes(router *mux.Router, handlers *handlers.Handler
 	protectedAdminPromotionRouter.Use(middleware.Auth(logger))
 	NamedHandleFunc(protectedAdminPromotionRouter, "", handlers.PromotionHandler.CreateOrEditV2Promotion, []string{http.MethodPost}, "CreateOrEditV2Promotion")
 	NamedHandleFunc(protectedAdminPromotionRouter, "/{slug}", handlers.PromotionHandler.GetPromotionDetails, []string{http.MethodGet}, "GetPromotionDetails")
-	NamedHandleFunc(protectedAdminPromotionRouter, "/{slug}", handlers.PromotionHandler.DeletePromotion, []string{http.MethodDelete}, "DeletePromotion")
+	NamedHandleFunc(protectedAdminPromotionRouter, "/{slug}/delete", handlers.PromotionHandler.DeletePromotion, []string{http.MethodDelete}, "DeletePromotion")
 	NamedHandleFunc(protectedAdminPromotionRouter, "/archive", handlers.PromotionHandler.ArchivePromotions, []string{http.MethodPut}, "ArchivePromotions")
 	NamedHandleFunc(protectedAdminPromotionRouter, "/draft", handlers.PromotionHandler.DraftPromotions, []string{http.MethodPut}, "DraftPromotions")
 	NamedHandleFunc(protectedAdminPromotionRouter, "/active", handlers.PromotionHandler.ActivatePromotions, []string{http.MethodPut}, "ActivatePromotions")

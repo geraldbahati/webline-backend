@@ -14,6 +14,7 @@ import (
 	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
+	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
@@ -1167,7 +1168,7 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 }
 
 func (s *ProductService) getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
-	userID, ok := ctx.Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		return uuid.Nil, app_errors.NewUnauthorizedUserError()
 	}
