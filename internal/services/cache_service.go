@@ -1,3 +1,5 @@
+// cache_service.go
+
 package services
 
 import (
@@ -9,9 +11,9 @@ import (
 	"time"
 	"weblineBackend/internal/model"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -48,6 +50,7 @@ type CacheService interface {
 	Incr(ctx context.Context, key string) (int64, error)
 	Decr(ctx context.Context, key string) (int64, error)
 	GetOrSet(ctx context.Context, key string, dest interface{}, fetchFunc func() error) error
+	DeleteKeysByPattern(ctx context.Context, pattern string) error
 	HealthCheck(ctx context.Context) error
 	Initialize() error
 }
@@ -57,7 +60,7 @@ type cacheService struct {
 	logger      *zap.Logger
 	ttl         time.Duration
 	initialized bool
-	mu sync.Mutex
+	mu          sync.Mutex
 
 	// Rate limiting
 	rateLimiter chan struct{}
@@ -153,6 +156,7 @@ func (c *cacheService) Get(ctx context.Context, key string, dest interface{}) er
 	}
 
 	c.logger.Info("Data retrieved from cache", zap.String("key", key))
+	cacheHits.Inc()
 	return nil
 }
 
@@ -224,6 +228,7 @@ func (c *cacheService) HGet(ctx context.Context, key, field string) (string, err
 	}
 
 	c.logger.Info("Hash field retrieved successfully", zap.String("key", key), zap.String("field", field))
+	cacheHits.Inc()
 	return value, nil
 }
 
@@ -292,6 +297,7 @@ func (c *cacheService) SMembers(ctx context.Context, key string) ([]string, erro
 	}
 
 	c.logger.Info("Set members retrieved successfully", zap.String("key", key))
+	cacheHits.Inc()
 	return members, nil
 }
 
@@ -332,6 +338,7 @@ func (c *cacheService) ZRange(ctx context.Context, key string, start, stop int64
 	}
 
 	c.logger.Info("Range retrieved from sorted set successfully", zap.String("key", key))
+	cacheHits.Inc()
 	return members, nil
 }
 
@@ -352,6 +359,7 @@ func (c *cacheService) Incr(ctx context.Context, key string) (int64, error) {
 	}
 
 	c.logger.Info("Key incremented successfully", zap.String("key", key), zap.Int64("value", value))
+	cacheHits.Inc()
 	return value, nil
 }
 
@@ -372,7 +380,48 @@ func (c *cacheService) Decr(ctx context.Context, key string) (int64, error) {
 	}
 
 	c.logger.Info("Key decremented successfully", zap.String("key", key), zap.Int64("value", value))
+	cacheHits.Inc()
 	return value, nil
+}
+
+func (c *cacheService) DeleteKeysByPattern(ctx context.Context, pattern string) error {
+	// Ensure the cache is initialized
+	if !c.initialized {
+		if err := c.Initialize(); err != nil {
+			return err
+		}
+	}
+
+	var cursor uint64
+	batchSize := int64(100) // Number of keys to delete per batch
+
+	for {
+		fetchedKeys, nextCursor, err := c.redisClient.Scan(ctx, cursor, pattern, batchSize).Result()
+		if err != nil {
+			cacheErrors.Inc()
+			c.logger.Error("Failed to scan keys for deletion", zap.String("pattern", pattern), zap.Error(err))
+			return fmt.Errorf("failed to scan keys for deletion: %w", err)
+		}
+
+		if len(fetchedKeys) > 0 {
+			// Use UNLINK for non-blocking deletion
+			if err := c.redisClient.Unlink(ctx, fetchedKeys...).Err(); err != nil {
+				cacheErrors.Inc()
+				c.logger.Error("Failed to unlink keys", zap.Strings("keys", fetchedKeys), zap.Error(err))
+				// Continue attempting to delete remaining keys
+			} else {
+				c.logger.Info("Unlinked keys successfully", zap.Int("count", len(fetchedKeys)))
+			}
+		}
+
+		if nextCursor == 0 {
+			break
+		}
+		cursor = nextCursor
+	}
+
+	c.logger.Info("Completed deletion of keys by pattern", zap.String("pattern", pattern))
+	return nil
 }
 
 // GetOrSet retrieves a value from the cache or sets it using the provided fetch function.
@@ -396,6 +445,7 @@ func (c *cacheService) GetOrSet(ctx context.Context, key string, dest interface{
 	err := c.Get(ctx, key, dest)
 	if err != nil {
 		cacheErrors.Inc()
+		c.logger.Error("Failed to get data from cache", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
@@ -403,24 +453,27 @@ func (c *cacheService) GetOrSet(ctx context.Context, key string, dest interface{
 	isEmpty, err := isEmpty(dest)
 	if err != nil {
 		cacheErrors.Inc()
+		c.logger.Error("Failed to check if destination is empty", zap.Error(err), zap.String("key", key))
 		return err
 	}
 	if !isEmpty {
 		// Cache hit
+		cacheHits.Inc()
 		return nil
 	}
 
 	// Cache miss, fetch data
 	if fetchFunc == nil {
 		c.logger.Warn("Fetch function is nil for cache miss", zap.String("key", key))
+		cacheMisses.Inc()
 		return errors.New("fetch function is nil")
 	}
 
 	// Fetch data
 	err = fetchFunc()
 	if err != nil {
-		cacheErrors.Inc()
-		c.logger.Error("Fetch function failed", zap.Error(err))
+		cacheMisses.Inc()
+		c.logger.Error("Fetch function failed", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
@@ -428,19 +481,31 @@ func (c *cacheService) GetOrSet(ctx context.Context, key string, dest interface{
 	err = c.Set(ctx, key, dest)
 	if err != nil {
 		cacheErrors.Inc()
+		c.logger.Error("Failed to set data in cache after fetch", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
+	cacheMisses.Inc()
 	return nil
 }
 
 // isEmpty checks if the destination is empty (cache miss).
 func isEmpty(dest interface{}) (bool, error) {
 	switch v := dest.(type) {
+	case *model.V2ProductDetail:
+		return v == nil || v.Slug == "", nil
+	case *model.ProductSEO:
+		return v == nil || v.ID == uuid.Nil, nil
 	case *[]*model.Product:
 		return v == nil || len(*v) == 0, nil
-
-	// Add other cases based on your models
+	case *[]*model.ProductSitemap:
+		return v == nil || len(*v) == 0, nil
+	case *model.ProductSchema:
+		return v == nil || v.Slug == "", nil
+	case *float64:
+		// For exchange rate
+		return v == nil || *v == 0, nil
+	// Add more cases based on your models
 	default:
 		return false, fmt.Errorf("unsupported type for isEmpty check: %T", dest)
 	}

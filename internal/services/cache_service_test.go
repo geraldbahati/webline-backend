@@ -74,7 +74,7 @@ func TestCacheService(t *testing.T) {
 		var actualValue string
 
 		mockCache.EXPECT().HGet(ctx, key, field).Return(expectedValue, nil)
-		
+
 		// Call the method under test and assign the result to actualValue
 		actualValue, err := mockCache.HGet(ctx, key, field)
 		if err != nil {
@@ -147,7 +147,7 @@ func TestCacheService(t *testing.T) {
 
 		// Call the method under test
 		err := mockCache.ZAdd(ctx, key, members...)
-		
+
 		// Add your assertions here
 		assert.NoError(t, err)
 	})

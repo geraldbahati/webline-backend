@@ -24,23 +24,25 @@ type OrderService struct {
 	paymentRepository   *repository.PaymentRepository
 	userRepo            *repository.UserRepository
 	productRepo         *repository.ProductRepository
-	discountRepo        *repository.DiscountRepository	
+	discountRepo        *repository.DiscountRepository
 	exchangeRateRepo    repository.ExchangeRateRepository
 	companyRepo         repository.CompanyRepository
+	cacheService        CacheService
 	cfg                 *appconfig.Config
 }
 
 func NewOrderService(
-	logger *zap.Logger, 
-	guestCheckoutRepo *repository.GuestCheckoutRepository, 
-	orderRepository *repository.OrderRepository, 
-	orderItemRepository *repository.OrderItemRepository, 
-	paymentRepository *repository.PaymentRepository, 
-	userRepo *repository.UserRepository, 
-	productRepo *repository.ProductRepository, 
-	discountRepo *repository.DiscountRepository, 
-	exchangeRateRepo repository.ExchangeRateRepository, 
-	companyRepo repository.CompanyRepository, 
+	logger *zap.Logger,
+	guestCheckoutRepo *repository.GuestCheckoutRepository,
+	orderRepository *repository.OrderRepository,
+	orderItemRepository *repository.OrderItemRepository,
+	paymentRepository *repository.PaymentRepository,
+	userRepo *repository.UserRepository,
+	productRepo *repository.ProductRepository,
+	discountRepo *repository.DiscountRepository,
+	exchangeRateRepo repository.ExchangeRateRepository,
+	companyRepo repository.CompanyRepository,
+	cacheService CacheService,
 	cfg *appconfig.Config) *OrderService {
 	return &OrderService{
 		logger:              logger,
@@ -53,6 +55,7 @@ func NewOrderService(
 		exchangeRateRepo:    exchangeRateRepo,
 		companyRepo:         companyRepo,
 		discountRepo:        discountRepo,
+		cacheService:        cacheService,
 		cfg:                 cfg,
 	}
 }
@@ -108,11 +111,11 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 
 		// Update order amounts in the database
 		updateParams := database.UpdateOrderAmountsParams{
-			Column1:        orderID,
-			Column2:     fmt.Sprintf("%.2f", totalPrice),
-			Column3:        "0", 
-			Column4:        "0", 
-			Column5:  fmt.Sprintf("%.2f", totalDiscount),
+			Column1: orderID,
+			Column2: fmt.Sprintf("%.2f", totalPrice),
+			Column3: "0",
+			Column4: "0",
+			Column5: fmt.Sprintf("%.2f", totalDiscount),
 		}
 
 		row, err := q.UpdateOrderAmounts(ctx, updateParams)
@@ -209,132 +212,128 @@ func (s *OrderService) sendOrderNotification(orderID uuid.UUID, orderParams *mod
 }
 
 func (s *OrderService) processOrderItems(ctx context.Context, q *database.Queries, orderID uuid.UUID, items []model.CreateOrderItemParams) ([]utils.OrderItem, float64, float64, error) {
-    var totalPriceKES float64
-    var totalDiscountAmount float64
+	var totalPriceKES float64
+	var totalDiscountAmount float64
 	var notificationItems []utils.OrderItem
 
-    // Fetch exchange rate once
-    exchangeRate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, "USD")
-    if err != nil {
-        return nil, 0, 0, fmt.Errorf("failed to get exchange rate: %w", err)
-    }
+	// Fetch exchange rate once
+	exchangeRate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, "USD")
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to get exchange rate: %w", err)
+	}
 
-    // Collect product IDs from items
-    productIDs := make([]uuid.UUID, len(items))
-    for i, item := range items {
-        productIDs[i] = item.ProductID
-    }
+	// Collect product IDs from items
+	productIDs := make([]uuid.UUID, len(items))
+	for i, item := range items {
+		productIDs[i] = item.ProductID
+	}
 
-    // Fetch all products at once
-    products, err := s.productRepo.GetProductsByIDs(ctx, productIDs)
-    if err != nil {
-        return nil, 0, 0, fmt.Errorf("failed to get products: %w", err)
-    }
+	// Fetch all products at once
+	products, err := s.productRepo.GetProductsByIDs(ctx, productIDs)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to get products: %w", err)
+	}
 
-    // Build a map of products for quick lookup
-    productMap := make(map[uuid.UUID]model.ProductSchema)
-    for _, product := range products {
-        productMap[product.ID] = product
-    }
+	// Build a map of products for quick lookup
+	productMap := make(map[uuid.UUID]model.ProductSchema)
+	for _, product := range products {
+		productMap[product.ID] = product
+	}
 
-    // Fetch applicable discounts for products
-    discounts, err := s.discountRepo.GetActiveDiscountsByProductIDs(ctx, productIDs, time.Now())
-    if err != nil {
-        return nil, 0, 0, fmt.Errorf("failed to get discounts: %w", err)
-    }
+	// Fetch applicable discounts for products
+	discounts, err := s.discountRepo.GetActiveDiscountsByProductIDs(ctx, productIDs, time.Now())
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to get discounts: %w", err)
+	}
 
-    // Build a map of discounts
-    discountMap := make(map[uuid.UUID]float64) // productID -> discountPercentage
-    for _, discount := range discounts {
-        discountMap[discount.ProductID] = float64(discount.DiscountPercentage)
-    }
+	// Build a map of discounts
+	discountMap := make(map[uuid.UUID]float64) // productID -> discountPercentage
+	for _, discount := range discounts {
+		discountMap[discount.ProductID] = float64(discount.DiscountPercentage)
+	}
 
-    // Prepare data for batch insertion
-    orderIDs := make([]uuid.UUID, len(items))
-    productIDsArray := make([]uuid.UUID, len(items))
-    quantities := make([]int32, len(items))
-    productNames := make([]string, len(items))
-    productSkus := make([]string, len(items))
-    unitPrices := make([]string, len(items))
-    discountAmounts := make([]string, len(items))
-    totalPrices := make([]string, len(items))
+	// Prepare data for batch insertion
+	orderIDs := make([]uuid.UUID, len(items))
+	productIDsArray := make([]uuid.UUID, len(items))
+	quantities := make([]int32, len(items))
+	productNames := make([]string, len(items))
+	productSkus := make([]string, len(items))
+	unitPrices := make([]string, len(items))
+	discountAmounts := make([]string, len(items))
+	totalPrices := make([]string, len(items))
 
-    for i, item := range items {
-        product, ok := productMap[item.ProductID]
-        if !ok {
-            return nil, 0, 0, fmt.Errorf("product not found: %s", item.ProductID)
-        }
+	for i, item := range items {
+		product, ok := productMap[item.ProductID]
+		if !ok {
+			return nil, 0, 0, fmt.Errorf("product not found: %s", item.ProductID)
+		}
 
-        // Get the price in USD and convert to KES
-        priceUSD, err := strconv.ParseFloat(product.USD, 64)
-        if err != nil {
-            return nil, 0, 0, fmt.Errorf("failed to parse product price: %w", err)
-        }
-        priceKES := priceUSD * exchangeRate
+		// Get the price in USD and convert to KES
+		priceUSD, err := strconv.ParseFloat(product.USD, 64)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("failed to parse product price: %w", err)
+		}
+		priceKES := priceUSD * exchangeRate
 
-        // Calculate the unit price considering any additional prices from options
-        unitPrice := priceKES
+		// Calculate the unit price considering any additional prices from options
+		unitPrice := priceKES
 
-        // Here you might need to add the price of any selected options
-        // For simplicity, we'll assume unitPrice is priceKES
+		// Here you might need to add the price of any selected options
+		// For simplicity, we'll assume unitPrice is priceKES
 
-        // Check for discount
-        discountPercentage, hasDiscount := discountMap[item.ProductID]
-        var discountAmount float64
-        if hasDiscount {
-            discountAmount = unitPrice * float64(item.Quantity) * (discountPercentage / 100)
-        } else {
-            discountAmount = 0
-        }
+		// Check for discount
+		discountPercentage, hasDiscount := discountMap[item.ProductID]
+		var discountAmount float64
+		if hasDiscount {
+			discountAmount = unitPrice * float64(item.Quantity) * (discountPercentage / 100)
+		} else {
+			discountAmount = 0
+		}
 
-        itemTotal := (unitPrice * float64(item.Quantity)) - discountAmount
-        if itemTotal < 0 {
-            itemTotal = 0 // Ensure total doesn't go negative
-        }
-        totalPriceKES += itemTotal
-        totalDiscountAmount += discountAmount
+		itemTotal := (unitPrice * float64(item.Quantity)) - discountAmount
+		if itemTotal < 0 {
+			itemTotal = 0 // Ensure total doesn't go negative
+		}
+		totalPriceKES += itemTotal
+		totalDiscountAmount += discountAmount
 
-        orderIDs[i] = orderID
-        productIDsArray[i] = item.ProductID
-        quantities[i] = item.Quantity
-        productNames[i] = product.Name
-        productSkus[i] = product.Slug
-        unitPrices[i] = fmt.Sprintf("%.2f", unitPrice)
-        discountAmounts[i] = fmt.Sprintf("%.2f", discountAmount)
-        totalPrices[i] = fmt.Sprintf("%.2f", itemTotal)
-
+		orderIDs[i] = orderID
+		productIDsArray[i] = item.ProductID
+		quantities[i] = item.Quantity
+		productNames[i] = product.Name
+		productSkus[i] = product.Slug
+		unitPrices[i] = fmt.Sprintf("%.2f", unitPrice)
+		discountAmounts[i] = fmt.Sprintf("%.2f", discountAmount)
+		totalPrices[i] = fmt.Sprintf("%.2f", itemTotal)
 
 		notificationItems = append(notificationItems, utils.OrderItem{
 			ProductName: product.Name,
 			Quantity:    int(item.Quantity),
 			Price:       itemTotal,
 		})
-    }
+	}
 
-    orderItemsParam := database.CreateOrderItemsParams{
-        Column1:        orderIDs,
-        Column2:      productIDsArray,
-        Column3:      quantities,
-        Column4:      productNames,
-        Column5:      productSkus,
-        Column6:      unitPrices,
-        Column7:      discountAmounts,
-        Column8:      totalPrices,
-    }
+	orderItemsParam := database.CreateOrderItemsParams{
+		Column1: orderIDs,
+		Column2: productIDsArray,
+		Column3: quantities,
+		Column4: productNames,
+		Column5: productSkus,
+		Column6: unitPrices,
+		Column7: discountAmounts,
+		Column8: totalPrices,
+	}
 
-    // Batch insert order items
-    if err := q.CreateOrderItems(ctx, orderItemsParam); err != nil {
-        return nil, 0, 0, fmt.Errorf("failed to create order items: %w", err)
-    }
+	// Batch insert order items
+	if err := q.CreateOrderItems(ctx, orderItemsParam); err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to create order items: %w", err)
+	}
 
-    // Apply rounding to totalPriceKES
-    roundedTotalPriceKES := utils.RoundPrice(totalPriceKES)
+	// Apply rounding to totalPriceKES
+	roundedTotalPriceKES := utils.RoundPrice(totalPriceKES)
 
-    return notificationItems, roundedTotalPriceKES, totalDiscountAmount, nil
+	return notificationItems, roundedTotalPriceKES, totalDiscountAmount, nil
 }
-
-
-
 
 func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Queries, orderParams *model.CreateOrderParams) (*model.OrderSchema, error) {
 	// create company if it company name and kra pin are provided
@@ -392,116 +391,12 @@ func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Querie
 	}
 
 	orderSchema := &model.OrderSchema{
-		ID:        order.ID,
+		ID:          order.ID,
 		CreatedAt:   order.CreatedAt.Time,
 		OrderNumber: order.OrderNumber.String,
 	}
 
 	return orderSchema, nil
-}
-
-func (s *OrderService) createOrderItem(ctx context.Context, orderID uuid.UUID, item model.CreateOrderItemParams) (float64, error) {
-	product, err := s.productRepo.GetProductByID(ctx, item.ProductID)
-	if err != nil {
-		s.logger.Error("failed to get product", zap.Error(err))
-		return 0, fmt.Errorf("failed to get product: %w", err)
-	}
-
-	convertedPrice, err := s.convertPriceToKES(ctx, product.USD)
-	if err != nil {
-		s.logger.Error("failed to convert price", zap.Error(err))
-		return 0, fmt.Errorf("failed to convert price: %w", err)
-	}
-
-	totalPrice := convertedPrice * float64(item.Quantity)
-
-	orderItem := &database.CreateOrderItemParams{
-		OrderID:     uuid.NullUUID{UUID: orderID, Valid: true},
-		ProductID:   uuid.NullUUID{UUID: item.ProductID, Valid: true},
-		Quantity:    item.Quantity,
-		ProductName: product.Name,
-		ProductSku:  product.Slug,
-		UnitPrice:   fmt.Sprintf("%.2f", convertedPrice),
-		TotalPrice:  fmt.Sprintf("%.2f", totalPrice),
-	}
-	_, err = s.orderItemRepository.CreateOrderItem(ctx, orderItem)
-	if err != nil {
-		s.logger.Error("failed to create order item", zap.Error(err))
-		return 0, fmt.Errorf("failed to create order item: %w", err)
-	}
-
-
-	return totalPrice, nil
-}
-
-func (s *OrderService) prepareOrderItems(ctx context.Context, items []model.CreateOrderItemParams) ([]utils.OrderItem, error) {
-	orderItems := make([]utils.OrderItem, 0, len(items))
-
-	for _, item := range items {
-		product, err := s.productRepo.GetProductByID(ctx, item.ProductID)
-		if err != nil {
-			s.logger.Error("failed to get product", zap.Error(err))
-			return nil, fmt.Errorf("failed to get product: %w", err)
-		}
-
-		convertedPrice, err := s.convertPriceToKES(ctx, product.USD)
-		if err != nil {
-			s.logger.Error("failed to convert price", zap.Error(err))
-			return nil, fmt.Errorf("failed to convert price: %w", err)
-		}
-
-		orderItems = append(orderItems, utils.OrderItem{
-			ProductName: product.Name,
-			Quantity:    int(item.Quantity),
-			Price:       convertedPrice,
-		})
-	}
-	return orderItems, nil
-}
-
-func (s *OrderService) convertPriceToKES(ctx context.Context, price string) (float64, error) {
-	exchangeRate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, "USD")
-	if err != nil {
-		s.logger.Error("failed to get exchange rate", zap.Error(err))
-		return 0, fmt.Errorf("failed to get exchange rate: %w", err)
-	}
-
-	priceFloat, err := strconv.ParseFloat(price, 64)
-	if err != nil {
-		s.logger.Error("failed to parse price", zap.Error(err))
-		return 0, fmt.Errorf("failed to parse price: %w", err)
-	}
-
-	convertedPrice := priceFloat * exchangeRate
-	return convertedPrice, nil
-}
-
-func (s *OrderService) createOrderItemOption(ctx context.Context, orderItemID, optionID uuid.UUID) error {
-	optionValue, err := s.orderItemRepository.GetProductOptionValueByID(ctx, optionID)
-	if err != nil {
-		s.logger.Error("failed to get product option", zap.Error(err))
-		return fmt.Errorf("failed to get product option: %w", err)
-	}
-
-	option, err := s.orderItemRepository.GetProductOptionByID(ctx, optionValue.OptionID.UUID)
-	if err != nil {
-		s.logger.Error("failed to get product option", zap.Error(err))
-		return fmt.Errorf("failed to get product option: %w", err)
-	}
-
-	orderItemOption := &database.CreateOrderItemOptionParams{
-		OrderItemID:     uuid.NullUUID{UUID: orderItemID, Valid: true},
-		OptionType:      option.OptionName,
-		OptionValue:     optionValue.ValueName,
-		AdditionalPrice: optionValue.AdditionalPrice,
-	}
-
-	if err := s.orderItemRepository.CreateOrderItemOption(ctx, orderItemOption); err != nil {
-		s.logger.Error("failed to create order item option", zap.Error(err))
-		return fmt.Errorf("failed to create order item option: %w", err)
-	}
-
-	return nil
 }
 
 // ListOrders lists all orders
@@ -774,31 +669,59 @@ func (s *OrderService) GetTotalSalesCurrentMonth(ctx context.Context) (int64, er
 	return sales, nil
 }
 
-// GetExchangeRate gets the exchange rate
+// GetExchangeRate gets the exchange rate, utilizing cache for performance
 func (s *OrderService) GetExchangeRate(ctx context.Context) (float64, error) {
-	exchangeRate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, "USD")
+	currency := "USD"
+	cacheKey := ExchangeRateKey(currency)
+	var exchangeRate float64
+
+	err := s.cacheService.GetOrSet(ctx, cacheKey, &exchangeRate, func() error {
+		// Fetch from repository if cache miss
+		rate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, currency)
+		if err != nil {
+			s.logger.Error("failed to get exchange rate from repository", zap.Error(err))
+			return fmt.Errorf("failed to get exchange rate: %w", err)
+		}
+		exchangeRate = rate
+		return nil
+	})
 	if err != nil {
-		s.logger.Error("failed to get exchange rate", zap.Error(err))
-		return 0, fmt.Errorf("failed to get exchange rate: %w", err)
+		s.logger.Error("failed to retrieve exchange rate", zap.Error(err))
+		return 0, err
 	}
 
-	s.logger.Info("Exchange rate", zap.Any("exchangeRate", exchangeRate))
+	s.logger.Info("Exchange rate retrieved", zap.Float64("exchangeRate", exchangeRate))
 	return exchangeRate, nil
 }
 
-// UpdateExchangeRate updates the exchange rate
+// UpdateExchangeRate updates the exchange rate and handles cache invalidation
 func (s *OrderService) UpdateExchangeRate(ctx context.Context, rate float64) error {
 	// Get today's date
 	validFrom := time.Now()
 
-	// valid date range is 30 days
+	// Valid date range is 30 days
 	validTo := validFrom.AddDate(0, 0, 30)
 
 	err := s.exchangeRateRepo.UpdateExchangeRate(ctx, "USD", rate, validFrom, validTo)
 	if err != nil {
-		s.logger.Error("failed to update exchange rate", zap.Error(err))
+		s.logger.Error("failed to update exchange rate in repository", zap.Error(err))
 		return fmt.Errorf("failed to update exchange rate: %w", err)
 	}
 
+	// Update the cache with the new exchange rate
+	cacheKey := ExchangeRateKey("USD")
+	err = s.cacheService.Set(ctx, cacheKey, rate)
+	if err != nil {
+		s.logger.Warn("failed to update exchange rate in cache", zap.Error(err))
+	}
+
+	// Invalidate all cached product-related keys (e.g., product details, prices)
+	pattern := "product:*"
+	err = s.cacheService.DeleteKeysByPattern(ctx, pattern)
+	if err != nil {
+		s.logger.Warn("failed to invalidate product cache keys", zap.String("pattern", pattern), zap.Error(err))
+	}
+
+	s.logger.Info("Exchange rate updated successfully", zap.Float64("newRate", rate))
 	return nil
 }

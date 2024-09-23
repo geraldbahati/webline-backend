@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
+	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -315,7 +315,7 @@ func (h *UserHandler) RequestAdminRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := r.Context().Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		RespondWithError(w, http.StatusBadRequest, "Invalid user ID")
 		return

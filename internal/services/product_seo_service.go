@@ -5,26 +5,28 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
-	"log"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type ProductSEOService struct {
 	logger      *zap.Logger
 	config      *appconfig.Config
 	productRepo *repository.ProductRepository
+	cache       CacheService
 }
 
-func NewProductSEOService(logger *zap.Logger, config *appconfig.Config, productRepo *repository.ProductRepository) *ProductSEOService {
+func NewProductSEOService(logger *zap.Logger, config *appconfig.Config, productRepo *repository.ProductRepository, cache CacheService) *ProductSEOService {
 	return &ProductSEOService{
 		logger:      logger,
 		config:      config,
 		productRepo: productRepo,
+		cache:       cache,
 	}
 }
 
@@ -55,31 +57,57 @@ func (s *ProductSEOService) UpdateProductSEO(ctx context.Context, productID *uui
 		return fmt.Errorf("failed to update product SEO: %w", err)
 	}
 
+	// Invalidate the cache entry
+	slug, err := s.productRepo.GetProductSlugByProductID(ctx, *productID)
+	if err != nil {
+		s.logger.Error("failed to get product slug by ID", zap.Error(err))
+		return fmt.Errorf("failed to get product slug by ID: %w", err)
+	}
+
+	cacheKey := ProductSEOKey(slug)
+	err = s.cache.Delete(ctx, cacheKey)
+	if err != nil {
+		s.logger.Error("failed to delete cache entry", zap.Error(err))
+	}
+
 	return nil
 }
 
 // GetProductSEO returns the SEO information of a product
 func (s *ProductSEOService) GetProductSEO(ctx context.Context, slug string) (*model.ProductSEO, error) {
-	// Get the product SEO
-	productSEO, err := s.productRepo.GetProductSEO(ctx, slug)
-	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return nil, sql.ErrNoRows
-		default:
-			s.logger.Error("failed to get product SEO", zap.Error(err))
-			return nil, err
+	cacheKey := ProductSEOKey(slug)
+
+	var productSEO model.ProductSEO
+
+	// Use GetOrSet to handle cache retrieval and population
+	err := s.cache.GetOrSet(ctx, cacheKey, &productSEO, func() error {
+		// Fetch from repository if cache miss
+		fetchedSEO, err := s.productRepo.GetProductSEO(ctx, slug)
+		if err != nil {
+			return err
 		}
+
+		// Transform fetched data if necessary
+		if fetchedSEO.ImageUrl != "" {
+			fetchedSEO.ImageUrl = s.constructS3URL(fetchedSEO.ImageUrl)
+		}
+
+		// Assign to destination
+		productSEO = *fetchedSEO
+
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, sql.ErrNoRows
+		}
+		// Log and return other errors
+		s.logger.Error("failed to get product SEO", zap.Error(err))
+		return nil, err
 	}
 
-	log.Printf("AWSBucketName: %s AWSRegion: %s", s.config.AWSBucketName, s.config.AWSRegion)
-
-	if productSEO.ImageUrl != "" {
-		imageUrl := s.constructS3URL(productSEO.ImageUrl)
-		productSEO.ImageUrl = imageUrl
-	}
-
-	return productSEO, nil
+	return &productSEO, nil
 }
 
 // constructS3URL constructs the S3 URL for a given file path
