@@ -435,6 +435,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getProductSEOStmt, err = db.PrepareContext(ctx, getProductSEO); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductSEO: %w", err)
 	}
+	if q.getProductSlugByProductIDStmt, err = db.PrepareContext(ctx, getProductSlugByProductID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductSlugByProductID: %w", err)
+	}
 	if q.getProductSpecificationByIDStmt, err = db.PrepareContext(ctx, getProductSpecificationByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductSpecificationByID: %w", err)
 	}
@@ -1407,6 +1410,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getProductSEOStmt: %w", cerr)
 		}
 	}
+	if q.getProductSlugByProductIDStmt != nil {
+		if cerr := q.getProductSlugByProductIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductSlugByProductIDStmt: %w", cerr)
+		}
+	}
 	if q.getProductSpecificationByIDStmt != nil {
 		if cerr := q.getProductSpecificationByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getProductSpecificationByIDStmt: %w", cerr)
@@ -2053,6 +2061,7 @@ type Queries struct {
 	getProductOptionValueByIDStmt              *sql.Stmt
 	getProductPricingByProductIDStmt           *sql.Stmt
 	getProductSEOStmt                          *sql.Stmt
+	getProductSlugByProductIDStmt              *sql.Stmt
 	getProductSpecificationByIDStmt            *sql.Stmt
 	getProductSpecsByIDStmt                    *sql.Stmt
 	getProductVariantByIDStmt                  *sql.Stmt
@@ -2290,6 +2299,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getProductOptionValueByIDStmt:              q.getProductOptionValueByIDStmt,
 		getProductPricingByProductIDStmt:           q.getProductPricingByProductIDStmt,
 		getProductSEOStmt:                          q.getProductSEOStmt,
+		getProductSlugByProductIDStmt:              q.getProductSlugByProductIDStmt,
 		getProductSpecificationByIDStmt:            q.getProductSpecificationByIDStmt,
 		getProductSpecsByIDStmt:                    q.getProductSpecsByIDStmt,
 		getProductVariantByIDStmt:                  q.getProductVariantByIDStmt,

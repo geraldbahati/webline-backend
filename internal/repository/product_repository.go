@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+	"weblineBackend/pkg/utils"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -348,7 +349,7 @@ func (r *ProductRepository) GetProductSEO(
 		Title:       metaTitle,
 		Description: metaDescription,
 		Keywords:    metaKeywords,
-		Price:       seo.UsdPrice,
+		Price:       utils.RoundPriceString(seo.PriceInKes),
 		Brand:       seo.BrandName,
 		ImageUrl:    seo.ImageUrl,
 	}, nil
@@ -658,4 +659,15 @@ func (r *ProductRepository) GetProductsByIDs(ctx context.Context, ids []uuid.UUI
 	}
 
 	return productList, nil
+}
+
+// GetProductSlugByProductID retrieves the slug of a product by its ID
+func (r *ProductRepository) GetProductSlugByProductID(ctx context.Context, id uuid.UUID) (string, error) {
+	slug, err := r.Queries.GetProductSlugByProductID(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get product slug by ID", zap.Error(err))
+		return "", fmt.Errorf("failed to get product slug by ID: %w", err)
+	}
+
+	return slug, nil
 }

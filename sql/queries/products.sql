@@ -438,3 +438,11 @@ FROM
     products
 WHERE
     slug = ANY($1::text[]);
+
+-- name: GetProductSlugByProductID :one
+SELECT
+    slug
+FROM
+    products
+WHERE
+    id = $1;

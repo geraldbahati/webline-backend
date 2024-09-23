@@ -113,9 +113,9 @@ func initS3Client(cfg appconfig.Config, logger *zap.Logger) (*s3.Client, error) 
 func initRedisClient(cfg appconfig.Config, logger *zap.Logger) (*redis.Client, error) {
 	logger.Info("Initializing Redis client...")
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
+		Addr:         fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
+		Password:     cfg.RedisPassword,
+		DB:           cfg.RedisDB,
 		PoolSize:     cfg.RedisPoolSize,
 		MinIdleConns: cfg.RedisMinIdleConns,
 	})
@@ -168,15 +168,15 @@ func initializeServices(repos *repository.Repositories, cfg appconfig.Config, lo
 	cacheService := services.NewCacheService(redisClient, logger, cfg.RedisTTL, cfg.RedisRateLimit)
 
 	return &services.Services{
-		CacheService: cacheService,
+		CacheService:            cacheService,
 		UserService:             services.NewUserService(repos.UserRepo, repos.RoleRepo, repos.UserRoleRepo, repos.VerificationTokenRepo, repos.PasswordResetRepo, repos.AdminRequestRepo, repos.TokenRepo, repos.GuestCheckoutRepo, &cfg, logger, s3Client),
 		CategoryService:         services.NewCategoryService(repos.CategoryRepo, repos.UserRepo, logger, &cfg, s3Client),
 		ProductService:          services.NewProductService(repos.ProductRepo, repos.ProductVariantRepo, repos.ProductImageRepo, repos.ProductSpecificationRepo, repos.CategoryRepo, repos.ProductOptionRepo, repos.DiscountRepo, repos.UserRepo, repos.ExchangeRateRepo, cacheService, logger, &cfg, s3Client),
 		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo),
-		OrderService:            services.NewOrderService(logger, repos.GuestCheckoutRepo, repos.OrderRepo, repos.OrderItemRepo, repos.PaymentRepo, repos.UserRepo, repos.ProductRepo, repos.DiscountRepo, repos.ExchangeRateRepo, repos.CompanyRepository, &cfg),
+		OrderService:            services.NewOrderService(logger, repos.GuestCheckoutRepo, repos.OrderRepo, repos.OrderItemRepo, repos.PaymentRepo, repos.UserRepo, repos.ProductRepo, repos.DiscountRepo, repos.ExchangeRateRepo, repos.CompanyRepository, cacheService, &cfg),
 		PaymentService:          services.NewPaymentService(repos.PaymentRepo, repos.OrderRepo, repos.OrderItemRepo, logger, &cfg),
 		InquiryService:          services.NewInquiryService(repos.ProductRepo, logger, &cfg),
-		ProductSEOService:       services.NewProductSEOService(logger, &cfg, repos.ProductRepo),
+		ProductSEOService:       services.NewProductSEOService(logger, &cfg, repos.ProductRepo, cacheService),
 		ProductAnalyticService:  services.NewProductAnalyticService(logger, &cfg, repos.ProductAnalyticRepo, repos.ProductImageRepo, repos.DiscountRepo, cacheService),
 		PromotionService:        services.NewPromotionService(logger, &cfg, s3Client, repos.PromotionRepo, repos.ProductRepo, repos.ProductImageRepo, repos.DiscountRepo, repos.UserRepo),
 		DiscountService:         services.NewDiscountService(logger, repos.DiscountRepo, repos.ProductRepo),

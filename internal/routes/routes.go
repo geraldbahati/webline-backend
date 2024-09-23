@@ -31,7 +31,6 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers) *mux.Router {
 	registerAdminPromotionRoutes(r, handlers, logger)
 	registerAdditionalRoutes(r, handlers, logger)
 
-
 	return r
 }
 
@@ -82,9 +81,9 @@ func registerCategoryRoutes(router *mux.Router, handlers *handlers.Handlers) {
 // registerAdminCategoryRoutes registers admin category-related routes.
 func registerAdminCategoryRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
 	categoryRouter := router.PathPrefix("/api/v2/categories").Subrouter()
-	categoryRouter.HandleFunc("/{slug}/details", handlers.CategoryHandler.GetCategoryDetailsHandler).Methods(http.MethodGet)
-	categoryRouter.HandleFunc("/hierarchy", handlers.CategoryHandler.GetV2CategoryHierarchyHandler).Methods(http.MethodGet)
-	categoryRouter.HandleFunc("/{slug}/seo", handlers.CategoryHandler.GetCategorySEOHandler).Methods(http.MethodGet)
+	NamedHandleFunc(categoryRouter, "/{slug}/details", handlers.CategoryHandler.GetCategoryDetailsHandler, []string{http.MethodGet}, "GetCategoryDetails")
+	NamedHandleFunc(categoryRouter, "/hierarchy", handlers.CategoryHandler.GetV2CategoryHierarchyHandler, []string{http.MethodGet}, "GetV2CategoryHierarchy")
+	NamedHandleFunc(categoryRouter, "/{slug}/seo", handlers.CategoryHandler.GetCategorySEOHandler, []string{http.MethodGet}, "GetCategorySEO")
 
 	protected := categoryRouter.PathPrefix("").Subrouter()
 	protected.Use(middleware.Auth(logger))
@@ -100,10 +99,10 @@ func registerProductRoutes(router *mux.Router, handlers *handlers.Handlers) {
 	productRouter.HandleFunc("/{slug}/images", handlers.ProductHandler.GetProductImagesBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/pricing", handlers.ProductHandler.GetProductPricingBySlugHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/{slug}/specs", handlers.ProductHandler.GetProductSpecsBySlugHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("", handlers.ProductHandler.GetAllProductsHandler).Methods(http.MethodPost)
-	productRouter.HandleFunc("/{slug}/seo", handlers.ProductHandler.GetProductSEOHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/all/sitemap", handlers.ProductHandler.GetAllProductSitemapHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/actions/search", handlers.ProductHandler.SearchProductsHandler).Methods(http.MethodGet)
+	NamedHandleFunc(productRouter, "", handlers.ProductHandler.GetAllProductsHandler, []string{http.MethodPost}, "GetAllProducts")
+	NamedHandleFunc(productRouter, "/{slug}/seo", handlers.ProductHandler.GetProductSEOHandler, []string{http.MethodGet}, "GetProductSEO")
+	NamedHandleFunc(productRouter, "/all/sitemap", handlers.ProductHandler.GetAllProductSitemapHandler, []string{http.MethodGet}, "GetAllProductSitemap")
+	NamedHandleFunc(productRouter, "/actions/search", handlers.ProductHandler.SearchProductsHandler, []string{http.MethodGet}, "SearchProducts")
 	productRouter.HandleFunc("/category/{id}", handlers.ProductHandler.GetProductsByCategoryIDHandler).Methods(http.MethodGet)
 	productRouter.HandleFunc("/filter/{category_id}", handlers.ProductHandler.GetFilteredCategoryProducts).Methods(http.MethodPost)
 	productRouter.HandleFunc("/filter/all/options", handlers.ProductHandler.GetAllProductFilterOptionsHandler).Methods(http.MethodGet)
@@ -113,9 +112,9 @@ func registerProductRoutes(router *mux.Router, handlers *handlers.Handlers) {
 // registerAdminProductRoutes registers admin product-related routes.
 func registerAdminProductRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
 	productRouter := router.PathPrefix("/api/v2/products").Subrouter()
-	productRouter.HandleFunc("", handlers.ProductHandler.GetProductsHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/{slug}/detail", handlers.ProductHandler.GetProductDetailHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/meta-fields/{categoryID}", handlers.ProductHandler.GetProductMetaFieldsByCategoryIDHandler).Methods(http.MethodGet)
+	NamedHandleFunc(productRouter, "", handlers.ProductHandler.GetProductsHandler, []string{http.MethodGet}, "GetProducts")
+	NamedHandleFunc(productRouter, "/{slug}/detail", handlers.ProductHandler.GetProductDetailHandler, []string{http.MethodGet}, "GetProductDetail")
+	NamedHandleFunc(productRouter, "/meta-fields/{categoryID}", handlers.ProductHandler.GetProductMetaFieldsByCategoryIDHandler, []string{http.MethodGet}, "GetProductMetaFieldsByCategoryID")
 
 	protected := productRouter.PathPrefix("").Subrouter()
 	protected.Use(middleware.Auth(logger))

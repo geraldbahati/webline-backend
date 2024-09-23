@@ -485,6 +485,22 @@ func (q *Queries) GetProductPricingByProductID(ctx context.Context, id uuid.UUID
 	return i, err
 }
 
+const getProductSlugByProductID = `-- name: GetProductSlugByProductID :one
+SELECT
+    slug
+FROM
+    products
+WHERE
+    id = $1
+`
+
+func (q *Queries) GetProductSlugByProductID(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.queryRow(ctx, q.getProductSlugByProductIDStmt, getProductSlugByProductID, id)
+	var slug string
+	err := row.Scan(&slug)
+	return slug, err
+}
+
 const getProductSpecsByID = `-- name: GetProductSpecsByID :one
 SELECT
     p.description,

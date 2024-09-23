@@ -186,6 +186,7 @@ type Querier interface {
 	GetProductOptionValueByID(ctx context.Context, id uuid.UUID) (ProductOptionValue, error)
 	GetProductPricingByProductID(ctx context.Context, id uuid.UUID) (GetProductPricingByProductIDRow, error)
 	GetProductSEO(ctx context.Context, slug string) (GetProductSEORow, error)
+	GetProductSlugByProductID(ctx context.Context, id uuid.UUID) (string, error)
 	GetProductSpecificationByID(ctx context.Context, id uuid.UUID) (ProductSpecification, error)
 	GetProductSpecsByID(ctx context.Context, id uuid.UUID) (GetProductSpecsByIDRow, error)
 	GetProductVariantByID(ctx context.Context, id uuid.UUID) (ProductVariant, error)

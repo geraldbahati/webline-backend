@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -27,35 +28,31 @@ import (
 )
 
 var (
-    productsCacheHits = promauto.NewCounter(prometheus.CounterOpts{
-        Name: "products_cache_hits_total",
-        Help: "The total number of cache hits for products",
-    })
-    productsCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
-        Name: "products_cache_misses_total",
-        Help: "The total number of cache misses for products",
-    })
-    productsRetrievalTime = promauto.NewHistogram(prometheus.HistogramOpts{
-        Name:    "products_retrieval_duration_seconds",
-        Help:    "The duration of products retrieval in seconds",
-        Buckets: prometheus.DefBuckets,
-    })
+	productsCacheHits = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "products_cache_hits_total",
+		Help: "The total number of cache hits for products",
+	})
+	productsCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "products_cache_misses_total",
+		Help: "The total number of cache misses for products",
+	})
+	productsRetrievalTime = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "products_retrieval_duration_seconds",
+		Help:    "The duration of products retrieval in seconds",
+		Buckets: prometheus.DefBuckets,
+	})
 	productCreationDuration = promauto.NewHistogram(prometheus.HistogramOpts{
-        Name: "product_creation_duration_seconds",
-        Help: "Duration of product creation in seconds",
-    })
-    productCreationTotal = promauto.NewCounter(prometheus.CounterOpts{
-        Name: "product_creation_total",
-        Help: "Total number of product creations",
-    })
-    productCreationErrors = promauto.NewCounter(prometheus.CounterOpts{
-        Name: "product_creation_errors_total",
-        Help: "Total number of product creation errors",
-    })
-)
-
-const (
-	createProductBySlugCacheKey = "product:create:slug:%s"
+		Name: "product_creation_duration_seconds",
+		Help: "Duration of product creation in seconds",
+	})
+	productCreationTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "product_creation_total",
+		Help: "Total number of product creations",
+	})
+	productCreationErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "product_creation_errors_total",
+		Help: "Total number of product creation errors",
+	})
 )
 
 type ProductService struct {
@@ -105,8 +102,9 @@ func NewProductService(
 		s3Client:                 s3Client,
 	}
 }
-  // GetProductBySlug retrieves a product by its slug
-  func (s *ProductService) GetProductBySlug(ctx context.Context, slug string) (model.ProductDetail, error) {
+
+// GetProductBySlug retrieves a product by its slug
+func (s *ProductService) GetProductBySlug(ctx context.Context, slug string) (model.ProductDetail, error) {
 	cacheKey := "product:" + slug
 	var product model.ProductDetail
 
@@ -994,23 +992,37 @@ type FilterOptions struct {
 	Size          []string                            `json:"size"`
 }
 
-// GetAllProductSitemap retrieves all products for sitemap
+// GetAllProductSitemap retrieves all products for sitemap, using cache when available
 func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.ProductSitemap, error) {
-	products, err := s.productRepo.ListProducts(ctx, database.ListProductsParams{
-		Offset: 0,
-		Limit:  100,
-	})
-	if err != nil {
-		s.logger.Error("failed to get all product sitemap", zap.Error(err))
-		return nil, fmt.Errorf("failed to get all product sitemap: %w", err)
-	}
+	cacheKey := ProductSitemapKey()
+	var productSitemap []*model.ProductSitemap
 
-	productSitemap := make([]*model.ProductSitemap, 0, len(products))
-	for _, product := range products {
-		productSitemap = append(productSitemap, &model.ProductSitemap{
-			ID:        product.ID,
-			UpdatedAt: product.UpdatedAt.Time,
+	err := s.cacheService.GetOrSet(ctx, cacheKey, &productSitemap, func() error {
+		// Fetch all products from the repository
+		products, err := s.productRepo.ListProducts(ctx, database.ListProductsParams{
+			Offset: 0,
+			Limit:  100, // Adjust limit as per your requirements
 		})
+		if err != nil {
+			s.logger.Error("failed to get all products for sitemap", zap.Error(err))
+			return fmt.Errorf("failed to get all products for sitemap: %w", err)
+		}
+
+		// Transform products into ProductSitemap
+		productSitemap = make([]*model.ProductSitemap, 0, len(products))
+		for _, product := range products {
+			productSitemap = append(productSitemap, &model.ProductSitemap{
+				ID:        product.ID,
+				UpdatedAt: product.UpdatedAt.Time,
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		s.logger.Error("failed to get product sitemap", zap.Error(err))
+		return nil, err
 	}
 
 	return productSitemap, nil
@@ -1018,62 +1030,63 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 
 // GetProducts retrieves all products with caching
 func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, error) {
-    timer := prometheus.NewTimer(productsRetrievalTime)
-    defer timer.ObserveDuration()
+	timer := prometheus.NewTimer(productsRetrievalTime)
+	defer timer.ObserveDuration()
 
-    cacheKey := "product:all:v2"
-    var products []*model.V2Product
+	cacheKey := ProductAllKey()
+	var products []*model.V2Product
 
-    // Try to get products from cache
-    err := s.cacheService.Get(ctx, cacheKey, &products)
-    if err == nil && len(products) > 0 {
-        productsCacheHits.Inc()
-        s.logger.Info("Products retrieved from cache")
-        return products, nil
-    }
-    productsCacheMisses.Inc()
+	// Try to get products from cache
+	err := s.cacheService.Get(ctx, cacheKey, &products)
+	if err == nil && len(products) > 0 {
+		productsCacheHits.Inc()
+		s.logger.Info("Products retrieved from cache")
+		return products, nil
+	}
+	productsCacheMisses.Inc()
 
-    // If not in cache, fetch from database
-    products, err = s.productRepo.GetV2Products(ctx)
-    if err != nil {
-        switch {
-        case errors.Is(err, sql.ErrNoRows):
-            s.logger.Error("no products found")
-            return nil, err
-        default:
-            s.logger.Error("failed to get products", zap.Error(err))
-            return nil, fmt.Errorf("failed to get products: %w", err)
-        }
-    }
+	// If not in cache, fetch from database
+	products, err = s.productRepo.GetV2Products(ctx)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			s.logger.Error("no products found")
+			return nil, err
+		default:
+			s.logger.Error("failed to get products", zap.Error(err))
+			return nil, fmt.Errorf("failed to get products: %w", err)
+		}
+	}
 
-    for _, product := range products {
-        // update the price
-        product.Price = utils.RoundPriceString(product.Price)
+	for _, product := range products {
+		// update the price
+		product.Price = utils.RoundPriceString(product.Price)
 
-        // update the product image URL
-        if product.ImageURL != "" {
-            product.ImageURL = s.constructS3URL(product.ImageURL)
-        }
-    }
+		// update the product image URL
+		if product.ImageURL != "" {
+			product.ImageURL = s.constructS3URL(product.ImageURL)
+		}
+	}
 
-    // Cache the products
-    if err := s.cacheService.Set(ctx, cacheKey, products); err != nil {
-        s.logger.Warn("failed to cache products", zap.Error(err))
-        // Continue even if caching fails
-    }
+	// Cache the products
+	if err := s.cacheService.Set(ctx, cacheKey, products); err != nil {
+		s.logger.Warn("failed to cache products", zap.Error(err))
+		// Continue even if caching fails
+	}
 
-    s.logger.Info("Products retrieved from database and cached")
+	s.logger.Info("Products retrieved from database and cached")
 	return products, nil
 }
 
 // GetProductDetail retrieves a product by slug, using cache when available
 func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*model.V2ProductDetail, error) {
-	cacheKey := fmt.Sprintf("product_detail:%s", slug)
-	var product *model.V2ProductDetail
+	cacheKey := AdminProductDetailKey(slug)
+	var product model.V2ProductDetail
 
 	err := s.cacheService.GetOrSet(ctx, cacheKey, &product, func() error {
 		var err error
-		product, err = s.productRepo.GetV2ProductDetailBySlug(ctx, slug)
+		var fetchedProduct *model.V2ProductDetail
+		fetchedProduct, err = s.productRepo.GetV2ProductDetailBySlug(ctx, slug)
 		if err != nil {
 			switch {
 			case errors.Is(err, sql.ErrNoRows):
@@ -1084,6 +1097,9 @@ func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*mo
 				return fmt.Errorf("failed to get product: %w", err)
 			}
 		}
+		log.Println(fetchedProduct)
+
+		product = *fetchedProduct
 
 		var images []model.V2ProductImage
 		if err := json.Unmarshal(product.Images, &images); err != nil {
@@ -1107,64 +1123,68 @@ func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*mo
 		product.Images = updatedImages
 		return nil
 	})
-
 	if err != nil {
+		s.logger.Error("failed to get product detail", zap.Error(err))
 		return nil, err
 	}
 
-	return product, nil
+	return &product, nil
 }
 
 func (s *ProductService) CreateV2Product(ctx context.Context, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
-    timer := prometheus.NewTimer(productCreationDuration)
-    defer timer.ObserveDuration()
-    productCreationTotal.Inc()
+	timer := prometheus.NewTimer(productCreationDuration)
+	defer timer.ObserveDuration()
+	productCreationTotal.Inc()
 
-    userID, err := s.getUserIDFromContext(ctx)
-    if err != nil {
-        productCreationErrors.Inc()
-        return s.logAndReturnError("failed to get user ID from context", err)
-    }
+	userID, err := s.getUserIDFromContext(ctx)
+	if err != nil {
+		productCreationErrors.Inc()
+		return s.logAndReturnError("failed to get user ID from context", err)
+	}
 
-    if err := s.verifyAdminStatus(ctx, userID); err != nil {
-        productCreationErrors.Inc()
-        return s.logAndReturnError("user is not authorized to create/update product", err)
-    }
+	if err := s.verifyAdminStatus(ctx, userID); err != nil {
+		productCreationErrors.Inc()
+		return s.logAndReturnError("user is not authorized to create/update product", err)
+	}
 
-    // Check cache for existing product
-    cacheKey := fmt.Sprintf(createProductBySlugCacheKey, params.Slug)
-    var existingProduct *model.ProductSchema
-    err = s.cacheService.Get(ctx, cacheKey, &existingProduct)
-    if err != nil {
-        // If not in cache, check database
-        existingProduct, err = s.productRepo.GetProductBySlug(ctx, params.Slug)
-        if err != nil && !errors.Is(err, sql.ErrNoRows) {
-            productCreationErrors.Inc()
-            return s.logAndReturnError("failed to get product by slug", err)
-        }
-        // Cache the result (even if it's nil)
-        if err := s.cacheService.Set(ctx, cacheKey, existingProduct); err != nil {
-            s.logger.Warn("failed to cache product", zap.Error(err))
-        }
-    }
+	// Define cache key using the new cache key generator
+	cacheKey := ProductDetailKey(params.Slug)
+	var existingProduct *model.ProductSchema
 
-    var result error
-    if existingProduct != nil {
-        result = s.updateExistingProduct(ctx, existingProduct.ID, params, images)
-    } else {
-        result = s.createNewProduct(ctx, params, images)
-    }
+	// Use GetOrSet to handle cache retrieval and population
+	err = s.cacheService.GetOrSet(ctx, cacheKey, existingProduct, func() error {
+		// Fetch from repository if cache miss
+		fetchedProduct, err := s.productRepo.GetProductBySlug(ctx, params.Slug)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			s.logger.Error("failed to get product by slug", zap.Error(err))
+			return fmt.Errorf("failed to get product by slug: %w", err)
+		}
+		existingProduct = fetchedProduct
+		return nil
+	})
+	if err != nil {
+		productCreationErrors.Inc()
+		return s.logAndReturnError("failed to retrieve product from cache or repository", err)
+	}
 
-    if result != nil {
-        productCreationErrors.Inc()
-    } else {
-        // Invalidate cache on successful creation/update
-        if err := s.cacheService.Delete(ctx, cacheKey); err != nil {
-            s.logger.Warn("failed to invalidate product cache", zap.Error(err))
-        }
-    }
+	var result error
+	if existingProduct != nil {
+		result = s.updateExistingProduct(ctx, existingProduct.ID, params, images)
+	} else {
+		result = s.createNewProduct(ctx, params, images)
+	}
 
-    return result
+	if result != nil {
+		productCreationErrors.Inc()
+	} else {
+		// Invalidate cache on successful creation/update
+		err := s.cacheService.Delete(ctx, cacheKey)
+		if err != nil {
+			s.logger.Warn("failed to invalidate product cache", zap.Error(err))
+		}
+	}
+
+	return result
 }
 
 func (s *ProductService) getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
