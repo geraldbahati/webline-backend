@@ -66,7 +66,7 @@ func NewServer(cfg appconfig.Config) (*Server, error) {
 	handlers := initializeHandlers(services, cfg, logger)
 
 	// 7. Set Up Router
-	router := routes.SetupRouter(logger, handlers)
+	router := routes.SetupRouter(logger, handlers, services.SessionService)
 
 	// 8. Construct Server Instance
 	server := &Server{
@@ -142,7 +142,7 @@ func initializeRepositories(db *sql.DB, logger *zap.Logger) *repository.Reposito
 		ProductImageRepo:          repository.NewProductImageRepository(db, logger),
 		ProductSpecificationRepo:  repository.NewProductSpecificationRepository(db, logger),
 		ProductOptionRepo:         repository.NewProductOptionRepository(db, logger),
-		CartRepo:                  repository.NewCartRepository(db, logger),
+		CartRepo:                  sqlc.NewCartRepositoryImpl(db, logger),
 		OrderRepo:                 repository.NewOrderRepository(db, logger),
 		GuestCheckoutRepo:         repository.NewGuestCheckoutRepository(db, logger),
 		OrderItemRepo:             repository.NewOrderItemRepository(db, logger),
@@ -160,6 +160,7 @@ func initializeRepositories(db *sql.DB, logger *zap.Logger) *repository.Reposito
 		FilterProductRepo:         sqlc.NewFilterProductRepoImpl(db, logger),
 		ProductAttributeRepo:      sqlc.NewProductAttributeRepoImpl(db, logger),
 		CompanyRepository:         sqlc.NewCompanyRepositoryImpl(db, logger),
+		SessionRepo:               sqlc.NewSessionRepositoryImpl(db, logger),
 	}
 }
 
@@ -172,7 +173,7 @@ func initializeServices(repos *repository.Repositories, cfg appconfig.Config, lo
 		UserService:             services.NewUserService(repos.UserRepo, repos.RoleRepo, repos.UserRoleRepo, repos.VerificationTokenRepo, repos.PasswordResetRepo, repos.AdminRequestRepo, repos.TokenRepo, repos.GuestCheckoutRepo, &cfg, logger, s3Client),
 		CategoryService:         services.NewCategoryService(repos.CategoryRepo, repos.UserRepo, logger, &cfg, s3Client),
 		ProductService:          services.NewProductService(repos.ProductRepo, repos.ProductVariantRepo, repos.ProductImageRepo, repos.ProductSpecificationRepo, repos.CategoryRepo, repos.ProductOptionRepo, repos.DiscountRepo, repos.UserRepo, repos.ExchangeRateRepo, cacheService, logger, &cfg, s3Client),
-		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo),
+		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo, cacheService),
 		OrderService:            services.NewOrderService(logger, repos.GuestCheckoutRepo, repos.OrderRepo, repos.OrderItemRepo, repos.PaymentRepo, repos.UserRepo, repos.ProductRepo, repos.DiscountRepo, repos.ExchangeRateRepo, repos.CompanyRepository, cacheService, &cfg),
 		PaymentService:          services.NewPaymentService(repos.PaymentRepo, repos.OrderRepo, repos.OrderItemRepo, logger, &cfg),
 		InquiryService:          services.NewInquiryService(repos.ProductRepo, logger, &cfg),
@@ -184,6 +185,7 @@ func initializeServices(repos *repository.Repositories, cfg appconfig.Config, lo
 		RoleService:             services.NewRoleService(repos.RoleRepo, logger),
 		FilterService:           services.NewFilterService(logger, repos.FilterCategoryProductRepo, repos.FilterProductRepo, repos.CategoryRepo, &cfg),
 		ProductAttributeService: services.NewProductAttributeService(repos.ProductAttributeRepo, logger),
+		SessionService:          services.NewSessionService(logger, repos.SessionRepo, cacheService),
 	}
 }
 

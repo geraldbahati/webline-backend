@@ -1549,67 +1549,168 @@ func (s *ProductService) DraftProducts(ctx context.Context, slugs []string) erro
 	return nil
 }
 
-// GetProductImagesBySlug retrieves all product images by slug
+// GetProductImagesBySlug retrieves all product images by slug with caching.
 func (s *ProductService) GetProductImagesBySlug(ctx context.Context, slug string) ([]string, error) {
-	// Get the product by slug
-	product, err := s.productRepo.GetProductBySlug(ctx, slug)
-	if err != nil {
-		s.logger.Error("failed to get product by slug", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product by slug: %w", err)
-	}
-
-	// Get the product images
-	filePath, err := s.productImageRepo.GetImageKeysByProductID(ctx, product.ID)
-	if err != nil {
-		s.logger.Error("failed to get product images", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product images: %w", err)
-	}
+	cacheKey := ProductImagesKey(slug)
 
 	var images []string
-	for _, path := range filePath {
-		images = append(images, s.constructS3URL(path))
+
+	// Define the fetch function to retrieve images from the repository
+	fetchFunc := func() error {
+		// Get the product by slug
+		product, err := s.productRepo.GetProductBySlug(ctx, slug)
+		if err != nil {
+			s.logger.Error("failed to get product by slug", zap.Error(err))
+			return fmt.Errorf("failed to get product by slug: %w", err)
+		}
+
+		// Get the product images
+		filePaths, err := s.productImageRepo.GetImageKeysByProductID(ctx, product.ID)
+		if err != nil {
+			s.logger.Error("failed to get product images", zap.Error(err))
+			return fmt.Errorf("failed to get product images: %w", err)
+		}
+
+		// Generate the image URLs
+		for _, path := range filePaths {
+			images = append(images, s.constructS3URL(path))
+		}
+
+		return nil
+	}
+
+	// Attempt to get the images from the cache or fetch and set them
+	err := s.cacheService.GetOrSet(ctx, cacheKey, &images, fetchFunc)
+	if err != nil {
+		// If rate limit exceeded or other cache errors, proceed without cache
+		s.logger.Warn("cache.GetOrSet failed, proceeding without cache", zap.Error(err))
+		// Fallback: directly fetch from repository
+		if err := fetchFunc(); err != nil {
+			return nil, err
+		}
 	}
 
 	return images, nil
 }
 
-// GetProductPricingBySlug retrieves the product pricing by slug
+// GetProductPricingBySlug retrieves the product pricing by slug with caching.
 func (s *ProductService) GetProductPricingBySlug(ctx context.Context, slug string) (*model.ProductPricing, error) {
-	// Get the product by slug
-	product, err := s.productRepo.GetProductBySlug(ctx, slug)
-	if err != nil {
-		s.logger.Error("failed to get product by slug", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	cacheKey := ProductPricingKey(slug)
+
+	var pricing model.ProductPricing
+
+	// Define the fetch function to retrieve pricing from the repository
+	fetchFunc := func() error {
+		// Get the product by slug
+		product, err := s.productRepo.GetProductBySlug(ctx, slug)
+		if err != nil {
+			s.logger.Error("failed to get product by slug", zap.Error(err))
+			return fmt.Errorf("failed to get product by slug: %w", err)
+		}
+
+		// Get the product pricing
+		fetchedPricing, err := s.productRepo.GetProductPricingByProductID(ctx, product.ID)
+		if err != nil {
+			s.logger.Error("failed to get product pricing", zap.Error(err))
+			return fmt.Errorf("failed to get product pricing: %w", err)
+		}
+
+		// Generate the image URL
+		if fetchedPricing.ImageUrl != "" {
+			fetchedPricing.ImageUrl = s.constructS3URL(fetchedPricing.ImageUrl)
+		}
+
+		// Assign to the destination
+		pricing = *fetchedPricing
+		return nil
 	}
 
-	// Get the product pricing
-	pricing, err := s.productRepo.GetProductPricingByProductID(ctx, product.ID)
+	// Attempt to get the pricing from the cache or fetch and set it
+	err := s.cacheService.GetOrSet(ctx, cacheKey, &pricing, fetchFunc)
 	if err != nil {
-		s.logger.Error("failed to get product pricing", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product pricing: %w", err)
+		// If rate limit exceeded or other cache errors, proceed without cache
+		s.logger.Warn("cache.GetOrSet failed, proceeding without cache", zap.Error(err))
+		// Fallback: directly fetch from repository
+		if err := fetchFunc(); err != nil {
+			return nil, err
+		}
 	}
 
-	// generate the image url
-	pricing.ImageUrl = s.constructS3URL(pricing.ImageUrl)
-
-	return pricing, nil
+	return &pricing, nil
 }
 
-// GetProductSpecsBySlug retrieves the product specifications by slug
+// GetProductSpecsBySlug retrieves the product specifications by slug with caching.
 func (s *ProductService) GetProductSpecsBySlug(ctx context.Context, slug string) (*model.ProductSpecs, error) {
-	// Get the product by slug
-	product, err := s.productRepo.GetProductBySlug(ctx, slug)
-	if err != nil {
-		s.logger.Error("failed to get product by slug", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	cacheKey := ProductSpecsKey(slug)
+
+	var specs model.ProductSpecs
+
+	// Define the fetch function to retrieve specs from the repository
+	fetchFunc := func() error {
+		// Get the product by slug
+		product, err := s.productRepo.GetProductBySlug(ctx, slug)
+		if err != nil {
+			s.logger.Error("failed to get product by slug", zap.Error(err))
+			return fmt.Errorf("failed to get product by slug: %w", err)
+		}
+
+		// Get the product specifications
+		fetchedSpecs, err := s.productRepo.GetProductSpecsByID(ctx, product.ID)
+		if err != nil {
+			s.logger.Error("failed to get product specifications", zap.Error(err))
+			return fmt.Errorf("failed to get product specifications: %w", err)
+		}
+
+		// Assign to the destination
+		specs = *fetchedSpecs
+		return nil
 	}
 
-	// Get the product specifications
-	specs, err := s.productRepo.GetProductSpecsByID(ctx, product.ID)
+	// Attempt to get the specs from the cache or fetch and set it
+	err := s.cacheService.GetOrSet(ctx, cacheKey, &specs, fetchFunc)
 	if err != nil {
-		s.logger.Error("failed to get product specifications", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product specifications: %w", err)
+		// If rate limit exceeded or other cache errors, proceed without cache
+		s.logger.Warn("cache.GetOrSet failed, proceeding without cache", zap.Error(err))
+		// Fallback: directly fetch from repository
+		if err := fetchFunc(); err != nil {
+			return nil, err
+		}
 	}
 
-	return specs, nil
+	return &specs, nil
+}
+
+// GetProductCart retrieves the product cart by slug
+func (s *ProductService) GetProductCart(ctx context.Context, slug string) (*model.ProductCart, error) {
+	cacheKey := ProductCartKey(slug)
+
+	var cart model.ProductCart
+
+	// Define the fetch function to retrieve cart from the repository
+	fetchFunc := func() error {
+
+		// Get the product cart
+		fetchedProduct, err := s.productRepo.GetProductCartByProductSlug(ctx, slug)
+		if err != nil {
+			s.logger.Error("failed to get product cart", zap.Error(err))
+			return fmt.Errorf("failed to get product cart: %w", err)
+		}
+
+		// Assign to the destination
+		cart = *fetchedProduct
+		return nil
+	}
+
+	// Attempt to get the cart from the cache or fetch and set it
+	err := s.cacheService.GetOrSet(ctx, cacheKey, &cart, fetchFunc)
+	if err != nil {
+		// If rate limit exceeded or other cache errors, proceed without cache
+		s.logger.Warn("cache.GetOrSet failed, proceeding without cache", zap.Error(err))
+		// Fallback: directly fetch from repository
+		if err := fetchFunc(); err != nil {
+			return nil, err
+		}
+	}
+
+	return &cart, nil
 }

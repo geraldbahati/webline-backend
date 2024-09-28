@@ -113,6 +113,7 @@ type ProductSchema struct {
 	Status       string
 	Featured     bool
 	Slug         string
+	PriceInKes   string
 }
 
 type ProductColor struct {
@@ -228,6 +229,7 @@ type ProductPricing struct {
 	Price           string    `json:"price"`
 	DiscountPercent float64   `json:"discountPercent"`
 	ImageUrl        string    `json:"imageUrl"`
+	Slug            string    `json:"slug"`
 }
 
 type ProductSpecs struct {
@@ -244,4 +246,16 @@ type Attribute struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+type ProductCart struct {
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	Description     string    `json:"description"`
+	Price           string    `json:"price"`
+	Stock           int32     `json:"stock"`
+	CategoryID      uuid.UUID `json:"categoryID"`
+	Featured        bool      `json:"featured"`
+	DiscountPercent float64   `json:"discountPercent"`
+	Slug            string    `json:"slug"`
 }

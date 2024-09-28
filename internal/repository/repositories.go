@@ -9,7 +9,7 @@ type Repositories struct {
 	ProductImageRepo          *ProductImageRepository
 	ProductSpecificationRepo  *ProductSpecificationRepository
 	ProductOptionRepo         *ProductOptionRepository
-	CartRepo                  *CartRepository
+	CartRepo                  CartRepository
 	OrderRepo                 *OrderRepository
 	GuestCheckoutRepo         *GuestCheckoutRepository
 	OrderItemRepo             *OrderItemRepository
@@ -27,6 +27,7 @@ type Repositories struct {
 	FilterProductRepo         FilterProductRepository
 	ProductAttributeRepo      ProductAttributeRepository
 	CompanyRepository         CompanyRepository
+	SessionRepo               SessionRepository
 }
 
 type Dependencies struct {
@@ -38,7 +39,7 @@ type Dependencies struct {
 	ProductImageRepo          *ProductImageRepository
 	ProductSpecificationRepo  *ProductSpecificationRepository
 	ProductOptionRepo         *ProductOptionRepository
-	CartRepo                  *CartRepository
+	CartRepo                  CartRepository
 	OrderRepo                 *OrderRepository
 	GuestCheckoutRepo         *GuestCheckoutRepository
 	OrderItemRepo             *OrderItemRepository
@@ -56,6 +57,7 @@ type Dependencies struct {
 	FilterProductRepo         FilterProductRepository
 	ProductAttributeRepo      ProductAttributeRepository
 	CompanyRepository         CompanyRepository
+	SessionRepo               SessionRepository
 }
 
 // NewRepositories initializes and returns a Repositories instance with all repositories.
@@ -87,5 +89,6 @@ func NewRepositories(deps Dependencies) *Repositories {
 		FilterProductRepo:         deps.FilterProductRepo,
 		ProductAttributeRepo:      deps.ProductAttributeRepo,
 		CompanyRepository:         deps.CompanyRepository,
+		SessionRepo:               deps.SessionRepo,
 	}
 }
