@@ -12,14 +12,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// contextKey is a custom type to prevent context key collisions.
-type contextKey string
-
 const (
 	// BearerScheme defines the authorization scheme.
 	BearerScheme = "Bearer"
-	// userIDKey is the key used to store the user ID in the context.
-	userIDKey contextKey = "userID"
 )
 
 // ErrorResponse represents the structure of error messages returned to clients.
@@ -84,7 +79,7 @@ func Auth(logger *zap.Logger) func(next http.Handler) http.Handler {
 			}
 
 			// Store the user ID in the context
-			ctx := context.WithValue(r.Context(), userIDKey, userID)
+			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -103,7 +98,7 @@ func OptionalAuth(logger *zap.Logger) func(next http.Handler) http.Handler {
 					logger.Warn("OptionalAuth: Token parsing failed", zap.Error(err))
 				} else {
 					// Store the user ID in the context
-					ctx := context.WithValue(r.Context(), userIDKey, userID)
+					ctx := context.WithValue(r.Context(), UserIDKey, userID)
 					r = r.WithContext(ctx)
 				}
 			}
@@ -116,6 +111,6 @@ func OptionalAuth(logger *zap.Logger) func(next http.Handler) http.Handler {
 // GetUserID retrieves the user ID from the context.
 // Returns the user ID and a boolean indicating whether it was found.
 func GetUserID(ctx context.Context) (uuid.UUID, bool) {
-	userID, ok := ctx.Value(userIDKey).(uuid.UUID)
+	userID, ok := ctx.Value(UserIDKey).(uuid.UUID)
 	return userID, ok
 }
