@@ -36,8 +36,8 @@ type AttributeType struct {
 
 type CartItem struct {
 	ID             uuid.UUID
-	ShoppingCartID uuid.NullUUID
-	ProductID      uuid.NullUUID
+	ShoppingCartID uuid.UUID
+	ProductID      uuid.UUID
 	Quantity       int32
 	CreatedAt      sql.NullTime
 	UpdatedAt      sql.NullTime
@@ -372,6 +372,16 @@ type Role struct {
 	UpdatedAt   sql.NullTime
 }
 
+type Session struct {
+	ID           uuid.UUID
+	SessionID    uuid.UUID
+	UserID       uuid.NullUUID
+	CreatedAt    time.Time
+	LastActivity time.Time
+	ExpiresAt    time.Time
+	CsrfToken    string
+}
+
 type Setting struct {
 	ID            bool
 	VatPercentage string
@@ -389,13 +399,13 @@ type Shipment struct {
 }
 
 type ShoppingCart struct {
-	ID         uuid.UUID
-	UserID     uuid.NullUUID
-	SessionID  uuid.NullUUID
-	TotalItems int32
-	TotalPrice string
-	CreatedAt  sql.NullTime
-	UpdatedAt  sql.NullTime
+	ID               uuid.UUID
+	UserID           uuid.NullUUID
+	TotalItems       int32
+	TotalPrice       string
+	CreatedAt        sql.NullTime
+	UpdatedAt        sql.NullTime
+	SessionReference uuid.NullUUID
 }
 
 type User struct {

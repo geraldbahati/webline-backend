@@ -1,5 +1,7 @@
 package services
 
+import "weblineBackend/internal/services/i"
+
 type Services struct {
 	UserService             *UserService
 	OrderService            *OrderService
@@ -17,6 +19,7 @@ type Services struct {
 	ProductAttributeService *ProductAttributeService
 	PromotionService        *PromotionService
 	CacheService            CacheService
+	SessionService          i.SessionService
 }
 
 type Dependencies struct {
@@ -36,6 +39,7 @@ type Dependencies struct {
 	ProductAttributeService *ProductAttributeService
 	PromotionService        *PromotionService
 	CacheService            CacheService
+	SessionService          i.SessionService
 }
 
 // NewServices initializes and returns a Services instance with all services.
@@ -57,5 +61,6 @@ func NewServices(deps Dependencies) *Services {
 		ProductAttributeService: deps.ProductAttributeService,
 		PromotionService:        deps.PromotionService,
 		CacheService:            deps.CacheService,
+		SessionService:          deps.SessionService,
 	}
 }

@@ -241,9 +241,39 @@ func (q *Queries) DraftProductsBySlugs(ctx context.Context, arg DraftProductsByS
 }
 
 const getProductByID = `-- name: GetProductByID :one
-SELECT id, name, description, usd_price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
-FROM products
-WHERE id = $1
+WITH rate AS (
+    SELECT COALESCE(
+        (SELECT rate_to_kes
+         FROM exchange_rates
+         WHERE currency_code = 'USD'
+           AND (valid_to IS NULL OR valid_to >= NOW())
+           AND valid_from <= NOW()
+         ORDER BY valid_from DESC
+         LIMIT 1),
+        135
+    ) AS rate_to_kes
+)
+SELECT 
+    p.id, 
+    p.name, 
+    p.description, 
+    p.usd_price, 
+    (p.usd_price * r.rate_to_kes)::numeric AS price_in_kes,
+    p.stock, 
+    p.category_id, 
+    p.created_at, 
+    p.updated_at, 
+    p.status, 
+    p.created_by, 
+    p.updated_by, 
+    p.featured, 
+    p.search_keyword, 
+    p.slug
+FROM 
+    products p,
+    rate r
+WHERE 
+    p.id = $1
 `
 
 type GetProductByIDRow struct {
@@ -251,6 +281,7 @@ type GetProductByIDRow struct {
 	Name          string
 	Description   sql.NullString
 	UsdPrice      string
+	PriceInKes    string
 	Stock         sql.NullInt32
 	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
@@ -271,6 +302,7 @@ func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductB
 		&i.Name,
 		&i.Description,
 		&i.UsdPrice,
+		&i.PriceInKes,
 		&i.Stock,
 		&i.CategoryID,
 		&i.CreatedAt,
@@ -392,6 +424,64 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 	return i, err
 }
 
+const getProductCartByProductSlug = `-- name: GetProductCartByProductSlug :one
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price,
+    p.stock,
+    p.category_id,
+    p.featured,
+    COALESCE(d.discount_percentage, 0) AS discount_percent,
+    p.slug
+FROM
+    products p
+        LEFT JOIN discounts d ON d.product_id = p.id
+WHERE
+    p.slug = $1
+`
+
+type GetProductCartByProductSlugRow struct {
+	ID              uuid.UUID
+	Name            string
+	Description     sql.NullString
+	Price           string
+	Stock           sql.NullInt32
+	CategoryID      uuid.UUID
+	Featured        sql.NullBool
+	DiscountPercent string
+	Slug            string
+}
+
+func (q *Queries) GetProductCartByProductSlug(ctx context.Context, slug string) (GetProductCartByProductSlugRow, error) {
+	row := q.queryRow(ctx, q.getProductCartByProductSlugStmt, getProductCartByProductSlug, slug)
+	var i GetProductCartByProductSlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.Price,
+		&i.Stock,
+		&i.CategoryID,
+		&i.Featured,
+		&i.DiscountPercent,
+		&i.Slug,
+	)
+	return i, err
+}
+
 const getProductIDsBySlugs = `-- name: GetProductIDsBySlugs :many
 SELECT
     id
@@ -440,6 +530,7 @@ SELECT
     p.id,
     p.name,
     p.description,
+    p.slug,
     (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     COALESCE(d.discount_percentage, 0) AS discount_percent,
     COALESCE(pi.image_url, '')::TEXT AS imageUrl
@@ -466,6 +557,7 @@ type GetProductPricingByProductIDRow struct {
 	ID              uuid.UUID
 	Name            string
 	Description     sql.NullString
+	Slug            string
 	PriceInKes      string
 	DiscountPercent string
 	Imageurl        string
@@ -478,6 +570,7 @@ func (q *Queries) GetProductPricingByProductID(ctx context.Context, id uuid.UUID
 		&i.ID,
 		&i.Name,
 		&i.Description,
+		&i.Slug,
 		&i.PriceInKes,
 		&i.DiscountPercent,
 		&i.Imageurl,

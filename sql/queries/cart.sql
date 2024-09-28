@@ -8,7 +8,7 @@ WHERE shopping_cart_id = $1 AND product_id = $2;
 INSERT INTO cart_items (id, shopping_cart_id, product_id, quantity, price, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())
 ON CONFLICT (shopping_cart_id, product_id)
-DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
+DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, updated_at = NOW()
 RETURNING id, shopping_cart_id, product_id, quantity, price, created_at, updated_at;
 
 -- Remove an item from the cart
@@ -38,3 +38,8 @@ WHERE shopping_cart_id = $1;
 -- name: ClearCart :exec
 DELETE FROM cart_items
 WHERE shopping_cart_id = $1;
+
+-- name: UpdateCartUserID :exec
+UPDATE shopping_carts
+SET user_id = $2
+WHERE id = $1;

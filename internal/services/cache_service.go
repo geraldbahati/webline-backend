@@ -505,6 +505,28 @@ func isEmpty(dest interface{}) (bool, error) {
 	case *float64:
 		// For exchange rate
 		return v == nil || *v == 0, nil
+	case *model.ProductPricing:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *model.ProductSpecs:
+		return v == nil || v.Description == "" || len(v.Specs) == 0, nil
+	case *[]string: // Handle []string
+		return v == nil || len(*v) == 0, nil
+	case *model.ProductCart:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *model.Session:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *model.AdminRequest:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *model.ApprovalToken:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *model.User:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *model.ShoppingCart:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *model.CartItem:
+		return v == nil || v.ID == uuid.Nil, nil
+	case *[]model.CartItem:
+		return v == nil || len(*v) == 0, nil
 	// Add more cases based on your models
 	default:
 		return false, fmt.Errorf("unsupported type for isEmpty check: %T", dest)

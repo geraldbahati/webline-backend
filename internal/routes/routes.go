@@ -4,14 +4,22 @@ import (
 	"net/http"
 	"weblineBackend/internal/handlers"
 	"weblineBackend/internal/middleware"
+	"weblineBackend/internal/services/i"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
-func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers) *mux.Router {
+func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService i.SessionService) *mux.Router {
 	r := mux.NewRouter()
-	r.Use(middleware.CORS(logger))
+	corsMiddleware := middleware.CORS(logger, middleware.CORSOptions{
+		AllowedOrigins:   []string{"*"}, // or specify specific origins
+		AllowedMethods:   []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "X-CSRF-Token"},
+		AllowCredentials: false, // set to true if you need to allow credentials
+	})
+
+	r.Use(corsMiddleware)
 	r.Use(middleware.OptionalAuth(logger))
 	r.Use(middleware.MetricsMiddleware(logger))
 
@@ -30,6 +38,7 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers) *mux.Router {
 	registerPromotionRoutes(r, handlers)
 	registerAdminPromotionRoutes(r, handlers, logger)
 	registerAdditionalRoutes(r, handlers, logger)
+	registerCartPromotionRoutes(r, handlers, logger, sessionService)
 
 	return r
 }
@@ -66,7 +75,7 @@ func registerCategoryRoutes(router *mux.Router, handlers *handlers.Handlers) {
 	categoryRouter.HandleFunc("/{id}/", handlers.CategoryHandler.GetCategoryByIDHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("", handlers.CategoryHandler.GetCategoriesHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/{id}/", handlers.CategoryHandler.SoftDeleteCategoryHandler).Methods(http.MethodDelete)
-	categoryRouter.HandleFunc("/collections", handlers.CategoryHandler.GetCollectionCategoriesHandler).Methods(http.MethodGet)
+	NamedHandleFunc(categoryRouter, "/collections", handlers.CategoryHandler.GetCollectionCategoriesHandler, []string{http.MethodGet}, "GetCollectionCategories")
 	categoryRouter.HandleFunc("/name/{name}", handlers.CategoryHandler.GetCategoryByNameHandler).Methods(http.MethodOptions, http.MethodGet)
 	categoryRouter.HandleFunc("/parent/{parentId}", handlers.CategoryHandler.GetCategoriesByParentIDHandler).Methods(http.MethodGet)
 	categoryRouter.HandleFunc("/products/count", handlers.CategoryHandler.GetCategoriesWithProductsCountHandler).Methods(http.MethodGet)
@@ -96,9 +105,10 @@ func registerAdminCategoryRoutes(router *mux.Router, handlers *handlers.Handlers
 func registerProductRoutes(router *mux.Router, handlers *handlers.Handlers) {
 	productRouter := router.PathPrefix("/api/products").Subrouter()
 	productRouter.HandleFunc("/{slug}", handlers.ProductHandler.GetProductBySlugHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/{slug}/images", handlers.ProductHandler.GetProductImagesBySlugHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/{slug}/pricing", handlers.ProductHandler.GetProductPricingBySlugHandler).Methods(http.MethodGet)
-	productRouter.HandleFunc("/{slug}/specs", handlers.ProductHandler.GetProductSpecsBySlugHandler).Methods(http.MethodGet)
+	NamedHandleFunc(productRouter, "/{slug}/cart", handlers.ProductHandler.GetProductCartHandler, []string{http.MethodGet}, "GetProductCart")
+	NamedHandleFunc(productRouter, "/{slug}/images", handlers.ProductHandler.GetProductImagesBySlugHandler, []string{http.MethodGet}, "GetProductImagesBySlug")
+	NamedHandleFunc(productRouter, "/{slug}/pricing", handlers.ProductHandler.GetProductPricingBySlugHandler, []string{http.MethodGet}, "GetProductPricingBySlug")
+	NamedHandleFunc(productRouter, "/{slug}/specs", handlers.ProductHandler.GetProductSpecsBySlugHandler, []string{http.MethodGet}, "GetProductSpecsBySlug")
 	NamedHandleFunc(productRouter, "", handlers.ProductHandler.GetAllProductsHandler, []string{http.MethodPost}, "GetAllProducts")
 	NamedHandleFunc(productRouter, "/{slug}/seo", handlers.ProductHandler.GetProductSEOHandler, []string{http.MethodGet}, "GetProductSEO")
 	NamedHandleFunc(productRouter, "/all/sitemap", handlers.ProductHandler.GetAllProductSitemapHandler, []string{http.MethodGet}, "GetAllProductSitemap")
@@ -150,6 +160,25 @@ func registerAdminPromotionRoutes(router *mux.Router, handlers *handlers.Handler
 	NamedHandleFunc(protectedAdminPromotionRouter, "/delete", handlers.PromotionHandler.DeletePromotions, []string{http.MethodDelete}, "DeletePromotions")
 }
 
+// registerCartPromotionRoutes registers cart promotion-related routes.
+func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger, sessionService i.SessionService) {
+	// Cart routes
+	cartRouter := router.PathPrefix("/api/cart").Subrouter()
+	cartRouter.Use(middleware.OptionalAuth(logger))
+	cartRouter.Use(middleware.Session(logger, sessionService))
+	cartRouter.Use(middleware.CSRF(logger))
+
+	// Updated cart routes without cartID in the path
+	NamedHandleFunc(cartRouter, "/add", handlers.CartHandler.AddToCartHandler, []string{http.MethodPost}, "AddToCart")
+	NamedHandleFunc(cartRouter, "/remove", handlers.CartHandler.RemoveFromCartHandler, []string{http.MethodDelete}, "RemoveFromCart")
+	NamedHandleFunc(cartRouter, "/items", handlers.CartHandler.GetCartItemsHandler, []string{http.MethodGet}, "GetCartItems")
+	NamedHandleFunc(cartRouter, "/items/update-quantity", handlers.CartHandler.UpdateCartItemQuantityHandler, []string{http.MethodPut}, "UpdateCartItemQuantity")
+	NamedHandleFunc(cartRouter, "/clear", handlers.CartHandler.ClearCartHandler, []string{http.MethodPost}, "ClearCart")
+	NamedHandleFunc(cartRouter, "/total", handlers.CartHandler.CalculateCartTotalHandler, []string{http.MethodGet}, "CalculateCartTotal")
+	NamedHandleFunc(cartRouter, "/replace", handlers.CartHandler.ReplaceCartItemsHandler, []string{http.MethodPut}, "ReplaceCartItems")
+	NamedHandleFunc(cartRouter, "", handlers.CartHandler.GetShoppingCartBySessionIDHandler, []string{http.MethodGet}, "GetShoppingCart")
+}
+
 // registerAdditionalRoutes registers other related routes like variants, images, specifications, options, cart, orders, promotions, etc.
 func registerAdditionalRoutes(r *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
 	// Product Variant routes
@@ -187,19 +216,6 @@ func registerAdditionalRoutes(r *mux.Router, handlers *handlers.Handlers, logger
 	optionValueRouter.HandleFunc("/{id}", handlers.ProductOptionHandler.ListProductOptionValuesByOptionIDHandler).Methods(http.MethodGet)
 	optionValueRouter.HandleFunc("/{id}", handlers.ProductOptionHandler.DeleteProductOptionValueHandler).Methods(http.MethodDelete)
 	optionValueRouter.HandleFunc("/{id}", handlers.ProductOptionHandler.UpdateProductOptionValueHandler).Methods(http.MethodPut)
-
-	// Cart routes
-	cartRouter := r.PathPrefix("/api/cart").Subrouter()
-	cartRouter.HandleFunc("/create", handlers.CartHandler.CreateShoppingCartHandler).Methods(http.MethodPost)
-	cartRouter.HandleFunc("/add/{cart_id}", handlers.CartHandler.AddToCartHandler).Methods(http.MethodPost)
-	cartRouter.HandleFunc("/remove/{cart_id}", handlers.CartHandler.RemoveFromCartHandler).Methods(http.MethodDelete)
-	cartRouter.HandleFunc("/items/{cart_id}", handlers.CartHandler.GetCartItemsHandler).Methods(http.MethodGet)
-	cartRouter.HandleFunc("/clear/{cart_id}", handlers.CartHandler.ClearCartHandler).Methods(http.MethodPost)
-	cartRouter.HandleFunc("/total/{cart_id}", handlers.CartHandler.CalculateCartTotalHandler).Methods(http.MethodGet)
-	cartRouter.HandleFunc("/items/{cart_id}/update-quantity", handlers.CartHandler.UpdateCartItemQuantityHandler).Methods(http.MethodPut)
-	cartRouter.HandleFunc("/user", handlers.CartHandler.GetShoppingCartByUserIDHandler).Methods(http.MethodPost)
-	cartRouter.HandleFunc("/session", handlers.CartHandler.GetShoppingCartBySessionIDHandler).Methods(http.MethodPost)
-	cartRouter.HandleFunc("/delete", handlers.CartHandler.DeleteShoppingCartHandler).Methods(http.MethodDelete)
 
 	// Order routes
 	orderRouter := r.PathPrefix("/api/orders").Subrouter()

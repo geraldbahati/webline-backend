@@ -113,6 +113,7 @@ func (r *ProductRepository) GetProductByID(
 		Status:      product.Status,
 		Featured:    product.Featured.Bool,
 		Slug:        product.Slug,
+		PriceInKes:  utils.RoundPriceString(product.PriceInKes),
 	}, nil
 }
 
@@ -594,9 +595,10 @@ func (r *ProductRepository) GetProductPricingByProductID(
 		ID:              pricing.ID,
 		Name:            pricing.Name,
 		Description:     pricing.Description.String,
-		Price:           pricing.PriceInKes,
+		Price:           utils.RoundPriceString(pricing.PriceInKes),
 		DiscountPercent: discount,
 		ImageUrl:        pricing.Imageurl,
+		Slug:            pricing.Slug,
 	}, nil
 }
 
@@ -670,4 +672,34 @@ func (r *ProductRepository) GetProductSlugByProductID(ctx context.Context, id uu
 	}
 
 	return slug, nil
+}
+
+// GetProductCartByProductSlug retrieves the product cart by product slug
+func (r *ProductRepository) GetProductCartByProductSlug(
+	ctx context.Context,
+	slug string,
+) (*model.ProductCart, error) {
+	product, err := r.Queries.GetProductCartByProductSlug(ctx, slug)
+	if err != nil {
+		r.logger.Error("failed to get product by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	discountPercent, err := strconv.ParseFloat(product.DiscountPercent, 64)
+	if err != nil {
+		r.logger.Error("failed to parse discount percent", zap.Error(err))
+		discountPercent = 0
+	}
+
+	return &model.ProductCart{
+		ID:              product.ID,
+		Name:            product.Name,
+		Description:     product.Description.String,
+		Price:           utils.RoundPriceString(product.Price),
+		Stock:           product.Stock.Int32,
+		CategoryID:      product.CategoryID,
+		Featured:        product.Featured.Bool,
+		DiscountPercent: discountPercent,
+		Slug:            product.Slug,
+	}, nil
 }
