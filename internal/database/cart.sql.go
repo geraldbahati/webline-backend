@@ -19,7 +19,7 @@ WHERE shopping_cart_id = $1
 `
 
 // Calculate the total price of items in the cart
-func (q *Queries) CalculateCartTotal(ctx context.Context, shoppingCartID uuid.NullUUID) (int64, error) {
+func (q *Queries) CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (int64, error) {
 	row := q.queryRow(ctx, q.calculateCartTotalStmt, calculateCartTotal, shoppingCartID)
 	var total_price int64
 	err := row.Scan(&total_price)
@@ -32,7 +32,7 @@ WHERE shopping_cart_id = $1
 `
 
 // Remove all items from the cart
-func (q *Queries) ClearCart(ctx context.Context, shoppingCartID uuid.NullUUID) error {
+func (q *Queries) ClearCart(ctx context.Context, shoppingCartID uuid.UUID) error {
 	_, err := q.exec(ctx, q.clearCartStmt, clearCart, shoppingCartID)
 	return err
 }
@@ -45,8 +45,8 @@ WHERE shopping_cart_id = $1
 
 type GetAllCartItemsRow struct {
 	ID             uuid.UUID
-	ShoppingCartID uuid.NullUUID
-	ProductID      uuid.NullUUID
+	ShoppingCartID uuid.UUID
+	ProductID      uuid.UUID
 	Quantity       int32
 	Price          string
 	CreatedAt      sql.NullTime
@@ -54,7 +54,7 @@ type GetAllCartItemsRow struct {
 }
 
 // Get all items in the cart
-func (q *Queries) GetAllCartItems(ctx context.Context, shoppingCartID uuid.NullUUID) ([]GetAllCartItemsRow, error) {
+func (q *Queries) GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID) ([]GetAllCartItemsRow, error) {
 	rows, err := q.query(ctx, q.getAllCartItemsStmt, getAllCartItems, shoppingCartID)
 	if err != nil {
 		return nil, err
@@ -91,8 +91,8 @@ WHERE shopping_cart_id = $1 AND product_id = $2
 `
 
 type GetCartItemParams struct {
-	ShoppingCartID uuid.NullUUID
-	ProductID      uuid.NullUUID
+	ShoppingCartID uuid.UUID
+	ProductID      uuid.UUID
 }
 
 type GetCartItemRow struct {
@@ -114,8 +114,8 @@ WHERE shopping_cart_id = $1 AND product_id = $2
 `
 
 type RemoveCartItemParams struct {
-	ShoppingCartID uuid.NullUUID
-	ProductID      uuid.NullUUID
+	ShoppingCartID uuid.UUID
+	ProductID      uuid.UUID
 }
 
 // Remove an item from the cart
@@ -131,8 +131,8 @@ WHERE shopping_cart_id = $1 AND product_id = $2
 `
 
 type UpdateCartItemQuantityParams struct {
-	ShoppingCartID uuid.NullUUID
-	ProductID      uuid.NullUUID
+	ShoppingCartID uuid.UUID
+	ProductID      uuid.UUID
 	Quantity       int32
 }
 
@@ -142,25 +142,41 @@ func (q *Queries) UpdateCartItemQuantity(ctx context.Context, arg UpdateCartItem
 	return err
 }
 
+const updateCartUserID = `-- name: UpdateCartUserID :exec
+UPDATE shopping_carts
+SET user_id = $2
+WHERE id = $1
+`
+
+type UpdateCartUserIDParams struct {
+	ID     uuid.UUID
+	UserID uuid.NullUUID
+}
+
+func (q *Queries) UpdateCartUserID(ctx context.Context, arg UpdateCartUserIDParams) error {
+	_, err := q.exec(ctx, q.updateCartUserIDStmt, updateCartUserID, arg.ID, arg.UserID)
+	return err
+}
+
 const upsertCartItem = `-- name: UpsertCartItem :one
 INSERT INTO cart_items (id, shopping_cart_id, product_id, quantity, price, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())
 ON CONFLICT (shopping_cart_id, product_id)
-DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
+DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, updated_at = NOW()
 RETURNING id, shopping_cart_id, product_id, quantity, price, created_at, updated_at
 `
 
 type UpsertCartItemParams struct {
-	ShoppingCartID uuid.NullUUID
-	ProductID      uuid.NullUUID
+	ShoppingCartID uuid.UUID
+	ProductID      uuid.UUID
 	Quantity       int32
 	Price          string
 }
 
 type UpsertCartItemRow struct {
 	ID             uuid.UUID
-	ShoppingCartID uuid.NullUUID
-	ProductID      uuid.NullUUID
+	ShoppingCartID uuid.UUID
+	ProductID      uuid.UUID
 	Quantity       int32
 	Price          string
 	CreatedAt      sql.NullTime
