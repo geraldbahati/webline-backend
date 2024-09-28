@@ -656,3 +656,25 @@ func (h *ProductHandler) GetAllProductFilterOptionsHandler(w http.ResponseWriter
 	// respond with filter options
 	RespondWithJSON(w, http.StatusOK, filterOptions)
 }
+
+// GetProductCartHandler gets a product cart by its slug
+func (h *ProductHandler) GetProductCartHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// get product cart
+	productCart, err := h.productService.GetProductCart(r.Context(), slug)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get product cart")
+		return
+	}
+
+	// respond with product cart
+	RespondWithJSON(w, http.StatusOK, productCart)
+}
