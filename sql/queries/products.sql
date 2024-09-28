@@ -28,9 +28,39 @@ RETURNING *;
 
 
 -- name: GetProductByID :one
-SELECT id, name, description, usd_price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
-FROM products
-WHERE id = $1;
+WITH rate AS (
+    SELECT COALESCE(
+        (SELECT rate_to_kes
+         FROM exchange_rates
+         WHERE currency_code = 'USD'
+           AND (valid_to IS NULL OR valid_to >= NOW())
+           AND valid_from <= NOW()
+         ORDER BY valid_from DESC
+         LIMIT 1),
+        135
+    ) AS rate_to_kes
+)
+SELECT 
+    p.id, 
+    p.name, 
+    p.description, 
+    p.usd_price, 
+    (p.usd_price * r.rate_to_kes)::numeric AS price_in_kes,
+    p.stock, 
+    p.category_id, 
+    p.created_at, 
+    p.updated_at, 
+    p.status, 
+    p.created_by, 
+    p.updated_by, 
+    p.featured, 
+    p.search_keyword, 
+    p.slug
+FROM 
+    products p,
+    rate r
+WHERE 
+    p.id = $1;
 
 -- name: GetProductByIDs :many
 SELECT id, name, description, usd_price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
@@ -392,6 +422,7 @@ SELECT
     p.id,
     p.name,
     p.description,
+    p.slug,
     (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     COALESCE(d.discount_percentage, 0) AS discount_percent,
     COALESCE(pi.image_url, '')::TEXT AS imageUrl
@@ -446,3 +477,31 @@ FROM
     products
 WHERE
     id = $1;
+
+-- name: GetProductCartByProductSlug :one
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price,
+    p.stock,
+    p.category_id,
+    p.featured,
+    COALESCE(d.discount_percentage, 0) AS discount_percent,
+    p.slug
+FROM
+    products p
+        LEFT JOIN discounts d ON d.product_id = p.id
+WHERE
+    p.slug = $1;
