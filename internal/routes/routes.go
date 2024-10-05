@@ -13,7 +13,7 @@ import (
 func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService i.SessionService) *mux.Router {
 	r := mux.NewRouter()
 	corsMiddleware := middleware.CORS(logger, middleware.CORSOptions{
-		AllowedOrigins:   []string{"http://localhost:3000", "https://yourdomain.com"},
+		AllowedOrigins:   []string{"http://localhost:3000", "https://www.weblineshop.co.ke"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "X-CSRF-Token", "Authorization"},
 		AllowCredentials: true,
