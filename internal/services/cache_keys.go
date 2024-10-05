@@ -16,21 +16,26 @@ const (
 	NamespaceCart         = "cart"
 
 	// Subnamespaces
-	SubNamespaceAdmin    = "admin"
-	SubNamespaceCart     = "cart"
-	SubNamespaceSEO      = "seo"
-	SubNamespaceSession  = "session"
-	SubNamespaceDetails  = "details"
-	SubNamespaceAll      = "all"
-	SubNamespaceSitemap  = "sitemap"
-	SubNamespaceRate     = "rate"
-	SubNamespaceAnalytic = "analytic"
-	SubNamespacePricing  = "pricing"
-	SubNamespaceSpecs    = "specs"
-	SubNamespaceImages   = "images"
-	SubNamespaceItems    = "items"
-	SubNamespaceTotal    = "total"
-	// Add more subnamespaces as needed
+	SubNamespaceAdmin       = "admin"
+	SubNamespaceCart        = "cart"
+	SubNamespaceSEO         = "seo"
+	SubNamespaceSession     = "session"
+	SubNamespaceDetails     = "details"
+	SubNamespaceAll         = "all"
+	SubNamespaceSitemap     = "sitemap"
+	SubNamespaceRate        = "rate"
+	SubNamespaceAnalytic    = "analytic"
+	SubNamespacePricing     = "pricing"
+	SubNamespaceSpecs       = "specs"
+	SubNamespaceImages      = "images"
+	SubNamespaceItems       = "items"
+	SubNamespaceTotal       = "total"
+	SubNamespaceItem        = "item"
+	SubNamespaceNewArrivals = "new-arrivals"
+	SubNamespaceBestSellers = "best-sellers"
+	SubNamespaceFeatured    = "featured"
+	SubNamespaceOnSale      = "on-sale"
+	SubNamespaceDailyDeals  = "daily-deals"
 )
 
 // GenerateCacheKey constructs a standardized Redis cache key.
@@ -108,17 +113,52 @@ func ProductCartKey(slug string) string {
 	return GenerateCacheKey(NamespaceProduct, SubNamespaceCart, slug)
 }
 
+// SessionKey generates a Redis key for session information.
+func SessionKey(sessionID string) string {
+	return GenerateCacheKey(NamespaceUser, SubNamespaceSession, sessionID)
+}
+
 // CartItemsKey generates a Redis key for cart items.
 func CartItemsKey(cartID string) string {
-	return GenerateCacheKey(NamespaceCart, SubNamespaceItems, cartID)
+	return GenerateCacheKey(NamespaceCart, cartID, SubNamespaceItems)
+}
+
+// CartItemKey generates a Redis key for a specific cart item.
+func CartItemKey(cartID string, productID string) string {
+	return GenerateCacheKey(NamespaceCart, cartID, SubNamespaceItem, productID)
 }
 
 // CartTotalKey generates a Redis key for cart total.
 func CartTotalKey(cartID string) string {
-	return GenerateCacheKey(NamespaceCart, SubNamespaceTotal, cartID)
+	return GenerateCacheKey(NamespaceCart, cartID, SubNamespaceTotal)
 }
 
-// SessionKey generates a Redis key for session information.
-func SessionKey(sessionID string) string {
-	return GenerateCacheKey(NamespaceUser, SubNamespaceSession, sessionID)
+// ProductBestSellersKey generates a Redis key for best seller products.
+func ProductBestSellersKey(limit int32) string {
+	return GenerateCacheKey(NamespaceProduct, SubNamespaceBestSellers, strconv.Itoa(int(limit)))
+}
+
+// ProductFeaturedKey generates a Redis key for featured products.
+func ProductFeaturedKey(limit int32) string {
+	return GenerateCacheKey(NamespaceProduct, SubNamespaceFeatured, strconv.Itoa(int(limit)))
+}
+
+// ProductOnSaleKey generates a Redis key for on sale products.
+func ProductOnSaleKey(limit int32) string {
+	return GenerateCacheKey(NamespaceProduct, SubNamespaceOnSale, strconv.Itoa(int(limit)))
+}
+
+// ProductNewArrivalsKey generates a Redis key for new arrivals products.
+func ProductNewArrivalsKey(limit int32) string {
+	return GenerateCacheKey(NamespaceProduct, SubNamespaceNewArrivals, strconv.Itoa(int(limit)))
+}
+
+// ProductDailyDealsKey generates a Redis key for daily deals products.
+func ProductDailyDealsKey() string {
+	return GenerateCacheKey(NamespaceProduct, SubNamespaceDailyDeals)
+}
+
+// ProductCachePattern generates a Redis key pattern for product cache.
+func ProductCachePattern() string {
+	return GenerateCacheKey(NamespaceProduct, "*")
 }

@@ -3,8 +3,10 @@ package sqlc
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
@@ -50,6 +52,9 @@ func (r *sessionRepositoryImpl) CreateSession(ctx context.Context, userID *uuid.
 func (r *sessionRepositoryImpl) GetSessionBySessionID(ctx context.Context, sessionID uuid.UUID) (model.Session, error) {
 	dbSession, err := r.Queries.GetSessionBySessionID(ctx, sessionID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Session{}, app_errors.NewSessionNotFoundError()
+		}
 		r.logger.Error("failed to get session by session ID", zap.Error(err))
 		return model.Session{}, fmt.Errorf("get session by session ID: %w", err)
 	}

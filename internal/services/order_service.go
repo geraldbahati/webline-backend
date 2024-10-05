@@ -669,57 +669,59 @@ func (s *OrderService) GetTotalSalesCurrentMonth(ctx context.Context) (int64, er
 	return sales, nil
 }
 
-// GetExchangeRate gets the exchange rate, utilizing cache for performance
+// GetExchangeRate retrieves the exchange rate, utilizing cache for performance.
 func (s *OrderService) GetExchangeRate(ctx context.Context) (float64, error) {
 	currency := "USD"
 	cacheKey := ExchangeRateKey(currency)
 	var exchangeRate float64
 
+	// Use GetOrSet to handle caching logic.
 	err := s.cacheService.GetOrSet(ctx, cacheKey, &exchangeRate, func() error {
-		// Fetch from repository if cache miss
+		// Fetch from repository if cache miss.
 		rate, err := s.exchangeRateRepo.GetLatestExchangeRate(ctx, currency)
 		if err != nil {
-			s.logger.Error("failed to get exchange rate from repository", zap.Error(err))
-			return fmt.Errorf("failed to get exchange rate: %w", err)
+			s.logger.Error("Failed to get exchange rate from repository", zap.Error(err))
+			return fmt.Errorf("get exchange rate: %w", err)
 		}
 		exchangeRate = rate
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("failed to retrieve exchange rate", zap.Error(err))
+		s.logger.Error("Failed to retrieve exchange rate", zap.Error(err))
 		return 0, err
 	}
 
-	s.logger.Info("Exchange rate retrieved", zap.Float64("exchangeRate", exchangeRate))
+	s.logger.Debug("Exchange rate retrieved", zap.Float64("exchangeRate", exchangeRate))
 	return exchangeRate, nil
 }
 
-// UpdateExchangeRate updates the exchange rate and handles cache invalidation
+// UpdateExchangeRate updates the exchange rate and handles cache invalidation.
 func (s *OrderService) UpdateExchangeRate(ctx context.Context, rate float64) error {
-	// Get today's date
+	currency := "USD"
 	validFrom := time.Now()
+	validTo := validFrom.AddDate(0, 0, 30) // Valid for 30 days.
 
-	// Valid date range is 30 days
-	validTo := validFrom.AddDate(0, 0, 30)
-
-	err := s.exchangeRateRepo.UpdateExchangeRate(ctx, "USD", rate, validFrom, validTo)
+	// Update the exchange rate in the repository.
+	err := s.exchangeRateRepo.UpdateExchangeRate(ctx, currency, rate, validFrom, validTo)
 	if err != nil {
-		s.logger.Error("failed to update exchange rate in repository", zap.Error(err))
-		return fmt.Errorf("failed to update exchange rate: %w", err)
+		s.logger.Error("Failed to update exchange rate in repository", zap.Error(err))
+		return fmt.Errorf("update exchange rate: %w", err)
 	}
 
-	// Update the cache with the new exchange rate
-	cacheKey := ExchangeRateKey("USD")
+	// Update the cache with the new exchange rate.
+	cacheKey := ExchangeRateKey(currency)
 	err = s.cacheService.Set(ctx, cacheKey, rate)
 	if err != nil {
-		s.logger.Warn("failed to update exchange rate in cache", zap.Error(err))
+		s.logger.Warn("Failed to update exchange rate in cache", zap.Error(err))
+		// Proceed without failing if caching fails.
 	}
 
-	// Invalidate all cached product-related keys (e.g., product details, prices)
-	pattern := "product:*"
+	// Invalidate all cached product-related keys using standardized pattern.
+	pattern := ProductCachePattern()
 	err = s.cacheService.DeleteKeysByPattern(ctx, pattern)
 	if err != nil {
-		s.logger.Warn("failed to invalidate product cache keys", zap.String("pattern", pattern), zap.Error(err))
+		s.logger.Warn("Failed to invalidate product cache keys", zap.String("pattern", pattern), zap.Error(err))
+		// Proceed without failing if cache invalidation fails.
 	}
 
 	s.logger.Info("Exchange rate updated successfully", zap.Float64("newRate", rate))

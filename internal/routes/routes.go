@@ -13,10 +13,10 @@ import (
 func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService i.SessionService) *mux.Router {
 	r := mux.NewRouter()
 	corsMiddleware := middleware.CORS(logger, middleware.CORSOptions{
-		AllowedOrigins:   []string{"*"}, // or specify specific origins
-		AllowedMethods:   []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "Authorization", "X-CSRF-Token"},
-		AllowCredentials: false, // set to true if you need to allow credentials
+		AllowedOrigins:   []string{"http://localhost:3000", "https://yourdomain.com"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "X-CSRF-Token", "Authorization"},
+		AllowCredentials: true,
 	})
 
 	r.Use(corsMiddleware)

@@ -20,57 +20,58 @@ func CORS(logger *zap.Logger, options CORSOptions) func(http.Handler) http.Handl
 	allowedMethods := strings.Join(options.AllowedMethods, ", ")
 	allowedHeaders := strings.Join(options.AllowedHeaders, ", ")
 
-	// Precompute allowed origins map and allowAllOrigins flag
-	originMap := make(map[string]struct{})
+	// Precompute allowed origins map and check for wildcard origin
+	allowedOrigins := make(map[string]struct{}, len(options.AllowedOrigins))
 	allowAllOrigins := false
-	if len(options.AllowedOrigins) == 1 && options.AllowedOrigins[0] == "*" {
-		allowAllOrigins = true
-	} else {
-		for _, origin := range options.AllowedOrigins {
-			originMap[origin] = struct{}{}
+	for _, origin := range options.AllowedOrigins {
+		if origin == "*" {
+			allowAllOrigins = true
+			if options.AllowCredentials {
+				logger.Fatal("Cannot set AllowCredentials to true when AllowedOrigins contains '*'")
+			}
+		} else {
+			allowedOrigins[origin] = struct{}{}
 		}
 	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Log the incoming request
-			logger.Info("Handling CORS", zap.String("method", r.Method), zap.String("path", r.URL.Path))
-
 			origin := r.Header.Get("Origin")
-			if origin == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
+			logger.Info("Received request", zap.String("Origin", origin), zap.String("Method", r.Method), zap.String("URL", r.URL.Path))
 
-			if allowAllOrigins {
-				w.Header().Set("Access-Control-Allow-Origin", "*")
-			} else if _, ok := originMap[origin]; ok {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-			} else {
-				// Origin not allowed, return 403 Forbidden
-				http.Error(w, "Forbidden", http.StatusForbidden)
-				return
-			}
+			// If Origin is present, handle CORS
+			if origin != "" {
+				// Always set Vary header
+				w.Header().Set("Vary", "Origin")
 
-			// Set Vary header to indicate that the response varies based on the Origin header
-			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
+				var allowedOrigin string
+				if allowAllOrigins {
+					allowedOrigin = "*"
+				} else if _, ok := allowedOrigins[origin]; ok {
+					allowedOrigin = origin
+				} else {
+					// Origin not allowed, return 403 Forbidden
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
 
-			if options.AllowCredentials {
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-			}
+				// Set Access-Control-Allow-Origin
+				w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 
-			// Set allowed headers
-			if requestedHeaders := r.Header.Get("Access-Control-Request-Headers"); requestedHeaders != "" {
-				w.Header().Set("Access-Control-Allow-Headers", requestedHeaders)
-			} else {
+				// Set Access-Control-Allow-Credentials if needed
+				if options.AllowCredentials {
+					w.Header().Set("Access-Control-Allow-Credentials", "true")
+				}
+
+				// Set allowed methods and headers
+				w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
 				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
 			}
 
 			// Handle preflight request
 			if r.Method == http.MethodOptions {
 				logger.Info("Handled preflight CORS request", zap.String("path", r.URL.Path))
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 

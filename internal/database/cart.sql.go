@@ -38,19 +38,30 @@ func (q *Queries) ClearCart(ctx context.Context, shoppingCartID uuid.UUID) error
 }
 
 const getAllCartItems = `-- name: GetAllCartItems :many
-SELECT id, shopping_cart_id, product_id, quantity, price, created_at, updated_at
-FROM cart_items
-WHERE shopping_cart_id = $1
+SELECT
+    ci.id,
+    ci.product_id,
+    p.name,
+    p.description,
+    ci.quantity,
+    ci.price,
+    pi.image_url
+FROM cart_items ci
+JOIN products p ON ci.product_id = p.id
+LEFT JOIN product_images pi ON p.id = pi.product_id AND (pi.position = 1 OR pi.position IS NULL)
+WHERE ci.shopping_cart_id = $1
+GROUP BY ci.id, p.id, pi.image_url
+ORDER BY ci.created_at ASC
 `
 
 type GetAllCartItemsRow struct {
-	ID             uuid.UUID
-	ShoppingCartID uuid.UUID
-	ProductID      uuid.UUID
-	Quantity       int32
-	Price          string
-	CreatedAt      sql.NullTime
-	UpdatedAt      sql.NullTime
+	ID          uuid.UUID
+	ProductID   uuid.UUID
+	Name        string
+	Description sql.NullString
+	Quantity    int32
+	Price       string
+	ImageUrl    sql.NullString
 }
 
 // Get all items in the cart
@@ -65,12 +76,12 @@ func (q *Queries) GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID)
 		var i GetAllCartItemsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.ShoppingCartID,
 			&i.ProductID,
+			&i.Name,
+			&i.Description,
 			&i.Quantity,
 			&i.Price,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.ImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -86,8 +97,19 @@ func (q *Queries) GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID)
 }
 
 const getCartItem = `-- name: GetCartItem :one
-SELECT id, quantity FROM cart_items
-WHERE shopping_cart_id = $1 AND product_id = $2
+SELECT
+    ci.id,
+    ci.product_id,
+    p.name,
+    p.description,
+    ci.quantity,
+    ci.price,
+    pi.image_url
+FROM cart_items ci
+JOIN products p ON ci.product_id = p.id
+LEFT JOIN product_images pi ON p.id = pi.product_id AND (pi.position = 1 OR pi.position IS NULL)
+WHERE ci.shopping_cart_id = $1 AND ci.product_id = $2
+LIMIT 1
 `
 
 type GetCartItemParams struct {
@@ -96,15 +118,28 @@ type GetCartItemParams struct {
 }
 
 type GetCartItemRow struct {
-	ID       uuid.UUID
-	Quantity int32
+	ID          uuid.UUID
+	ProductID   uuid.UUID
+	Name        string
+	Description sql.NullString
+	Quantity    int32
+	Price       string
+	ImageUrl    sql.NullString
 }
 
 // Get a cart item
 func (q *Queries) GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCartItemRow, error) {
 	row := q.queryRow(ctx, q.getCartItemStmt, getCartItem, arg.ShoppingCartID, arg.ProductID)
 	var i GetCartItemRow
-	err := row.Scan(&i.ID, &i.Quantity)
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.Name,
+		&i.Description,
+		&i.Quantity,
+		&i.Price,
+		&i.ImageUrl,
+	)
 	return i, err
 }
 
@@ -159,11 +194,26 @@ func (q *Queries) UpdateCartUserID(ctx context.Context, arg UpdateCartUserIDPara
 }
 
 const upsertCartItem = `-- name: UpsertCartItem :one
-INSERT INTO cart_items (id, shopping_cart_id, product_id, quantity, price, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())
-ON CONFLICT (shopping_cart_id, product_id)
-DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, updated_at = NOW()
-RETURNING id, shopping_cart_id, product_id, quantity, price, created_at, updated_at
+WITH upserted AS (
+    INSERT INTO cart_items (id, shopping_cart_id, product_id, quantity, price, created_at, updated_at)
+    VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())
+    ON CONFLICT (shopping_cart_id, product_id)
+    DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, updated_at = NOW()
+    RETURNING id, shopping_cart_id, product_id, quantity, price, created_at, updated_at
+)
+SELECT
+    upserted.id,
+    upserted.product_id,
+    products.name,
+    products.description,
+    upserted.quantity,
+    upserted.price,
+    product_images.image_url
+FROM upserted
+JOIN products ON upserted.product_id = products.id
+LEFT JOIN product_images ON products.id = product_images.product_id
+WHERE product_images.position = 1 OR product_images.position IS NULL
+LIMIT 1
 `
 
 type UpsertCartItemParams struct {
@@ -174,13 +224,13 @@ type UpsertCartItemParams struct {
 }
 
 type UpsertCartItemRow struct {
-	ID             uuid.UUID
-	ShoppingCartID uuid.UUID
-	ProductID      uuid.UUID
-	Quantity       int32
-	Price          string
-	CreatedAt      sql.NullTime
-	UpdatedAt      sql.NullTime
+	ID          uuid.UUID
+	ProductID   uuid.UUID
+	Name        string
+	Description sql.NullString
+	Quantity    int32
+	Price       string
+	ImageUrl    sql.NullString
 }
 
 // Insert or update the item in the cart
@@ -194,12 +244,12 @@ func (q *Queries) UpsertCartItem(ctx context.Context, arg UpsertCartItemParams) 
 	var i UpsertCartItemRow
 	err := row.Scan(
 		&i.ID,
-		&i.ShoppingCartID,
 		&i.ProductID,
+		&i.Name,
+		&i.Description,
 		&i.Quantity,
 		&i.Price,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.ImageUrl,
 	)
 	return i, err
 }

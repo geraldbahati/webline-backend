@@ -112,7 +112,7 @@ func (r *cartRepositoryImpl) ClearCart(ctx context.Context, shoppingCartID uuid.
 	return nil
 }
 
-func (r *cartRepositoryImpl) GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID) ([]model.CartItem, error) {
+func (r *cartRepositoryImpl) GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID) ([]*model.CartItem, error) {
 	items, err := r.Queries.GetAllCartItems(ctx, shoppingCartID)
 	if err != nil {
 		r.logger.Error("failed to get all cart items", zap.Error(err))
@@ -228,14 +228,17 @@ func convertDBShoppingCartToModel(dbCart interface{}) *model.ShoppingCart {
 	return &cart
 }
 
-func convertDBCartItemsToModel(dbItems []database.GetAllCartItemsRow) []model.CartItem {
-	items := make([]model.CartItem, len(dbItems))
+func convertDBCartItemsToModel(dbItems []database.GetAllCartItemsRow) []*model.CartItem {
+	items := make([]*model.CartItem, len(dbItems))
 	for i, dbItem := range dbItems {
-		items[i] = model.CartItem{
-			ID:        dbItem.ID,
-			ProductID: dbItem.ProductID,
-			Quantity:  dbItem.Quantity,
-			Price:     dbItem.Price,
+		items[i] = &model.CartItem{
+			ID:          dbItem.ID,
+			ProductID:   dbItem.ProductID,
+			Name:        dbItem.Name,
+			Description: dbItem.Description.String,
+			ImageURL:    dbItem.ImageUrl.String,
+			Quantity:    dbItem.Quantity,
+			Price:       dbItem.Price,
 		}
 	}
 	return items
@@ -243,16 +246,25 @@ func convertDBCartItemsToModel(dbItems []database.GetAllCartItemsRow) []model.Ca
 
 func convertDBCartItemToModel(dbItem database.GetCartItemRow) *model.CartItem {
 	return &model.CartItem{
-		ID:       dbItem.ID,
-		Quantity: dbItem.Quantity,
+		ID:          dbItem.ID,
+		ProductID:   dbItem.ProductID,
+		Name:        dbItem.Name,
+		Description: dbItem.Description.String,
+		ImageURL:    dbItem.ImageUrl.String,
+		Quantity:    dbItem.Quantity,
+		Price:       dbItem.Price,
 	}
 }
 
 func convertDBUpsertCartItemToModel(dbItem database.UpsertCartItemRow) *model.CartItem {
+
 	return &model.CartItem{
-		ID:        dbItem.ID,
-		ProductID: dbItem.ProductID,
-		Quantity:  dbItem.Quantity,
-		Price:     dbItem.Price,
+		ID:          dbItem.ID,
+		ProductID:   dbItem.ProductID,
+		Name:        dbItem.Name,
+		Description: dbItem.Description.String,
+		ImageURL:    dbItem.ImageUrl.String,
+		Quantity:    dbItem.Quantity,
+		Price:       dbItem.Price,
 	}
 }
