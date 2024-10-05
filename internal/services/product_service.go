@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -105,19 +104,21 @@ func NewProductService(
 
 // GetProductBySlug retrieves a product by its slug
 func (s *ProductService) GetProductBySlug(ctx context.Context, slug string) (model.ProductDetail, error) {
-	cacheKey := "product:" + slug
+	// Use standardized cache key function
+	cacheKey := ProductDetailKey(slug)
 	var product model.ProductDetail
 
 	// Try to get product from CacheService
 	err := s.cacheService.Get(ctx, cacheKey, &product)
 	if err == nil && product.Name != "" {
+		s.logger.Debug("Product retrieved from cache", zap.String("slug", slug))
 		return product, nil
 	}
 
 	// If not in cache or error occurred, fetch from database
 	dbProduct, err := s.productRepo.GetProductBySlug(ctx, slug)
 	if err != nil {
-		s.logger.Error("failed to get product by slug", zap.String("slug", slug), zap.Error(err))
+		s.logger.Error("Failed to get product by slug", zap.String("slug", slug), zap.Error(err))
 		return model.ProductDetail{}, fmt.Errorf("failed to get product by slug: %w", err)
 	}
 
@@ -130,7 +131,7 @@ func (s *ProductService) GetProductBySlug(ctx context.Context, slug string) (mod
 	// Cache the product for future requests
 	err = s.cacheService.Set(ctx, cacheKey, product)
 	if err != nil {
-		s.logger.Error("failed to cache product", zap.String("key", cacheKey), zap.Error(err))
+		s.logger.Warn("Failed to cache product", zap.String("key", cacheKey), zap.Error(err))
 		// Proceed without failing if caching fails
 	}
 
@@ -180,29 +181,30 @@ func (s *ProductService) getProductDiscountPercentage(ctx context.Context, produ
 	return 0, nil
 }
 
-// GetProductsByCategoryID retrieves products by their category ID
+// Adjusted method to use standardized cache keys and improved error handling
 func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID string, pageSize int32, page int32) (model.PaginationResult[[]model.Product], error) {
 	// Parse the category ID
 	categoryIDValue, err := uuid.Parse(categoryID)
 	if err != nil {
-		s.logger.Error("invalid category ID format", zap.String("categoryID", categoryID), zap.Error(err))
+		s.logger.Error("Invalid category ID format", zap.String("categoryID", categoryID), zap.Error(err))
 		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("invalid category ID format: %w", err)
 	}
 
-	// Create a cache key
-	cacheKey := fmt.Sprintf("products:category:%s:page:%d:size:%d", categoryID, page, pageSize)
+	// Create a cache key using standardized function
+	cacheKey := GenerateCacheKey(NamespaceProduct, "category", categoryID, "page", strconv.Itoa(int(page)), "size", strconv.Itoa(int(pageSize)))
 
 	var result model.PaginationResult[[]model.Product]
 	// Try to get the result from cache
 	err = s.cacheService.Get(ctx, cacheKey, &result)
 	if err == nil && len(result.Data) > 0 {
+		s.logger.Debug("Products by category retrieved from cache", zap.String("categoryID", categoryID))
 		return result, nil
 	}
 
 	// If not in cache, proceed with database query
 	totalProductsByCategory, err := s.productRepo.CountProductsByParentCategoryID(ctx, categoryIDValue)
 	if err != nil {
-		s.logger.Error("failed to count products by category ID", zap.Error(err))
+		s.logger.Error("Failed to count products by category ID", zap.Error(err))
 		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to count products by category ID: %w", err)
 	}
 
@@ -218,7 +220,7 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 		func(offset int32, limit int32) ([]model.Product, error) {
 			products, err := s.productRepo.GetProductsByCategoryID(ctx, categoryIDValue, limit, offset)
 			if err != nil {
-				s.logger.Error("failed to get products by category ID", zap.Error(err))
+				s.logger.Error("Failed to get products by category ID", zap.Error(err))
 				return nil, fmt.Errorf("failed to get products by category ID: %w", err)
 			}
 
@@ -227,17 +229,18 @@ func (s *ProductService) GetProductsByCategoryID(ctx context.Context, categoryID
 	)
 
 	if err != nil {
-		s.logger.Error("failed to paginate products by category ID", zap.Error(err))
+		s.logger.Error("Failed to paginate products by category ID", zap.Error(err))
 		return model.PaginationResult[[]model.Product]{}, fmt.Errorf("failed to paginate products by category ID: %w", err)
 	}
 
 	// Cache the result
 	err = s.cacheService.Set(ctx, cacheKey, *paginatedProductsByCategory)
 	if err != nil {
-		s.logger.Error("failed to cache products by category ID", zap.Error(err))
+		s.logger.Warn("Failed to cache products by category ID", zap.Error(err))
 		// Continue without failing if caching fails
 	}
 
+	s.logger.Debug("Products by category retrieved from database and cached", zap.String("categoryID", categoryID))
 	return *paginatedProductsByCategory, nil
 }
 
@@ -1004,7 +1007,7 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 			Limit:  100, // Adjust limit as per your requirements
 		})
 		if err != nil {
-			s.logger.Error("failed to get all products for sitemap", zap.Error(err))
+			s.logger.Error("Failed to get all products for sitemap", zap.Error(err))
 			return fmt.Errorf("failed to get all products for sitemap: %w", err)
 		}
 
@@ -1021,10 +1024,11 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 	})
 
 	if err != nil {
-		s.logger.Error("failed to get product sitemap", zap.Error(err))
+		s.logger.Error("Failed to get product sitemap", zap.Error(err))
 		return nil, err
 	}
 
+	s.logger.Debug("Product sitemap retrieved from cache or database")
 	return productSitemap, nil
 }
 
@@ -1040,7 +1044,7 @@ func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, e
 	err := s.cacheService.Get(ctx, cacheKey, &products)
 	if err == nil && len(products) > 0 {
 		productsCacheHits.Inc()
-		s.logger.Info("Products retrieved from cache")
+		s.logger.Debug("Products retrieved from cache")
 		return products, nil
 	}
 	productsCacheMisses.Inc()
@@ -1048,21 +1052,19 @@ func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, e
 	// If not in cache, fetch from database
 	products, err = s.productRepo.GetV2Products(ctx)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			s.logger.Error("no products found")
+		if errors.Is(err, sql.ErrNoRows) {
+			s.logger.Error("No products found")
 			return nil, err
-		default:
-			s.logger.Error("failed to get products", zap.Error(err))
-			return nil, fmt.Errorf("failed to get products: %w", err)
 		}
+		s.logger.Error("Failed to get products", zap.Error(err))
+		return nil, fmt.Errorf("failed to get products: %w", err)
 	}
 
 	for _, product := range products {
-		// update the price
+		// Update the price
 		product.Price = utils.RoundPriceString(product.Price)
 
-		// update the product image URL
+		// Update the product image URL
 		if product.ImageURL != "" {
 			product.ImageURL = s.constructS3URL(product.ImageURL)
 		}
@@ -1070,44 +1072,39 @@ func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, e
 
 	// Cache the products
 	if err := s.cacheService.Set(ctx, cacheKey, products); err != nil {
-		s.logger.Warn("failed to cache products", zap.Error(err))
+		s.logger.Warn("Failed to cache products", zap.Error(err))
 		// Continue even if caching fails
 	}
 
-	s.logger.Info("Products retrieved from database and cached")
+	s.logger.Debug("Products retrieved from database and cached")
 	return products, nil
 }
 
 // GetProductDetail retrieves a product by slug, using cache when available
 func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*model.V2ProductDetail, error) {
-	cacheKey := AdminProductDetailKey(slug)
+	cacheKey := ProductDetailKey(slug)
 	var product model.V2ProductDetail
 
 	err := s.cacheService.GetOrSet(ctx, cacheKey, &product, func() error {
-		var err error
-		var fetchedProduct *model.V2ProductDetail
-		fetchedProduct, err = s.productRepo.GetV2ProductDetailBySlug(ctx, slug)
+		fetchedProduct, err := s.productRepo.GetV2ProductDetailBySlug(ctx, slug)
 		if err != nil {
-			switch {
-			case errors.Is(err, sql.ErrNoRows):
-				s.logger.Error("product not found", zap.String("slug", slug))
+			if errors.Is(err, sql.ErrNoRows) {
+				s.logger.Error("Product not found", zap.String("slug", slug))
 				return fmt.Errorf("product not found: %w", err)
-			default:
-				s.logger.Error("failed to get product", zap.Error(err))
-				return fmt.Errorf("failed to get product: %w", err)
 			}
+			s.logger.Error("Failed to get product", zap.Error(err))
+			return fmt.Errorf("failed to get product: %w", err)
 		}
-		log.Println(fetchedProduct)
 
 		product = *fetchedProduct
 
 		var images []model.V2ProductImage
 		if err := json.Unmarshal(product.Images, &images); err != nil {
-			s.logger.Error("failed to unmarshal images", zap.Error(err))
+			s.logger.Error("Failed to unmarshal images", zap.Error(err))
 			return fmt.Errorf("failed to unmarshal images: %w", err)
 		}
 
-		// update the product image URL
+		// Update the product image URLs
 		for i := range images {
 			if images[i].Url != "" {
 				images[i].Url = s.constructS3URL(images[i].Url)
@@ -1116,7 +1113,7 @@ func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*mo
 
 		updatedImages, err := json.Marshal(images)
 		if err != nil {
-			s.logger.Error("failed to marshal images", zap.Error(err))
+			s.logger.Error("Failed to marshal images", zap.Error(err))
 			return fmt.Errorf("failed to marshal images: %w", err)
 		}
 
@@ -1124,10 +1121,11 @@ func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*mo
 		return nil
 	})
 	if err != nil {
-		s.logger.Error("failed to get product detail", zap.Error(err))
+		s.logger.Error("Failed to get product detail", zap.Error(err))
 		return nil, err
 	}
 
+	s.logger.Debug("Product detail retrieved from cache or database", zap.String("slug", slug))
 	return &product, nil
 }
 
@@ -1560,14 +1558,14 @@ func (s *ProductService) GetProductImagesBySlug(ctx context.Context, slug string
 		// Get the product by slug
 		product, err := s.productRepo.GetProductBySlug(ctx, slug)
 		if err != nil {
-			s.logger.Error("failed to get product by slug", zap.Error(err))
+			s.logger.Error("Failed to get product by slug", zap.Error(err))
 			return fmt.Errorf("failed to get product by slug: %w", err)
 		}
 
 		// Get the product images
 		filePaths, err := s.productImageRepo.GetImageKeysByProductID(ctx, product.ID)
 		if err != nil {
-			s.logger.Error("failed to get product images", zap.Error(err))
+			s.logger.Error("Failed to get product images", zap.Error(err))
 			return fmt.Errorf("failed to get product images: %w", err)
 		}
 
@@ -1583,13 +1581,14 @@ func (s *ProductService) GetProductImagesBySlug(ctx context.Context, slug string
 	err := s.cacheService.GetOrSet(ctx, cacheKey, &images, fetchFunc)
 	if err != nil {
 		// If rate limit exceeded or other cache errors, proceed without cache
-		s.logger.Warn("cache.GetOrSet failed, proceeding without cache", zap.Error(err))
+		s.logger.Warn("Cache GetOrSet failed, proceeding without cache", zap.Error(err))
 		// Fallback: directly fetch from repository
 		if err := fetchFunc(); err != nil {
 			return nil, err
 		}
 	}
 
+	s.logger.Debug("Product images retrieved from cache or database", zap.String("slug", slug))
 	return images, nil
 }
 

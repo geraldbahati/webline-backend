@@ -17,7 +17,7 @@ type CartRepository interface {
 
 	CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (int64, error)
 	ClearCart(ctx context.Context, shoppingCartID uuid.UUID) error
-	GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID) ([]model.CartItem, error)
+	GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID) ([]*model.CartItem, error)
 	GetCartItem(ctx context.Context, shoppingCartID, productID uuid.UUID) (*model.CartItem, error)
 	RemoveCartItem(ctx context.Context, shoppingCartID, productID uuid.UUID) error
 	UpdateCartItemQuantity(ctx context.Context, shoppingCartID, productID uuid.UUID, quantity int32) error

@@ -36,6 +36,7 @@ func init() {
 	prometheus.MustRegister(cacheHits, cacheMisses, cacheErrors)
 }
 
+// CacheService interface defines methods for cache operations.
 type CacheService interface {
 	Set(ctx context.Context, key string, value interface{}) error
 	Get(ctx context.Context, key string, dest interface{}) error
@@ -66,6 +67,7 @@ type cacheService struct {
 	rateLimiter chan struct{}
 }
 
+// NewCacheService creates a new instance of CacheService.
 func NewCacheService(redisClient *redis.Client, logger *zap.Logger, ttl time.Duration, rateLimit int) CacheService {
 	return &cacheService{
 		redisClient: redisClient,
@@ -76,7 +78,6 @@ func NewCacheService(redisClient *redis.Client, logger *zap.Logger, ttl time.Dur
 }
 
 // Initialize performs any necessary initialization tasks.
-// It ensures that initialization happens only once (lazy initialization).
 func (c *cacheService) Initialize() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -85,8 +86,7 @@ func (c *cacheService) Initialize() error {
 		return nil
 	}
 
-	// Perform initialization tasks if needed (e.g., preloading certain cache entries)
-	// For now, we just set the initialized flag.
+	// Perform initialization tasks if needed.
 	c.initialized = true
 	c.logger.Info("CacheService initialized successfully")
 	return nil
@@ -105,7 +105,6 @@ func (c *cacheService) HealthCheck(ctx context.Context) error {
 
 // Set sets a value in the cache with a specified key.
 func (c *cacheService) Set(ctx context.Context, key string, value interface{}) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -120,17 +119,16 @@ func (c *cacheService) Set(ctx context.Context, key string, value interface{}) e
 
 	err = c.redisClient.Set(ctx, key, data, c.ttl).Err()
 	if err != nil {
-		c.logger.Error("Failed to set data in Redis", zap.Error(err))
+		c.logger.Error("Failed to set data in Redis", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
-	c.logger.Info("Data cached successfully", zap.String("key", key))
+	c.logger.Debug("Data cached successfully", zap.String("key", key))
 	return nil
 }
 
 // Get retrieves a value from the cache by key.
 func (c *cacheService) Get(ctx context.Context, key string, dest interface{}) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -140,29 +138,28 @@ func (c *cacheService) Get(ctx context.Context, key string, dest interface{}) er
 	data, err := c.redisClient.Get(ctx, key).Result()
 	if err == redis.Nil {
 		cacheMisses.Inc()
-		c.logger.Info("Cache miss", zap.String("key", key))
+		c.logger.Debug("Cache miss", zap.String("key", key))
 		return nil // Cache miss is not an error
 	} else if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to get data from Redis", zap.Error(err))
+		c.logger.Error("Failed to get data from Redis", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
 	err = json.Unmarshal([]byte(data), dest)
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to unmarshal cached data", zap.Error(err))
+		c.logger.Error("Failed to unmarshal cached data", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
-	c.logger.Info("Data retrieved from cache", zap.String("key", key))
+	c.logger.Debug("Data retrieved from cache", zap.String("key", key))
 	cacheHits.Inc()
 	return nil
 }
 
 // Delete removes a value from the cache by key.
 func (c *cacheService) Delete(ctx context.Context, key string) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -172,17 +169,16 @@ func (c *cacheService) Delete(ctx context.Context, key string) error {
 	err := c.redisClient.Del(ctx, key).Err()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to delete data from Redis", zap.Error(err))
+		c.logger.Error("Failed to delete data from Redis", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
-	c.logger.Info("Data deleted from cache", zap.String("key", key))
+	c.logger.Debug("Data deleted from cache", zap.String("key", key))
 	return nil
 }
 
 // HSet sets a field in a Redis hash.
 func (c *cacheService) HSet(ctx context.Context, key, field string, value interface{}) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -192,24 +188,23 @@ func (c *cacheService) HSet(ctx context.Context, key, field string, value interf
 	data, err := json.Marshal(value)
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to marshal data for HSet", zap.Error(err))
+		c.logger.Error("Failed to marshal data for HSet", zap.Error(err), zap.String("key", key), zap.String("field", field))
 		return err
 	}
 
 	err = c.redisClient.HSet(ctx, key, field, data).Err()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to set hash field in Redis", zap.Error(err))
+		c.logger.Error("Failed to set hash field in Redis", zap.Error(err), zap.String("key", key), zap.String("field", field))
 		return err
 	}
 
-	c.logger.Info("Hash field set successfully", zap.String("key", key), zap.String("field", field))
+	c.logger.Debug("Hash field set successfully", zap.String("key", key), zap.String("field", field))
 	return nil
 }
 
 // HGet retrieves a field from a Redis hash.
 func (c *cacheService) HGet(ctx context.Context, key, field string) (string, error) {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return "", err
@@ -219,22 +214,21 @@ func (c *cacheService) HGet(ctx context.Context, key, field string) (string, err
 	value, err := c.redisClient.HGet(ctx, key, field).Result()
 	if err == redis.Nil {
 		cacheMisses.Inc()
-		c.logger.Info("Hash field not found", zap.String("key", key), zap.String("field", field))
+		c.logger.Debug("Hash field not found", zap.String("key", key), zap.String("field", field))
 		return "", nil
 	} else if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to get hash field from Redis", zap.Error(err))
+		c.logger.Error("Failed to get hash field from Redis", zap.Error(err), zap.String("key", key), zap.String("field", field))
 		return "", err
 	}
 
-	c.logger.Info("Hash field retrieved successfully", zap.String("key", key), zap.String("field", field))
+	c.logger.Debug("Hash field retrieved successfully", zap.String("key", key), zap.String("field", field))
 	cacheHits.Inc()
 	return value, nil
 }
 
 // Pipeline executes multiple Redis commands in a single round-trip.
 func (c *cacheService) Pipeline(ctx context.Context, fn func(redis.Pipeliner) error) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -256,13 +250,12 @@ func (c *cacheService) Pipeline(ctx context.Context, fn func(redis.Pipeliner) er
 		return err
 	}
 
-	c.logger.Info("Pipeline executed successfully")
+	c.logger.Debug("Pipeline executed successfully")
 	return nil
 }
 
 // SAdd adds members to a Redis set.
 func (c *cacheService) SAdd(ctx context.Context, key string, members ...interface{}) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -272,17 +265,16 @@ func (c *cacheService) SAdd(ctx context.Context, key string, members ...interfac
 	err := c.redisClient.SAdd(ctx, key, members...).Err()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to add members to set", zap.Error(err))
+		c.logger.Error("Failed to add members to set", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
-	c.logger.Info("Members added to set successfully", zap.String("key", key))
+	c.logger.Debug("Members added to set successfully", zap.String("key", key))
 	return nil
 }
 
 // SMembers returns all members of a Redis set.
 func (c *cacheService) SMembers(ctx context.Context, key string) ([]string, error) {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return nil, err
@@ -292,18 +284,17 @@ func (c *cacheService) SMembers(ctx context.Context, key string) ([]string, erro
 	members, err := c.redisClient.SMembers(ctx, key).Result()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to get set members", zap.Error(err))
+		c.logger.Error("Failed to get set members", zap.Error(err), zap.String("key", key))
 		return nil, err
 	}
 
-	c.logger.Info("Set members retrieved successfully", zap.String("key", key))
+	c.logger.Debug("Set members retrieved successfully", zap.String("key", key))
 	cacheHits.Inc()
 	return members, nil
 }
 
 // ZAdd adds members to a Redis sorted set.
 func (c *cacheService) ZAdd(ctx context.Context, key string, members ...*redis.Z) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -313,17 +304,16 @@ func (c *cacheService) ZAdd(ctx context.Context, key string, members ...*redis.Z
 	err := c.redisClient.ZAdd(ctx, key, members...).Err()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to add members to sorted set", zap.Error(err))
+		c.logger.Error("Failed to add members to sorted set", zap.Error(err), zap.String("key", key))
 		return err
 	}
 
-	c.logger.Info("Members added to sorted set successfully", zap.String("key", key))
+	c.logger.Debug("Members added to sorted set successfully", zap.String("key", key))
 	return nil
 }
 
 // ZRange returns a range of members from a Redis sorted set.
 func (c *cacheService) ZRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return nil, err
@@ -333,18 +323,17 @@ func (c *cacheService) ZRange(ctx context.Context, key string, start, stop int64
 	members, err := c.redisClient.ZRange(ctx, key, start, stop).Result()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to get range from sorted set", zap.Error(err))
+		c.logger.Error("Failed to get range from sorted set", zap.Error(err), zap.String("key", key))
 		return nil, err
 	}
 
-	c.logger.Info("Range retrieved from sorted set successfully", zap.String("key", key))
+	c.logger.Debug("Range retrieved from sorted set successfully", zap.String("key", key))
 	cacheHits.Inc()
 	return members, nil
 }
 
 // Incr atomically increments a key's value.
 func (c *cacheService) Incr(ctx context.Context, key string) (int64, error) {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return 0, err
@@ -354,18 +343,17 @@ func (c *cacheService) Incr(ctx context.Context, key string) (int64, error) {
 	value, err := c.redisClient.Incr(ctx, key).Result()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to increment key", zap.Error(err))
+		c.logger.Error("Failed to increment key", zap.Error(err), zap.String("key", key))
 		return 0, err
 	}
 
-	c.logger.Info("Key incremented successfully", zap.String("key", key), zap.Int64("value", value))
+	c.logger.Debug("Key incremented successfully", zap.String("key", key), zap.Int64("value", value))
 	cacheHits.Inc()
 	return value, nil
 }
 
 // Decr atomically decrements a key's value.
 func (c *cacheService) Decr(ctx context.Context, key string) (int64, error) {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return 0, err
@@ -375,17 +363,17 @@ func (c *cacheService) Decr(ctx context.Context, key string) (int64, error) {
 	value, err := c.redisClient.Decr(ctx, key).Result()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to decrement key", zap.Error(err))
+		c.logger.Error("Failed to decrement key", zap.Error(err), zap.String("key", key))
 		return 0, err
 	}
 
-	c.logger.Info("Key decremented successfully", zap.String("key", key), zap.Int64("value", value))
+	c.logger.Debug("Key decremented successfully", zap.String("key", key), zap.Int64("value", value))
 	cacheHits.Inc()
 	return value, nil
 }
 
+// DeleteKeysByPattern deletes keys matching a specific pattern.
 func (c *cacheService) DeleteKeysByPattern(ctx context.Context, pattern string) error {
-	// Ensure the cache is initialized
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
@@ -408,9 +396,8 @@ func (c *cacheService) DeleteKeysByPattern(ctx context.Context, pattern string) 
 			if err := c.redisClient.Unlink(ctx, fetchedKeys...).Err(); err != nil {
 				cacheErrors.Inc()
 				c.logger.Error("Failed to unlink keys", zap.Strings("keys", fetchedKeys), zap.Error(err))
-				// Continue attempting to delete remaining keys
 			} else {
-				c.logger.Info("Unlinked keys successfully", zap.Int("count", len(fetchedKeys)))
+				c.logger.Debug("Unlinked keys successfully", zap.Int("count", len(fetchedKeys)), zap.String("pattern", pattern))
 			}
 		}
 
@@ -425,12 +412,11 @@ func (c *cacheService) DeleteKeysByPattern(ctx context.Context, pattern string) 
 }
 
 // GetOrSet retrieves a value from the cache or sets it using the provided fetch function.
-// It implements rate limiting to prevent cache stampedes.
 func (c *cacheService) GetOrSet(ctx context.Context, key string, dest interface{}, fetchFunc func() error) error {
 	// Acquire a slot in the rate limiter
 	select {
 	case c.rateLimiter <- struct{}{}:
-		// Acquired, proceed
+		// Proceed
 	default:
 		// Rate limit exceeded
 		c.logger.Warn("Rate limit exceeded for cache GetOrSet", zap.String("key", key))
@@ -526,6 +512,10 @@ func isEmpty(dest interface{}) (bool, error) {
 	case *model.CartItem:
 		return v == nil || v.ID == uuid.Nil, nil
 	case *[]model.CartItem:
+		return v == nil || len(*v) == 0, nil
+	case *[]*model.CartItem:
+		return v == nil || len(*v) == 0, nil
+	case *[]model.ProductImage:
 		return v == nil || len(*v) == 0, nil
 	// Add more cases based on your models
 	default:

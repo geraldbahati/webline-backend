@@ -24,7 +24,15 @@ type ProductAnalyticService struct {
 	cacheService     CacheService
 }
 
-func NewProductAnalyticService(logger *zap.Logger, config *appconfig.Config, analyticRep *repository.ProductAnalyticRepository, productImageRepo *repository.ProductImageRepository, discountRepo *repository.DiscountRepository, cacheService CacheService) *ProductAnalyticService {
+// NewProductAnalyticService creates a new instance of ProductAnalyticService.
+func NewProductAnalyticService(
+	logger *zap.Logger,
+	config *appconfig.Config,
+	analyticRep *repository.ProductAnalyticRepository,
+	productImageRepo *repository.ProductImageRepository,
+	discountRepo *repository.DiscountRepository,
+	cacheService CacheService,
+) *ProductAnalyticService {
 	return &ProductAnalyticService{
 		logger:           logger,
 		config:           config,
@@ -35,15 +43,12 @@ func NewProductAnalyticService(logger *zap.Logger, config *appconfig.Config, ana
 	}
 }
 
-func (s *ProductAnalyticService) generateCacheKey(category string, limit int32) string {
-	return fmt.Sprintf("products:%s:%d", category, limit)
-}
-
+// getProductImages retrieves product images and constructs their S3 URLs.
 func (s *ProductAnalyticService) getProductImages(ctx context.Context, productID uuid.UUID) ([]model.ProductImage, error) {
 	productImages, err := s.productImageRepo.ListProductImagesByProductID(ctx, uuid.NullUUID{UUID: productID, Valid: true})
 	if err != nil {
-		s.logger.Error("failed to get product images", zap.Error(err))
-		return nil, fmt.Errorf("failed to get product images: %w", err)
+		s.logger.Error("Failed to get product images", zap.Error(err))
+		return nil, fmt.Errorf("get product images: %w", err)
 	}
 
 	var images []model.ProductImage
@@ -58,33 +63,36 @@ func (s *ProductAnalyticService) getProductImages(ctx context.Context, productID
 	return images, nil
 }
 
+// getProductDiscountPercentage retrieves the discount percentage for a product.
 func (s *ProductAnalyticService) getProductDiscountPercentage(ctx context.Context, productID uuid.UUID) (float64, error) {
 	discount, err := s.discountRepo.GetDiscountByProductID(ctx, &productID)
-	if err != nil {
-		s.logger.Error("failed to get product discount", zap.Error(err))
-		return 0, fmt.Errorf("failed to get product discount: %w", err)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.logger.Error("Failed to get product discount", zap.Error(err))
+		return 0, fmt.Errorf("get product discount: %w", err)
 	}
 
 	if discount != nil {
 		discountPercentage, err := strconv.ParseFloat(discount.DiscountPercentage, 64)
 		if err != nil {
-			s.logger.Error("failed to parse discount percentage", zap.Error(err))
-			return 0, fmt.Errorf("failed to parse discount percentage: %w", err)
+			s.logger.Error("Failed to parse discount percentage", zap.Error(err))
+			return 0, fmt.Errorf("parse discount percentage: %w", err)
 		}
 		return discountPercentage, nil
 	}
 
+	// No discount found; return 0%
 	return 0, nil
 }
 
-// constructS3URL constructs the S3 URL for a given file path
+// constructS3URL constructs the S3 URL for a given file path.
 func (s *ProductAnalyticService) constructS3URL(filePath string) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)
 }
 
-// GetBestSellerProducts returns the best seller products with caching and rate limiting.
+// GetBestSellerProducts returns the best seller products with caching.
 func (s *ProductAnalyticService) GetBestSellerProducts(ctx context.Context, limit int32) ([]*model.Product, error) {
-	cacheKey := s.generateCacheKey("best_sellers", limit)
+	// Use standardized cache key function
+	cacheKey := ProductBestSellersKey(limit)
 
 	var products []*model.Product
 
@@ -92,6 +100,11 @@ func (s *ProductAnalyticService) GetBestSellerProducts(ctx context.Context, limi
 		// Fetch from repository
 		fetchedProducts, err := s.analyticRep.GetBestSellerProducts(ctx, limit)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				s.logger.Info("No best seller products found")
+				return nil
+			}
+			s.logger.Error("Failed to get best seller products", zap.Error(err))
 			return err
 		}
 
@@ -120,21 +133,17 @@ func (s *ProductAnalyticService) GetBestSellerProducts(ctx context.Context, limi
 	})
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.Info("No best seller products found")
-			return nil, err
-		}
 		s.logger.Error("Failed to get best seller products", zap.Error(err))
 		return nil, err
 	}
 
+	s.logger.Debug("Best seller products retrieved", zap.Int("count", len(products)))
 	return products, nil
 }
 
-
-// GetFeaturedProducts returns the featured products with caching
+// GetFeaturedProducts returns the featured products with caching.
 func (s *ProductAnalyticService) GetFeaturedProducts(ctx context.Context, limit int32) ([]*model.Product, error) {
-	cacheKey := s.generateCacheKey("featured", limit)
+	cacheKey := ProductFeaturedKey(limit)
 
 	var products []*model.Product
 
@@ -144,7 +153,7 @@ func (s *ProductAnalyticService) GetFeaturedProducts(ctx context.Context, limit 
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				s.logger.Info("No featured products found")
-				return err
+				return nil
 			}
 			s.logger.Error("Failed to get featured products", zap.Error(err))
 			return err
@@ -160,7 +169,7 @@ func (s *ProductAnalyticService) GetFeaturedProducts(ctx context.Context, limit 
 			discountPercent, err := s.getProductDiscountPercentage(ctx, product.ID)
 			if err != nil {
 				return err
-			}	
+			}
 
 			product.Price = utils.RoundPriceString(product.Price)
 			if len(productImages) > 0 {
@@ -175,15 +184,17 @@ func (s *ProductAnalyticService) GetFeaturedProducts(ctx context.Context, limit 
 	})
 
 	if err != nil {
+		s.logger.Error("Failed to get featured products", zap.Error(err))
 		return nil, err
 	}
 
+	s.logger.Debug("Featured products retrieved", zap.Int("count", len(products)))
 	return products, nil
 }
 
-// GetNewArrivalProducts returns the new arrival products with caching
+// GetNewArrivalProducts returns the new arrival products with caching.
 func (s *ProductAnalyticService) GetNewArrivalProducts(ctx context.Context, limit int32) ([]*model.Product, error) {
-	cacheKey := s.generateCacheKey("new_arrivals", limit)
+	cacheKey := ProductNewArrivalsKey(limit)
 
 	var products []*model.Product
 
@@ -193,7 +204,7 @@ func (s *ProductAnalyticService) GetNewArrivalProducts(ctx context.Context, limi
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				s.logger.Info("No new arrival products found")
-				return err
+				return nil
 			}
 			s.logger.Error("Failed to get new arrival products", zap.Error(err))
 			return err
@@ -212,7 +223,6 @@ func (s *ProductAnalyticService) GetNewArrivalProducts(ctx context.Context, limi
 			}
 
 			product.Price = utils.RoundPriceString(product.Price)
-
 			if len(productImages) > 0 {
 				product.ImageURL = productImages[0].S3URL
 			}
@@ -225,15 +235,17 @@ func (s *ProductAnalyticService) GetNewArrivalProducts(ctx context.Context, limi
 	})
 
 	if err != nil {
+		s.logger.Error("Failed to get new arrival products", zap.Error(err))
 		return nil, err
 	}
 
+	s.logger.Debug("New arrival products retrieved", zap.Int("count", len(products)))
 	return products, nil
 }
 
-// GetDailyDealsProducts returns the daily deals products with caching
+// GetDailyDealsProducts returns the daily deals products with caching.
 func (s *ProductAnalyticService) GetDailyDealsProducts(ctx context.Context) ([]*model.Product, error) {
-	cacheKey := s.generateCacheKey("daily_deals", 0) // Using 0 as limit since it's not specified
+	cacheKey := ProductDailyDealsKey()
 
 	var products []*model.Product
 
@@ -243,13 +255,13 @@ func (s *ProductAnalyticService) GetDailyDealsProducts(ctx context.Context) ([]*
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				s.logger.Info("No daily deals products found")
-				return err
+				return nil
 			}
 			s.logger.Error("Failed to get daily deals products", zap.Error(err))
 			return err
 		}
 
-		// Update products with S3 URLs
+		// Update products with S3 URLs and rounding price
 		for _, product := range fetchedProducts {
 			product.Price = utils.RoundPriceString(product.Price)
 			if product.ImageURL != "" {
@@ -263,8 +275,10 @@ func (s *ProductAnalyticService) GetDailyDealsProducts(ctx context.Context) ([]*
 	})
 
 	if err != nil {
+		s.logger.Error("Failed to get daily deals products", zap.Error(err))
 		return nil, err
 	}
 
+	s.logger.Debug("Daily deals products retrieved", zap.Int("count", len(products)))
 	return products, nil
 }
