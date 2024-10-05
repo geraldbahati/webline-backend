@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 	"weblineBackend/internal/appconfig"
@@ -718,6 +719,7 @@ func (s *OrderService) UpdateExchangeRate(ctx context.Context, rate float64) err
 
 	// Invalidate all cached product-related keys using standardized pattern.
 	pattern := ProductCachePattern()
+	log.Println("pattern", pattern)
 	err = s.cacheService.DeleteKeysByPattern(ctx, pattern)
 	if err != nil {
 		s.logger.Warn("Failed to invalidate product cache keys", zap.String("pattern", pattern), zap.Error(err))

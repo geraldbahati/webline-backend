@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -160,5 +161,5 @@ func ProductDailyDealsKey() string {
 
 // ProductCachePattern generates a Redis key pattern for product cache.
 func ProductCachePattern() string {
-	return GenerateCacheKey(NamespaceProduct, "*")
+	return fmt.Sprintf("%s:*", GenerateCacheKey(NamespaceProduct))
 }
