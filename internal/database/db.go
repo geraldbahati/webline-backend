@@ -81,6 +81,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createAdminRequestStmt, err = db.PrepareContext(ctx, createAdminRequest); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAdminRequest: %w", err)
 	}
+	if q.createCartForGuestStmt, err = db.PrepareContext(ctx, createCartForGuest); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCartForGuest: %w", err)
+	}
+	if q.createCartForUserStmt, err = db.PrepareContext(ctx, createCartForUser); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCartForUser: %w", err)
+	}
 	if q.createCategoryStmt, err = db.PrepareContext(ctx, createCategory); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCategory: %w", err)
 	}
@@ -285,8 +291,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getBestSellerProductsStmt, err = db.PrepareContext(ctx, getBestSellerProducts); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBestSellerProducts: %w", err)
 	}
-	if q.getCartBySessionReferenceStmt, err = db.PrepareContext(ctx, getCartBySessionReference); err != nil {
-		return nil, fmt.Errorf("error preparing query GetCartBySessionReference: %w", err)
+	if q.getCartByGuestIDStmt, err = db.PrepareContext(ctx, getCartByGuestID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCartByGuestID: %w", err)
 	}
 	if q.getCartItemStmt, err = db.PrepareContext(ctx, getCartItem); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartItem: %w", err)
@@ -495,6 +501,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getSessionByUserIDStmt, err = db.PrepareContext(ctx, getSessionByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetSessionByUserID: %w", err)
 	}
+	if q.getShoppingCartByIDStmt, err = db.PrepareContext(ctx, getShoppingCartByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetShoppingCartByID: %w", err)
+	}
 	if q.getShoppingCartByUserIDStmt, err = db.PrepareContext(ctx, getShoppingCartByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetShoppingCartByUserID: %w", err)
 	}
@@ -641,6 +650,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.storeRefreshTokenStmt, err = db.PrepareContext(ctx, storeRefreshToken); err != nil {
 		return nil, fmt.Errorf("error preparing query StoreRefreshToken: %w", err)
+	}
+	if q.updateCartGuestIDStmt, err = db.PrepareContext(ctx, updateCartGuestID); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCartGuestID: %w", err)
 	}
 	if q.updateCartItemQuantityStmt, err = db.PrepareContext(ctx, updateCartItemQuantity); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCartItemQuantity: %w", err)
@@ -842,6 +854,16 @@ func (q *Queries) Close() error {
 	if q.createAdminRequestStmt != nil {
 		if cerr := q.createAdminRequestStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createAdminRequestStmt: %w", cerr)
+		}
+	}
+	if q.createCartForGuestStmt != nil {
+		if cerr := q.createCartForGuestStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCartForGuestStmt: %w", cerr)
+		}
+	}
+	if q.createCartForUserStmt != nil {
+		if cerr := q.createCartForUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCartForUserStmt: %w", cerr)
 		}
 	}
 	if q.createCategoryStmt != nil {
@@ -1184,9 +1206,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getBestSellerProductsStmt: %w", cerr)
 		}
 	}
-	if q.getCartBySessionReferenceStmt != nil {
-		if cerr := q.getCartBySessionReferenceStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getCartBySessionReferenceStmt: %w", cerr)
+	if q.getCartByGuestIDStmt != nil {
+		if cerr := q.getCartByGuestIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartByGuestIDStmt: %w", cerr)
 		}
 	}
 	if q.getCartItemStmt != nil {
@@ -1534,6 +1556,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getSessionByUserIDStmt: %w", cerr)
 		}
 	}
+	if q.getShoppingCartByIDStmt != nil {
+		if cerr := q.getShoppingCartByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getShoppingCartByIDStmt: %w", cerr)
+		}
+	}
 	if q.getShoppingCartByUserIDStmt != nil {
 		if cerr := q.getShoppingCartByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getShoppingCartByUserIDStmt: %w", cerr)
@@ -1779,6 +1806,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing storeRefreshTokenStmt: %w", cerr)
 		}
 	}
+	if q.updateCartGuestIDStmt != nil {
+		if cerr := q.updateCartGuestIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCartGuestIDStmt: %w", cerr)
+		}
+	}
 	if q.updateCartItemQuantityStmt != nil {
 		if cerr := q.updateCartItemQuantityStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCartItemQuantityStmt: %w", cerr)
@@ -2007,6 +2039,8 @@ type Queries struct {
 	countProductsStmt                          *sql.Stmt
 	countProductsByParentCategoryIDStmt        *sql.Stmt
 	createAdminRequestStmt                     *sql.Stmt
+	createCartForGuestStmt                     *sql.Stmt
+	createCartForUserStmt                      *sql.Stmt
 	createCategoryStmt                         *sql.Stmt
 	createCompanyStmt                          *sql.Stmt
 	createDiscountStmt                         *sql.Stmt
@@ -2075,7 +2109,7 @@ type Queries struct {
 	getAllRolesStmt                            *sql.Stmt
 	getApprovalTokenStmt                       *sql.Stmt
 	getBestSellerProductsStmt                  *sql.Stmt
-	getCartBySessionReferenceStmt              *sql.Stmt
+	getCartByGuestIDStmt                       *sql.Stmt
 	getCartItemStmt                            *sql.Stmt
 	getCategoriesByParentIDStmt                *sql.Stmt
 	getCategoriesWithProductsCountStmt         *sql.Stmt
@@ -2145,6 +2179,7 @@ type Queries struct {
 	getSalesTrendStmt                          *sql.Stmt
 	getSessionBySessionIDStmt                  *sql.Stmt
 	getSessionByUserIDStmt                     *sql.Stmt
+	getShoppingCartByIDStmt                    *sql.Stmt
 	getShoppingCartByUserIDStmt                *sql.Stmt
 	getStatusByIDStmt                          *sql.Stmt
 	getTotalCategoryProductsByFiltersStmt      *sql.Stmt
@@ -2194,6 +2229,7 @@ type Queries struct {
 	storeApprovalTokenStmt                     *sql.Stmt
 	storePasswordResetTokenStmt                *sql.Stmt
 	storeRefreshTokenStmt                      *sql.Stmt
+	updateCartGuestIDStmt                      *sql.Stmt
 	updateCartItemQuantityStmt                 *sql.Stmt
 	updateCartTotalsStmt                       *sql.Stmt
 	updateCartUserIDStmt                       *sql.Stmt
@@ -2253,6 +2289,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		countProductsStmt:                          q.countProductsStmt,
 		countProductsByParentCategoryIDStmt:        q.countProductsByParentCategoryIDStmt,
 		createAdminRequestStmt:                     q.createAdminRequestStmt,
+		createCartForGuestStmt:                     q.createCartForGuestStmt,
+		createCartForUserStmt:                      q.createCartForUserStmt,
 		createCategoryStmt:                         q.createCategoryStmt,
 		createCompanyStmt:                          q.createCompanyStmt,
 		createDiscountStmt:                         q.createDiscountStmt,
@@ -2321,7 +2359,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAllRolesStmt:                            q.getAllRolesStmt,
 		getApprovalTokenStmt:                       q.getApprovalTokenStmt,
 		getBestSellerProductsStmt:                  q.getBestSellerProductsStmt,
-		getCartBySessionReferenceStmt:              q.getCartBySessionReferenceStmt,
+		getCartByGuestIDStmt:                       q.getCartByGuestIDStmt,
 		getCartItemStmt:                            q.getCartItemStmt,
 		getCategoriesByParentIDStmt:                q.getCategoriesByParentIDStmt,
 		getCategoriesWithProductsCountStmt:         q.getCategoriesWithProductsCountStmt,
@@ -2391,6 +2429,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getSalesTrendStmt:                          q.getSalesTrendStmt,
 		getSessionBySessionIDStmt:                  q.getSessionBySessionIDStmt,
 		getSessionByUserIDStmt:                     q.getSessionByUserIDStmt,
+		getShoppingCartByIDStmt:                    q.getShoppingCartByIDStmt,
 		getShoppingCartByUserIDStmt:                q.getShoppingCartByUserIDStmt,
 		getStatusByIDStmt:                          q.getStatusByIDStmt,
 		getTotalCategoryProductsByFiltersStmt:      q.getTotalCategoryProductsByFiltersStmt,
@@ -2440,6 +2479,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		storeApprovalTokenStmt:                     q.storeApprovalTokenStmt,
 		storePasswordResetTokenStmt:                q.storePasswordResetTokenStmt,
 		storeRefreshTokenStmt:                      q.storeRefreshTokenStmt,
+		updateCartGuestIDStmt:                      q.updateCartGuestIDStmt,
 		updateCartItemQuantityStmt:                 q.updateCartItemQuantityStmt,
 		updateCartTotalsStmt:                       q.updateCartTotalsStmt,
 		updateCartUserIDStmt:                       q.updateCartUserIDStmt,

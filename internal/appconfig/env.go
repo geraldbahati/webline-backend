@@ -37,9 +37,10 @@ type Config struct {
 	RedisPassword      string
 	RedisDB            int
 	RedisPoolSize      int
-	RedisMinIdleConns int
-	RedisTTL          time.Duration
-	RedisRateLimit    int
+	RedisMinIdleConns  int
+	RedisTTL           time.Duration
+	RedisRateLimit     int
+	Env                string
 }
 
 // LoadConfig reads environment variables and constructs a Config struct.
@@ -117,11 +118,11 @@ func LoadConfig() (*Config, error) {
 
 	// Initialize Config struct.
 	cfg := &Config{
-		Port:            serverPort,
-		DbUrl:           dbUrl,
-		DefaultPageSize: 100,
-		DefaultPage:     1,
-		AWSAccessKeyID:  getEnv("AWS_ACCESS_KEY_ID", ""),
+		Port:               serverPort,
+		DbUrl:              dbUrl,
+		DefaultPageSize:    100,
+		DefaultPage:        1,
+		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
 		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
 		AWSRegion:          getEnv("AWS_REGION", "us-east-1"),
 		AWSBucketName:      getEnv("AWS_BUCKET_NAME", "your_bucket_name"),
@@ -146,8 +147,9 @@ func LoadConfig() (*Config, error) {
 		RedisDB:            redisDB,
 		RedisPoolSize:      redisPoolSize,
 		RedisMinIdleConns:  redisMinIdleConns,
-		RedisTTL:          time.Duration(redisTTL),
-		RedisRateLimit:    redisRateLimit,
+		RedisTTL:           time.Duration(redisTTL),
+		RedisRateLimit:     redisRateLimit,
+		Env:                getEnv("ENV", "local"),
 	}
 
 	return cfg, nil
