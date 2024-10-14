@@ -83,7 +83,7 @@ func ProductAllKey() string {
 func ProductSitemapKey() string {
 	return GenerateCacheKey(NamespaceProduct, SubNamespaceSitemap)
 }
-
+ 
 // ExchangeRateKey generates a Redis key for exchange rates by currency.
 func ExchangeRateKey(currency string) string {
 	return GenerateCacheKey(NamespaceExchangeRate, SubNamespaceRate, currency)
