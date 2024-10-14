@@ -3,58 +3,31 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
-
 	"weblineBackend/pkg/utils"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-const (
-	// BearerScheme defines the authorization scheme.
-	BearerScheme = "Bearer"
-)
+const bearerScheme = "Bearer"
 
-// ErrorResponse represents the structure of error messages returned to clients.
+// User represents the authenticated or guest user
+type User struct {
+	UserID  uuid.UUID // For authenticated users
+	GuestID string    // For guest users
+	IsGuest bool
+}
+
+// ErrorResponse represents the structure of error messages returned to clients
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// extractBearerToken extracts the token from the Authorization header.
-// Returns the token and a boolean indicating success.
-func extractBearerToken(authHeader string) (string, bool) {
-	if !strings.HasPrefix(authHeader, BearerScheme+" ") {
-		return "", false
-	}
-	return strings.TrimPrefix(authHeader, BearerScheme+" "), true
-}
-
-// writeJSONError sends a JSON-formatted error response with the specified status code and message.
-func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	resp := ErrorResponse{Error: message}
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		// In case of JSON encoding failure, log the error and send a plain text response.
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
-}
-
-// parseToken extracts the user ID from the token.
-// Returns the user ID and any parsing error encountered.
-func parseToken(token string) (uuid.UUID, error) {
-	claims, err := utils.ParseToken(token, true)
-	if err != nil {
-		return uuid.Nil, err
-	}
-	return claims.UserId, nil
-}
-
-// Auth is a middleware that enforces authentication by validating the Bearer token.
-// It sets the user ID in the request context upon successful validation.
-func Auth(logger *zap.Logger) func(next http.Handler) http.Handler {
+// Auth middleware handles both authenticated and guest users
+func Auth(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -64,53 +37,142 @@ func Auth(logger *zap.Logger) func(next http.Handler) http.Handler {
 				return
 			}
 
-			token, ok := extractBearerToken(authHeader)
-			if !ok {
-				logger.Warn("Authorization header format is invalid", zap.String("header", authHeader))
+			tokenString, err := getTokenFromHeader(authHeader)
+			if err != nil {
+				logger.Warn("Invalid authorization header format", zap.Error(err))
 				writeJSONError(w, http.StatusUnauthorized, "Invalid authorization header format")
 				return
 			}
 
-			userID, err := parseToken(token)
+			// Parse and validate the token
+			claims, err := utils.ParseToken(tokenString, true)
 			if err != nil {
 				logger.Warn("Token parsing failed", zap.Error(err))
 				writeJSONError(w, http.StatusUnauthorized, "Invalid or expired token")
 				return
 			}
 
-			// Store the user ID in the context
-			ctx := context.WithValue(r.Context(), UserIDKey, userID)
+			// Create a User struct based on the token claims
+			user, err := createUserFromClaims(claims)
+			if err != nil {
+				logger.Warn("Invalid token role", zap.Error(err))
+				writeJSONError(w, http.StatusUnauthorized, "Invalid token role")
+				return
+			}
+
+			// Store the user in the context
+			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			// Optionally, store userID for easy access
+			if !user.IsGuest {
+				ctx = context.WithValue(ctx, UserIDKey, user.UserID)
+			}
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// OptionalAuth is a middleware that optionally parses the Bearer token.
-// It sets the user ID in the context if the token is valid but does not enforce authentication.
+// getTokenFromHeader extracts the token from the Authorization header
+func getTokenFromHeader(authHeader string) (string, error) {
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], bearerScheme) {
+		return "", errors.New("invalid authorization header format")
+	}
+	return strings.TrimSpace(parts[1]), nil
+}
+
+// createUserFromClaims creates a User struct based on JWT claims
+func createUserFromClaims(claims interface{}) (User, error) {
+	switch c := claims.(type) {
+	case *utils.UserClaims:
+		switch c.Role {
+		case "guest":
+			return User{
+				GuestID: c.GuestID,
+				IsGuest: true,
+			}, nil
+		case "user":
+			return User{
+				UserID:  c.UserID,
+				IsGuest: false,
+			}, nil
+		default:
+			return User{}, errors.New("invalid token role")
+		}
+	case *utils.GuestClaims:
+		return User{
+			GuestID: c.GuestID.String(),
+			IsGuest: true,
+		}, nil
+	default:
+		return User{}, errors.New("invalid claims type")
+	}
+}
+
+// writeJSONError sends a JSON-formatted error response
+func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	resp := ErrorResponse{Error: message}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		// In case of JSON encoding failure, send a plain text response
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// GetUser retrieves the user from the context
+func GetUser(ctx context.Context) (User, bool) {
+	user, ok := ctx.Value(UserContextKey).(User)
+	return user, ok
+}
+
+// GetUserID retrieves the user ID from the context
+func GetUserID(ctx context.Context) (uuid.UUID, bool) {
+	userID, ok := ctx.Value(UserIDKey).(uuid.UUID)
+	return userID, ok
+}
+
+// OptionalAuth middleware optionally parses the Bearer token
 func OptionalAuth(logger *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" {
+				tokenString, err := getTokenFromHeader(authHeader)
+				if err != nil {
+					logger.Warn("Invalid authorization header format", zap.Error(err))
+					// Proceed without setting user in context
+					next.ServeHTTP(w, r)
+					return
+				}
 
-			if token, ok := extractBearerToken(authHeader); ok {
-				userID, err := parseToken(token)
+				// Parse and validate the token
+				claims, err := utils.ParseToken(tokenString, true)
 				if err != nil {
 					logger.Warn("OptionalAuth: Token parsing failed", zap.Error(err))
-				} else {
-					// Store the user ID in the context
-					ctx := context.WithValue(r.Context(), UserIDKey, userID)
-					r = r.WithContext(ctx)
+					// Proceed without setting user in context
+					next.ServeHTTP(w, r)
+					return
 				}
+
+				// Create a User struct based on the token claims
+				user, err := createUserFromClaims(claims)
+				if err != nil {
+					logger.Warn("OptionalAuth: Invalid token role", zap.Error(err))
+					// Proceed without setting user in context
+					next.ServeHTTP(w, r)
+					return
+				}
+
+				// Store the user in the context
+				ctx := context.WithValue(r.Context(), UserContextKey, user)
+
+				ctx = context.WithValue(ctx, UserIDKey, user.UserID)
+
+				r = r.WithContext(ctx)
 			}
 
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// GetUserID retrieves the user ID from the context.
-// Returns the user ID and a boolean indicating whether it was found.
-func GetUserID(ctx context.Context) (uuid.UUID, bool) {
-	userID, ok := ctx.Value(UserIDKey).(uuid.UUID)
-	return userID, ok
 }
