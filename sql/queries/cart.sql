@@ -1,3 +1,5 @@
+-- cart_queries.sql
+
 -- Get a cart item
 -- name: GetCartItem :one
 SELECT
@@ -13,7 +15,6 @@ JOIN products p ON ci.product_id = p.id
 LEFT JOIN product_images pi ON p.id = pi.product_id AND (pi.position = 1 OR pi.position IS NULL)
 WHERE ci.shopping_cart_id = $1 AND ci.product_id = $2
 LIMIT 1;
-
 
 -- Insert or update the item in the cart
 -- name: UpsertCartItem :one
@@ -66,10 +67,9 @@ WHERE ci.shopping_cart_id = $1
 GROUP BY ci.id, p.id, pi.image_url
 ORDER BY ci.created_at ASC;
 
-
 -- Calculate the total price of items in the cart
 -- name: CalculateCartTotal :one
-SELECT SUM(quantity * price) AS total_price
+SELECT COALESCE(SUM(quantity * price), 0.0)::numeric(10,2) AS total_price
 FROM cart_items
 WHERE shopping_cart_id = $1;
 
@@ -78,7 +78,81 @@ WHERE shopping_cart_id = $1;
 DELETE FROM cart_items
 WHERE shopping_cart_id = $1;
 
+-- Update the cart's user ID and nullify guest_id
 -- name: UpdateCartUserID :exec
 UPDATE shopping_carts
-SET user_id = $2
+SET user_id = $2,
+    guest_id = NULL
+WHERE id = $1;
+
+-- Update the cart to associate with a guest ID and nullify user_id
+-- name: UpdateCartGuestID :exec
+UPDATE shopping_carts
+SET guest_id = $2,
+    user_id = NULL
+WHERE id = $1;
+
+-- Get a shopping cart by user ID
+-- name: GetShoppingCartByUserID :one
+SELECT *
+FROM shopping_carts
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- Get a shopping cart by guest ID
+-- name: GetCartByGuestID :one
+SELECT *
+FROM shopping_carts
+WHERE guest_id = $1
+LIMIT 1;
+
+-- Create a shopping cart for a user
+-- name: CreateCartForUser :one
+INSERT INTO shopping_carts (user_id, total_items, total_price)
+VALUES ($1, 0, 0.0)
+ON CONFLICT (user_id)
+DO UPDATE SET updated_at = NOW()
+RETURNING *;
+
+-- Create a shopping cart for a guest
+-- name: CreateCartForGuest :one
+INSERT INTO shopping_carts (guest_id, total_items, total_price)
+VALUES ($1, 0, 0.0)
+ON CONFLICT (guest_id)
+DO UPDATE SET updated_at = NOW()
+RETURNING *;
+
+-- name: UpdateCartTotals :exec
+UPDATE shopping_carts
+SET 
+    total_price = (
+        SELECT COALESCE(SUM(price * quantity), 0)
+        FROM cart_items
+        WHERE shopping_cart_id = shopping_carts.id
+    ),
+    total_items = (
+        SELECT COALESCE(SUM(quantity), 0)
+        FROM cart_items
+        WHERE shopping_cart_id = shopping_carts.id
+    ),
+    updated_at = NOW()
+WHERE shopping_carts.id = $1;
+
+-- Delete a shopping cart
+-- name: DeleteShoppingCart :exec
+DELETE FROM shopping_carts
+WHERE id = $1;
+
+-- name: CreateShoppingCart :one
+INSERT INTO shopping_carts (user_id, guest_id, total_items, total_price)
+VALUES ($1, $2, 0, 0.0)
+ON CONFLICT (user_id)
+DO UPDATE SET updated_at = NOW()
+RETURNING *;
+
+-- Get a shopping cart by ID
+-- name: GetShoppingCartByID :one
+SELECT *
+FROM shopping_carts
 WHERE id = $1;
