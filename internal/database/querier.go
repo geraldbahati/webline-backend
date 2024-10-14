@@ -22,7 +22,7 @@ type Querier interface {
 	ArchivePromotions(ctx context.Context, dollar_1 []string) error
 	AssignRoleToUser(ctx context.Context, arg AssignRoleToUserParams) (AssignRoleToUserRow, error)
 	// Calculate the total price of items in the cart
-	CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (int64, error)
+	CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (string, error)
 	CancelOrder(ctx context.Context, id uuid.UUID) (sql.NullString, error)
 	ChangeOrderPaymentMethod(ctx context.Context, arg ChangeOrderPaymentMethodParams) (sql.NullString, error)
 	CheckCategoryExistence(ctx context.Context, id uuid.UUID) (bool, error)
@@ -33,6 +33,10 @@ type Querier interface {
 	CountProducts(ctx context.Context) (int64, error)
 	CountProductsByParentCategoryID(ctx context.Context, id uuid.UUID) (int64, error)
 	CreateAdminRequest(ctx context.Context, arg CreateAdminRequestParams) (uuid.UUID, error)
+	// Create a shopping cart for a guest
+	CreateCartForGuest(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error)
+	// Create a shopping cart for a user
+	CreateCartForUser(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) error
 	CreateCompany(ctx context.Context, arg CreateCompanyParams) (uuid.UUID, error)
 	CreateDiscount(ctx context.Context, arg CreateDiscountParams) (Discount, error)
@@ -55,8 +59,7 @@ type Querier interface {
 	CreateRelatedProduct(ctx context.Context, arg CreateRelatedProductParams) (RelatedProduct, error)
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
-	// Create a new shopping cart
-	CreateShoppingCart(ctx context.Context, arg CreateShoppingCartParams) (CreateShoppingCartRow, error)
+	CreateShoppingCart(ctx context.Context, arg CreateShoppingCartParams) (ShoppingCart, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateVerificationToken(ctx context.Context, arg CreateVerificationTokenParams) (VerificationToken, error)
 	DeactivateUser(ctx context.Context, id uuid.UUID) (DeactivateUserRow, error)
@@ -104,8 +107,9 @@ type Querier interface {
 	GetAllRoles(ctx context.Context) ([]Role, error)
 	GetApprovalToken(ctx context.Context, token string) (AdminApprovalToken, error)
 	GetBestSellerProducts(ctx context.Context, limit int32) ([]GetBestSellerProductsRow, error)
-	// Get a shopping cart by session ID
-	GetCartBySessionReference(ctx context.Context, sessionReference uuid.NullUUID) (ShoppingCart, error)
+	// Get a shopping cart by guest ID
+	GetCartByGuestID(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error)
+	// cart_queries.sql
 	// Get a cart item
 	GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCartItemRow, error)
 	GetCategoriesByParentID(ctx context.Context, parentID uuid.NullUUID) ([]GetCategoriesByParentIDRow, error)
@@ -208,8 +212,10 @@ type Querier interface {
 	GetSalesTrend(ctx context.Context, paymentStatusID sql.NullInt32) (GetSalesTrendRow, error)
 	GetSessionBySessionID(ctx context.Context, sessionID uuid.UUID) (Session, error)
 	GetSessionByUserID(ctx context.Context, userID uuid.NullUUID) ([]Session, error)
+	// Get a shopping cart by ID
+	GetShoppingCartByID(ctx context.Context, id uuid.UUID) (ShoppingCart, error)
 	// Get a shopping cart by user ID
-	GetShoppingCartByUserID(ctx context.Context, userID uuid.NullUUID) (GetShoppingCartByUserIDRow, error)
+	GetShoppingCartByUserID(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error)
 	GetStatusByID(ctx context.Context, id int32) (string, error)
 	// $1: category_id (UUID)
 	// $2: min_price_kes (NUMERIC)
@@ -264,9 +270,12 @@ type Querier interface {
 	StoreApprovalToken(ctx context.Context, arg StoreApprovalTokenParams) error
 	StorePasswordResetToken(ctx context.Context, arg StorePasswordResetTokenParams) error
 	StoreRefreshToken(ctx context.Context, arg StoreRefreshTokenParams) (StoreRefreshTokenRow, error)
+	// Update the cart to associate with a guest ID and nullify user_id
+	UpdateCartGuestID(ctx context.Context, arg UpdateCartGuestIDParams) error
 	// Update the quantity of an item in the cart
 	UpdateCartItemQuantity(ctx context.Context, arg UpdateCartItemQuantityParams) error
 	UpdateCartTotals(ctx context.Context, id uuid.UUID) error
+	// Update the cart's user ID and nullify guest_id
 	UpdateCartUserID(ctx context.Context, arg UpdateCartUserIDParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (UpdateCategoryRow, error)
 	UpdateCategoryImage(ctx context.Context, arg UpdateCategoryImageParams) (UpdateCategoryImageRow, error)

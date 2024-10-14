@@ -399,13 +399,13 @@ type Shipment struct {
 }
 
 type ShoppingCart struct {
-	ID               uuid.UUID
-	UserID           uuid.NullUUID
-	TotalItems       int32
-	TotalPrice       string
-	CreatedAt        sql.NullTime
-	UpdatedAt        sql.NullTime
-	SessionReference uuid.NullUUID
+	ID         uuid.UUID
+	UserID     uuid.NullUUID
+	TotalItems int32
+	TotalPrice string
+	CreatedAt  sql.NullTime
+	UpdatedAt  sql.NullTime
+	GuestID    uuid.NullUUID
 }
 
 type User struct {

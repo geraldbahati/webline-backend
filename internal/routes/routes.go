@@ -7,11 +7,50 @@ import (
 	"weblineBackend/internal/services/i"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
 func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService i.SessionService) *mux.Router {
 	r := mux.NewRouter()
+
+	// Initialize Middleware
+	recoveryMiddleware := middleware.RecoveryMiddleware(middleware.RecoveryOptions{
+		Logger:           logger,
+		EnableStackTrace: true,
+	})
+
+	requestIDMiddleware := middleware.RequestIDMiddleware(logger)
+
+	loggingMiddleware := middleware.LoggingMiddleware(logger)
+
+	// rateLimitMiddleware := middleware.RateLimitMiddleware(
+	// 	10,            // rps: 10 requests per second
+	// 	20,            // burst: 20 requests
+	// 	5*time.Minute, // cleanupInterval: 5 minutes
+	// 	logger,        // logger: your zap.Logger instance
+	// )
+
+	cspMiddleware := middleware.CSP(middleware.CSPOptions{
+		DefaultSrc:              "'self'",
+		ScriptSrc:               "'self' 'unsafe-inline' https://apis.google.com",
+		ObjectSrc:               "'none'",
+		StyleSrc:                "'self' 'unsafe-inline'",
+		ImgSrc:                  "'self' data:",
+		ConnectSrc:              "'self'",
+		FontSrc:                 "'self'",
+		FrameSrc:                "'none'",
+		MediaSrc:                "'self'",
+		ReportURI:               "/csp-violation-report",
+		UpgradeInsecureRequests: true,
+	})
+
+	hstsMiddleware := middleware.HSTS(middleware.HSTSOptions{
+		MaxAge:            31536000, // 1 year in seconds
+		IncludeSubDomains: true,
+		Preload:           true,
+	})
+
 	corsMiddleware := middleware.CORS(logger, middleware.CORSOptions{
 		AllowedOrigins:   []string{"http://localhost:3000", "https://www.weblineshop.co.ke"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -19,11 +58,28 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService
 		AllowCredentials: true,
 	})
 
+	// Apply Middleware to the Router in the correct order
+	r.Use(recoveryMiddleware)
+	r.Use(requestIDMiddleware)
+	r.Use(loggingMiddleware)
+	// r.Use(rateLimitMiddleware)
+	r.Use(cspMiddleware)
+	r.Use(hstsMiddleware)
 	r.Use(corsMiddleware)
 	r.Use(middleware.OptionalAuth(logger))
 	r.Use(middleware.MetricsMiddleware(logger))
 
+	// Health Check Endpoint
 	r.HandleFunc("/health", healthCheckHandler).Methods(http.MethodGet)
+
+	// Metrics Endpoint
+	r.Handle("/metrics", promhttp.Handler()).Methods(http.MethodGet)
+
+	// CSP Violation Report Endpoint
+	// r.HandleFunc("/csp-violation-report", handlers.CSPViolationHandler).Methods(http.MethodPost)
+
+	// Guest Token Endpoint
+	r.HandleFunc("/api/guest/token", handlers.GuestHandler.GenerateGuestTokenHandler).Methods(http.MethodPost)
 
 	// Serve static files
 	r.PathPrefix("/uploads/profile/").Handler(http.StripPrefix("/uploads/profile/", http.FileServer(http.Dir("uploads/profile"))))
@@ -38,7 +94,7 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService
 	registerPromotionRoutes(r, handlers)
 	registerAdminPromotionRoutes(r, handlers, logger)
 	registerAdditionalRoutes(r, handlers, logger)
-	registerCartPromotionRoutes(r, handlers, logger, sessionService)
+	registerCartPromotionRoutes(r, handlers, logger)
 
 	return r
 }
@@ -161,12 +217,10 @@ func registerAdminPromotionRoutes(router *mux.Router, handlers *handlers.Handler
 }
 
 // registerCartPromotionRoutes registers cart promotion-related routes.
-func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger, sessionService i.SessionService) {
+func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
 	// Cart routes
 	cartRouter := router.PathPrefix("/api/cart").Subrouter()
 	cartRouter.Use(middleware.OptionalAuth(logger))
-	cartRouter.Use(middleware.Session(logger, sessionService))
-	cartRouter.Use(middleware.CSRF(logger))
 
 	// Updated cart routes without cartID in the path
 	NamedHandleFunc(cartRouter, "/add", handlers.CartHandler.AddToCartHandler, []string{http.MethodPost}, "AddToCart")
@@ -176,7 +230,6 @@ func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers
 	NamedHandleFunc(cartRouter, "/clear", handlers.CartHandler.ClearCartHandler, []string{http.MethodPost}, "ClearCart")
 	NamedHandleFunc(cartRouter, "/total", handlers.CartHandler.CalculateCartTotalHandler, []string{http.MethodGet}, "CalculateCartTotal")
 	NamedHandleFunc(cartRouter, "/replace", handlers.CartHandler.ReplaceCartItemsHandler, []string{http.MethodPut}, "ReplaceCartItems")
-	NamedHandleFunc(cartRouter, "", handlers.CartHandler.GetShoppingCartBySessionIDHandler, []string{http.MethodGet}, "GetShoppingCart")
 }
 
 // registerAdditionalRoutes registers other related routes like variants, images, specifications, options, cart, orders, promotions, etc.

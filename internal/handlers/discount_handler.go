@@ -35,7 +35,21 @@ func (h *DiscountHandler) CreateDiscountHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// validate request body return json with specific messages
-	messageObj := validateRequestBody(params)
+	messageObj := make(map[string]string)
+
+	if params.ProductID == "" {
+		messageObj["product_id"] = "Product ID is required"
+	}
+	if params.Discount == 0 {
+		messageObj["discount"] = "Discount is required"
+
+	}
+	if params.StartDate == "" {
+		messageObj["start_date"] = "Start date is required"
+	}
+	if params.EndDate == "" {
+		messageObj["end_date"] = "End date is required"
+	}
 	if len(messageObj) > 0 {
 		RespondWithJSON(w, http.StatusBadRequest, messageObj)
 		return

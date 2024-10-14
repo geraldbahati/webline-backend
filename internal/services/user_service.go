@@ -443,6 +443,9 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 		return nil, err
 	}
 
+	// update the profile url
+	user.Image = s.constructS3URL(user.Image)
+
 	roles, err := s.userRoleRepository.GetRolesForUser(ctx, user.ID)
 	if err != nil {
 		s.logger.Error("Failed to get roles for user", zap.Error(err))
@@ -452,6 +455,11 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 	user.Roles = roles
 
 	return user, nil
+}
+
+// constructS3URL constructs the S3 URL for a given file path
+func (s *UserService) constructS3URL(filePath string) string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)
 }
 
 // LoginWithGoogle logs in a user using Google
@@ -657,24 +665,24 @@ func (s *UserService) EmailVerified(ctx context.Context, email string) error {
 
 // VerifyEmail verifies a user's email
 func (s *UserService) VerifyEmail(ctx context.Context, token string) error {
-	claims, err := utils.ParseEmailVerificationToken(token)
+	email, expiresAt, err := utils.ParseEmailVerificationToken(token)
 	if err != nil {
 		return err
 	}
 
 	// Check if the token has expired
-	if time.Now().After(claims.ExpiresAt.Time) {
+	if time.Now().After(expiresAt) {
 		return fmt.Errorf("token has expired")
 	}
 
 	// Update user email verification status
-	err = s.userRepository.UpdateUserEmailVerified(ctx, claims.Email)
+	err = s.userRepository.UpdateUserEmailVerified(ctx, email)
 	if err != nil {
 		return err
 	}
 
 	// Delete verification token
-	err = s.verificationTokenRepository.DeleteVerificationToken(ctx, claims.Email)
+	err = s.verificationTokenRepository.DeleteVerificationToken(ctx, email)
 	if err != nil {
 		return err
 	}

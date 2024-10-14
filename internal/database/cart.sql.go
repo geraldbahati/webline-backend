@@ -13,15 +13,15 @@ import (
 )
 
 const calculateCartTotal = `-- name: CalculateCartTotal :one
-SELECT SUM(quantity * price) AS total_price
+SELECT COALESCE(SUM(quantity * price), 0.0)::numeric(10,2) AS total_price
 FROM cart_items
 WHERE shopping_cart_id = $1
 `
 
 // Calculate the total price of items in the cart
-func (q *Queries) CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (int64, error) {
+func (q *Queries) CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (string, error) {
 	row := q.queryRow(ctx, q.calculateCartTotalStmt, calculateCartTotal, shoppingCartID)
-	var total_price int64
+	var total_price string
 	err := row.Scan(&total_price)
 	return total_price, err
 }
@@ -34,6 +34,93 @@ WHERE shopping_cart_id = $1
 // Remove all items from the cart
 func (q *Queries) ClearCart(ctx context.Context, shoppingCartID uuid.UUID) error {
 	_, err := q.exec(ctx, q.clearCartStmt, clearCart, shoppingCartID)
+	return err
+}
+
+const createCartForGuest = `-- name: CreateCartForGuest :one
+INSERT INTO shopping_carts (guest_id, total_items, total_price)
+VALUES ($1, 0, 0.0)
+ON CONFLICT (guest_id)
+DO UPDATE SET updated_at = NOW()
+RETURNING id, user_id, total_items, total_price, created_at, updated_at, guest_id
+`
+
+// Create a shopping cart for a guest
+func (q *Queries) CreateCartForGuest(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error) {
+	row := q.queryRow(ctx, q.createCartForGuestStmt, createCartForGuest, guestID)
+	var i ShoppingCart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TotalItems,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestID,
+	)
+	return i, err
+}
+
+const createCartForUser = `-- name: CreateCartForUser :one
+INSERT INTO shopping_carts (user_id, total_items, total_price)
+VALUES ($1, 0, 0.0)
+ON CONFLICT (user_id)
+DO UPDATE SET updated_at = NOW()
+RETURNING id, user_id, total_items, total_price, created_at, updated_at, guest_id
+`
+
+// Create a shopping cart for a user
+func (q *Queries) CreateCartForUser(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error) {
+	row := q.queryRow(ctx, q.createCartForUserStmt, createCartForUser, userID)
+	var i ShoppingCart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TotalItems,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestID,
+	)
+	return i, err
+}
+
+const createShoppingCart = `-- name: CreateShoppingCart :one
+INSERT INTO shopping_carts (user_id, guest_id, total_items, total_price)
+VALUES ($1, $2, 0, 0.0)
+ON CONFLICT (user_id)
+DO UPDATE SET updated_at = NOW()
+RETURNING id, user_id, total_items, total_price, created_at, updated_at, guest_id
+`
+
+type CreateShoppingCartParams struct {
+	UserID  uuid.NullUUID
+	GuestID uuid.NullUUID
+}
+
+func (q *Queries) CreateShoppingCart(ctx context.Context, arg CreateShoppingCartParams) (ShoppingCart, error) {
+	row := q.queryRow(ctx, q.createShoppingCartStmt, createShoppingCart, arg.UserID, arg.GuestID)
+	var i ShoppingCart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TotalItems,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestID,
+	)
+	return i, err
+}
+
+const deleteShoppingCart = `-- name: DeleteShoppingCart :exec
+DELETE FROM shopping_carts
+WHERE id = $1
+`
+
+// Delete a shopping cart
+func (q *Queries) DeleteShoppingCart(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.deleteShoppingCartStmt, deleteShoppingCart, id)
 	return err
 }
 
@@ -96,7 +183,31 @@ func (q *Queries) GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID)
 	return items, nil
 }
 
+const getCartByGuestID = `-- name: GetCartByGuestID :one
+SELECT id, user_id, total_items, total_price, created_at, updated_at, guest_id
+FROM shopping_carts
+WHERE guest_id = $1
+LIMIT 1
+`
+
+// Get a shopping cart by guest ID
+func (q *Queries) GetCartByGuestID(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error) {
+	row := q.queryRow(ctx, q.getCartByGuestIDStmt, getCartByGuestID, guestID)
+	var i ShoppingCart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TotalItems,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestID,
+	)
+	return i, err
+}
+
 const getCartItem = `-- name: GetCartItem :one
+
 SELECT
     ci.id,
     ci.product_id,
@@ -127,6 +238,7 @@ type GetCartItemRow struct {
 	ImageUrl    sql.NullString
 }
 
+// cart_queries.sql
 // Get a cart item
 func (q *Queries) GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCartItemRow, error) {
 	row := q.queryRow(ctx, q.getCartItemStmt, getCartItem, arg.ShoppingCartID, arg.ProductID)
@@ -139,6 +251,52 @@ func (q *Queries) GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCa
 		&i.Quantity,
 		&i.Price,
 		&i.ImageUrl,
+	)
+	return i, err
+}
+
+const getShoppingCartByID = `-- name: GetShoppingCartByID :one
+SELECT id, user_id, total_items, total_price, created_at, updated_at, guest_id
+FROM shopping_carts
+WHERE id = $1
+`
+
+// Get a shopping cart by ID
+func (q *Queries) GetShoppingCartByID(ctx context.Context, id uuid.UUID) (ShoppingCart, error) {
+	row := q.queryRow(ctx, q.getShoppingCartByIDStmt, getShoppingCartByID, id)
+	var i ShoppingCart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TotalItems,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestID,
+	)
+	return i, err
+}
+
+const getShoppingCartByUserID = `-- name: GetShoppingCartByUserID :one
+SELECT id, user_id, total_items, total_price, created_at, updated_at, guest_id
+FROM shopping_carts
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+// Get a shopping cart by user ID
+func (q *Queries) GetShoppingCartByUserID(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error) {
+	row := q.queryRow(ctx, q.getShoppingCartByUserIDStmt, getShoppingCartByUserID, userID)
+	var i ShoppingCart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TotalItems,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestID,
 	)
 	return i, err
 }
@@ -156,6 +314,24 @@ type RemoveCartItemParams struct {
 // Remove an item from the cart
 func (q *Queries) RemoveCartItem(ctx context.Context, arg RemoveCartItemParams) error {
 	_, err := q.exec(ctx, q.removeCartItemStmt, removeCartItem, arg.ShoppingCartID, arg.ProductID)
+	return err
+}
+
+const updateCartGuestID = `-- name: UpdateCartGuestID :exec
+UPDATE shopping_carts
+SET guest_id = $2,
+    user_id = NULL
+WHERE id = $1
+`
+
+type UpdateCartGuestIDParams struct {
+	ID      uuid.UUID
+	GuestID uuid.NullUUID
+}
+
+// Update the cart to associate with a guest ID and nullify user_id
+func (q *Queries) UpdateCartGuestID(ctx context.Context, arg UpdateCartGuestIDParams) error {
+	_, err := q.exec(ctx, q.updateCartGuestIDStmt, updateCartGuestID, arg.ID, arg.GuestID)
 	return err
 }
 
@@ -177,9 +353,32 @@ func (q *Queries) UpdateCartItemQuantity(ctx context.Context, arg UpdateCartItem
 	return err
 }
 
+const updateCartTotals = `-- name: UpdateCartTotals :exec
+UPDATE shopping_carts
+SET 
+    total_price = (
+        SELECT COALESCE(SUM(price * quantity), 0)
+        FROM cart_items
+        WHERE shopping_cart_id = shopping_carts.id
+    ),
+    total_items = (
+        SELECT COALESCE(SUM(quantity), 0)
+        FROM cart_items
+        WHERE shopping_cart_id = shopping_carts.id
+    ),
+    updated_at = NOW()
+WHERE shopping_carts.id = $1
+`
+
+func (q *Queries) UpdateCartTotals(ctx context.Context, id uuid.UUID) error {
+	_, err := q.exec(ctx, q.updateCartTotalsStmt, updateCartTotals, id)
+	return err
+}
+
 const updateCartUserID = `-- name: UpdateCartUserID :exec
 UPDATE shopping_carts
-SET user_id = $2
+SET user_id = $2,
+    guest_id = NULL
 WHERE id = $1
 `
 
@@ -188,6 +387,7 @@ type UpdateCartUserIDParams struct {
 	UserID uuid.NullUUID
 }
 
+// Update the cart's user ID and nullify guest_id
 func (q *Queries) UpdateCartUserID(ctx context.Context, arg UpdateCartUserIDParams) error {
 	_, err := q.exec(ctx, q.updateCartUserIDStmt, updateCartUserID, arg.ID, arg.UserID)
 	return err

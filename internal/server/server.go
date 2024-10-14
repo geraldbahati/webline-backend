@@ -33,7 +33,7 @@ type Server struct {
 // NewServer initializes the server with configuration, logger, database, S3 client, repositories, services, and handlers.
 // It returns a Server instance and an error if any step fails.
 func NewServer(cfg appconfig.Config) (*Server, error) {
-	logger := initLogger()
+	logger := initLogger(cfg.Env)
 
 	// 1. Establish Database Connection
 	db, err := appconfig.NewDatabaseConnection(cfg.DbUrl)
@@ -80,10 +80,15 @@ func NewServer(cfg appconfig.Config) (*Server, error) {
 	return server, nil
 }
 
-func initLogger() *zap.Logger {
-	zapConfig := zap.NewDevelopmentConfig()
-	zapConfig.EncoderConfig.EncodeCaller = customEncodeCaller
-	logger, err := zapConfig.Build()
+func initLogger(env string) *zap.Logger {
+	var cfg zap.Config
+	if env == "production" {
+		cfg = zap.NewProductionConfig()
+	} else {
+		cfg = zap.NewDevelopmentConfig()
+	}
+	cfg.EncoderConfig.EncodeCaller = customEncodeCaller
+	logger, err := cfg.Build()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize logger: %v", err))
 	}
@@ -198,12 +203,13 @@ func initializeHandlers(svc *services.Services, cfg appconfig.Config, logger *za
 		ProductImageHandler:         handlers.NewProductImageHandler(svc.ProductService),
 		ProductSpecificationHandler: handlers.NewProductSpecificationHandler(svc.ProductService),
 		ProductOptionHandler:        handlers.NewProductOptionHandler(svc.ProductService),
-		CartHandler:                 handlers.NewCartHandler(svc.CartService),
+		CartHandler:                 handlers.NewCartHandler(svc.CartService, logger),
 		OrderHandler:                handlers.NewOrderHandler(logger, svc.OrderService, svc.PaymentService, svc.UserService),
 		InquiryHandler:              handlers.NewInquiryHandler(logger, svc.InquiryService),
 		ProductAnalyticHandler:      handlers.NewProductAnalyticHandler(svc.ProductAnalyticService),
 		PromotionHandler:            handlers.NewPromotionHandler(svc.PromotionService),
 		DiscountHandler:             handlers.NewDiscountHandler(svc.DiscountService),
 		RoleHandler:                 handlers.NewRoleHandler(svc.RoleService),
+		GuestHandler:                handlers.NewGuestHandler(logger),
 	}
 }
