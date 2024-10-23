@@ -1414,7 +1414,7 @@ func (s *ProductService) ArchiveProduct(ctx context.Context, slug string) error 
 // ArchiveProducts archives multiple products
 func (s *ProductService) ArchiveProducts(ctx context.Context, slugs []string) error {
 	// Get the user ID from the context
-	userID, ok := ctx.Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
 		s.logger.Error("failed to get user id from context", zap.Error(err))
@@ -1448,7 +1448,7 @@ func (s *ProductService) ArchiveProducts(ctx context.Context, slugs []string) er
 // ActivateProducts activates multiple products
 func (s *ProductService) ActivateProducts(ctx context.Context, slugs []string) error {
 	// Get the user ID from the context
-	userID, ok := ctx.Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
 		s.logger.Error("failed to get user id from context", zap.Error(err))
@@ -1482,7 +1482,7 @@ func (s *ProductService) ActivateProducts(ctx context.Context, slugs []string) e
 // DeleteProducts deletes multiple products
 func (s *ProductService) DeleteProducts(ctx context.Context, slugs []string) error {
 	// Get the user ID from the context
-	userID, ok := ctx.Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
 		s.logger.Error("failed to get user id from context", zap.Error(err))
@@ -1516,7 +1516,7 @@ func (s *ProductService) DeleteProducts(ctx context.Context, slugs []string) err
 // DraftProducts drafts multiple products
 func (s *ProductService) DraftProducts(ctx context.Context, slugs []string) error {
 	// Get the user ID from the context
-	userID, ok := ctx.Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
 		s.logger.Error("failed to get user id from context", zap.Error(err))

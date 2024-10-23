@@ -341,18 +341,19 @@ func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Querie
 	var companyID *uuid.UUID
 	var err error
 	if *orderParams.CompanyName != "" && *orderParams.KraPIN != "" {
-		companyID, err = s.companyRepo.CreateCompany(ctx, *orderParams.CompanyName, *orderParams.KraPIN, orderParams.County, orderParams.Phone, orderParams.Email)
+		// check if company already exists
+		companyID, err = s.companyRepo.GetCompanyID(ctx, *orderParams.CompanyName, *orderParams.KraPIN)
 		if err != nil && err != sql.ErrNoRows {
-			s.logger.Error("failed to create company", zap.Error(err))
-			return nil, fmt.Errorf("failed to create company: %w", err)
+			s.logger.Error("failed to get company ID", zap.Error(err))
+			return nil, fmt.Errorf("failed to get company ID: %w", err)
 		}
 
+		// create company if it doesn't exist
 		if err == sql.ErrNoRows {
-			// get company id
-			companyID, err = s.companyRepo.GetCompanyID(ctx, *orderParams.CompanyName, *orderParams.KraPIN)
-			if err != nil {
-				s.logger.Error("failed to get company ID", zap.Error(err))
-				return nil, fmt.Errorf("failed to get company ID: %w", err)
+			companyID, err = s.companyRepo.CreateCompany(ctx, *orderParams.CompanyName, *orderParams.KraPIN, orderParams.County, orderParams.Phone, orderParams.Email)
+			if err != nil && err != sql.ErrNoRows {
+				s.logger.Error("failed to create company", zap.Error(err))
+				return nil, fmt.Errorf("failed to create company: %w", err)
 			}
 		}
 	}

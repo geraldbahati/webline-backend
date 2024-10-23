@@ -16,97 +16,101 @@ import (
 
 // OrderItem represents a single item in the order.
 type OrderItem struct {
-    ProductName string
-    Quantity    int
-    Price       float64
+	ProductName string
+	Quantity    int
+	Price       float64
 }
 
 // SendOrderNotification sends an email notification for a new order.
 func SendOrderNotification(emailConfig *appconfig.Config, orderID uuid.UUID, orderParams *model.CreateOrderParams, orderItems []OrderItem) error {
-    if emailConfig == nil {
-        return fmt.Errorf("email configuration is required")
-    }
+	if emailConfig == nil {
+		return fmt.Errorf("email configuration is required")
+	}
 
-    // Generate order items details
-    orderItemsDetails := generateOrderItemsDetails(orderItems)
+	// Generate order items details
+	orderItemsDetails := generateOrderItemsDetails(orderItems)
 
-    // Format the order date
-    orderDate, err := formatOrderDate(orderParams.OrderDate)
-    if err != nil {
-        return fmt.Errorf("failed to format order date: %w", err)
-    }
+	// Format the order date
+	orderDate, err := formatOrderDate(orderParams.OrderDate)
+	if err != nil {
+		return fmt.Errorf("failed to format order date: %w", err)
+	}
 
-    // Prepare email data
-    data := EmailData{
-        OrderNumber:      orderParams.OrderNumber,
-        OrderID:          orderID.String(),
-        FirstName:        orderParams.FirstName,
-        LastName:         orderParams.LastName,
-        Email:            orderParams.Email,
-        Phone:            orderParams.Phone,
-        ShippingAddress:  formatShippingAddress(orderParams.City, orderParams.County, orderParams.Country),
-        OrderItems:       orderItemsDetails,
-        SubTotal:         formatPrice(orderParams.SubTotal),
-        DiscountAmount:   formatPrice(orderParams.DiscountAmount),
-        GrandTotal:       formatPrice(orderParams.GrandTotal),
-        OrderDate:        orderDate,
-        ProcessOrderLink: fmt.Sprintf("%s/orders/%s", emailConfig.BackendURL, orderID.String()),
+	// Prepare email data
+	data := EmailData{
+		OrderNumber:      orderParams.OrderNumber,
+		OrderID:          orderID.String(),
+		FirstName:        orderParams.FirstName,
+		LastName:         orderParams.LastName,
+		Email:            orderParams.Email,
+		Phone:            orderParams.Phone,
+		CompanyName:      orderParams.CompanyName,
+		KraPIN:           orderParams.KraPIN,
+		ShippingAddress:  formatShippingAddress(orderParams.City, orderParams.County, orderParams.Country),
+		OrderItems:       orderItemsDetails,
+		SubTotal:         formatPrice(orderParams.SubTotal),
+		DiscountAmount:   formatPrice(orderParams.DiscountAmount),
+		GrandTotal:       formatPrice(orderParams.GrandTotal),
+		OrderDate:        orderDate,
+		ProcessOrderLink: fmt.Sprintf("%s/orders/%s", emailConfig.BackendURL, orderID.String()),
 		VAT:              formatPrice(orderParams.VatAmount),
-    }
+	}
 
-    // Define the email template
-    tpl := template.Must(template.New("email").Parse(emailTemplate))
+	// Define the email template
+	tpl := template.Must(template.New("email").Parse(emailTemplate))
 
-    var tplBuffer bytes.Buffer
-    if err := tpl.Execute(&tplBuffer, data); err != nil {
-        return fmt.Errorf("failed to execute email template: %w", err)
-    }
+	var tplBuffer bytes.Buffer
+	if err := tpl.Execute(&tplBuffer, data); err != nil {
+		return fmt.Errorf("failed to execute email template: %w", err)
+	}
 
-    // Prepare plain text body
-    plainTextBody := fmt.Sprintf(
-        "A new order has been placed.\nOrder Number: %s\nUser Email: %s",
-        data.OrderNumber,
-        data.Email,
-    )
+	// Prepare plain text body
+	plainTextBody := fmt.Sprintf(
+		"A new order has been placed.\nOrder Number: %s\nUser Email: %s",
+		data.OrderNumber,
+		data.Email,
+	)
 
-    // Create a new email message
-    m := gomail.NewMessage()
-    m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
-    m.SetHeader("To", emailConfig.ToEmail)
-    m.SetHeader("Subject", fmt.Sprintf("New Order Notification - Order Number: %s", data.OrderNumber))
-    m.SetBody("text/plain", plainTextBody)
-    m.AddAlternative("text/html", tplBuffer.String())
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", emailConfig.ToEmail)
+	m.SetHeader("Subject", fmt.Sprintf("New Order Notification - Order Number: %s", data.OrderNumber))
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", tplBuffer.String())
 
-    // Optional: Log the email contents for debugging
-    log.Println("Plain Text Body:", plainTextBody)
-    log.Println("HTML Body:", tplBuffer.String())
+	// Optional: Log the email contents for debugging
+	log.Println("Plain Text Body:", plainTextBody)
+	log.Println("HTML Body:", tplBuffer.String())
 
-    // Configure the SMTP dialer
-    dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
 
-    // Send the email
-    if err := dialer.DialAndSend(m); err != nil {
-        return fmt.Errorf("failed to send email: %w", err)
-    }
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 // EmailData represents the data structure used in the email template.
 type EmailData struct {
-    OrderNumber      string
-    OrderID          string
-    FirstName        string
-    LastName         string
-    Email            string
-    Phone            string
-    ShippingAddress  string
-    OrderItems       template.HTML
-    SubTotal         string
-    DiscountAmount   string
-    GrandTotal       string
-    OrderDate        string
-    ProcessOrderLink string
+	OrderNumber      string
+	OrderID          string
+	FirstName        string
+	LastName         string
+	Email            string
+	Phone            string
+	CompanyName      *string
+	KraPIN           *string
+	ShippingAddress  string
+	OrderItems       template.HTML
+	SubTotal         string
+	DiscountAmount   string
+	GrandTotal       string
+	OrderDate        string
+	ProcessOrderLink string
 	VAT              string
 }
 
@@ -186,56 +190,55 @@ const emailTemplate = `
 
 // generateOrderItemsDetails creates the HTML rows for the order items table.
 func generateOrderItemsDetails(orderItems []OrderItem) template.HTML {
-    var sb strings.Builder
-    for _, item := range orderItems {
-        total := item.Price * float64(item.Quantity)
-        sb.WriteString(fmt.Sprintf(`
+	var sb strings.Builder
+	for _, item := range orderItems {
+		total := item.Price * float64(item.Quantity)
+		sb.WriteString(fmt.Sprintf(`
             <tr>
                 <td style="padding:10px; border-bottom:1px solid #dddddd;">%s</td>
                 <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:center;">%d</td>
                 <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:right;">KES %s</td>
                 <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:right;">KES %s</td>
             </tr>`,
-            item.ProductName,
-            item.Quantity,
-            formatPrice(item.Price),
-            formatPrice(total)))
-    }
-    return template.HTML(sb.String())  // Use template.HTML to prevent escaping
+			item.ProductName,
+			item.Quantity,
+			formatPrice(item.Price),
+			formatPrice(total)))
+	}
+	return template.HTML(sb.String()) // Use template.HTML to prevent escaping
 }
 
 // formatPrice formats a float64 price with commas for better readability.
 func formatPrice(price float64) string {
-    priceStr := fmt.Sprintf("%.2f", price)
-    parts := strings.Split(priceStr, ".")
-    integerPart := parts[0]
-    decimalPart := parts[1]
+	priceStr := fmt.Sprintf("%.2f", price)
+	parts := strings.Split(priceStr, ".")
+	integerPart := parts[0]
+	decimalPart := parts[1]
 
-    var sb strings.Builder
-    n := len(integerPart)
-    for i, digit := range integerPart {
-        sb.WriteByte(byte(digit))
-        if (n-i-1)%3 == 0 && i != n-1 {
-            sb.WriteByte(',')
-        }
-    }
+	var sb strings.Builder
+	n := len(integerPart)
+	for i, digit := range integerPart {
+		sb.WriteByte(byte(digit))
+		if (n-i-1)%3 == 0 && i != n-1 {
+			sb.WriteByte(',')
+		}
+	}
 
-    return fmt.Sprintf("%s.%s", sb.String(), decimalPart)
+	return fmt.Sprintf("%s.%s", sb.String(), decimalPart)
 }
 
 // formatShippingAddress formats the shipping address without AddressLine1, AddressLine2, and ZipCode.
 func formatShippingAddress(city, state, country string) string {
-    return fmt.Sprintf("%s, %s, %s", city, state, country)
+	return fmt.Sprintf("%s, %s, %s", city, state, country)
 }
 
 // formatOrderDate formats the order date string.
 func formatOrderDate(orderDate time.Time) (string, error) {
-    if orderDate.IsZero() {
-        return "", fmt.Errorf("invalid order date")
-    }
-    return orderDate.Format("January 2, 2006 at 15:04 PM MST"), nil
+	if orderDate.IsZero() {
+		return "", fmt.Errorf("invalid order date")
+	}
+	return orderDate.Format("January 2, 2006 at 15:04 PM MST"), nil
 }
-
 
 // SendInquiryEmail sends an email with the user's product inquiry.
 func SendInquiryEmail(emailConfig *appconfig.Config, productName, userEmail, userMessage string) error {
