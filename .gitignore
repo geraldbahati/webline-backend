@@ -7,9 +7,10 @@
 *.dll
 *.so
 *.dylib
+*.sql
 
 # Environment file
-.env
+*.env
 
 # Test binary, built with `go test -c`
 *.test

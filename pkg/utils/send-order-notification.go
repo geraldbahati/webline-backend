@@ -140,6 +140,8 @@ const emailTemplate = `
                             <p><strong>Name:</strong> {{.FirstName}} {{.LastName}}</p>
                             <p><strong>Email:</strong> {{.Email}}</p>
                             <p><strong>Phone:</strong> {{.Phone}}</p>
+							<p><strong>Company:</strong> {{.CompanyName}}</p>
+							<p><strong>KRAPIN:</strong> {{.KraPIN}}</p>
                             <h2 style="font-size:18px; color:#333333;">Shipping Address</h2>
                             <p>{{.ShippingAddress}}</p>
                             <h2 style="font-size:18px; color:#333333; margin-top:20px;">Order Details</h2>

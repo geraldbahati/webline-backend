@@ -114,6 +114,4 @@ volumes:
 
 networks:
   webline-backend-network:
-    external: true
   webline-network:
-    external: true

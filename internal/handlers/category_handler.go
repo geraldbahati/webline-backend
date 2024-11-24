@@ -34,6 +34,7 @@ func (h *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 		MetaTitle:       r.FormValue("metaTitle"),
 		MetaDescription: r.FormValue("metaDescription"),
 		ParentID:        r.FormValue("categoryID"),
+		Slug:            r.FormValue("slug"),
 	}
 
 	// Handle the image file upload
