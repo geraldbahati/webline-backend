@@ -126,3 +126,18 @@ func convertDBSessionToModelSession(dbSession database.Session) model.Session {
 		CSRFToken:    dbSession.CsrfToken,
 	}
 }
+
+// UpdateSession updates session in database
+func (r *sessionRepositoryImpl) UpdateSession(ctx context.Context, session model.Session) error {
+	err := r.Queries.UpdateSession(ctx, database.UpdateSessionParams{
+		SessionID: session.SessionID,
+		UserID:    uuid.NullUUID{UUID: *session.UserID, Valid: session.UserID != nil},
+		ExpiresAt: session.ExpiresAt,
+		CsrfToken: session.CSRFToken,
+	})
+	if err != nil {
+		r.logger.Error("failed to update session", zap.Error(err))
+		return fmt.Errorf("update session: %w", err)
+	}
+	return nil
+}

@@ -723,6 +723,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateRoleStmt, err = db.PrepareContext(ctx, updateRole); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateRole: %w", err)
 	}
+	if q.updateSessionStmt, err = db.PrepareContext(ctx, updateSession); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateSession: %w", err)
+	}
 	if q.updateSessionLastActivityStmt, err = db.PrepareContext(ctx, updateSessionLastActivity); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateSessionLastActivity: %w", err)
 	}
@@ -1926,6 +1929,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateRoleStmt: %w", cerr)
 		}
 	}
+	if q.updateSessionStmt != nil {
+		if cerr := q.updateSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateSessionStmt: %w", cerr)
+		}
+	}
 	if q.updateSessionLastActivityStmt != nil {
 		if cerr := q.updateSessionLastActivityStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateSessionLastActivityStmt: %w", cerr)
@@ -2253,6 +2261,7 @@ type Queries struct {
 	updatePromotionStmt                        *sql.Stmt
 	updatePromotionImageStmt                   *sql.Stmt
 	updateRoleStmt                             *sql.Stmt
+	updateSessionStmt                          *sql.Stmt
 	updateSessionLastActivityStmt              *sql.Stmt
 	updateUserStmt                             *sql.Stmt
 	updateUserCompanyStmt                      *sql.Stmt
@@ -2503,6 +2512,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updatePromotionStmt:                        q.updatePromotionStmt,
 		updatePromotionImageStmt:                   q.updatePromotionImageStmt,
 		updateRoleStmt:                             q.updateRoleStmt,
+		updateSessionStmt:                          q.updateSessionStmt,
 		updateSessionLastActivityStmt:              q.updateSessionLastActivityStmt,
 		updateUserStmt:                             q.updateUserStmt,
 		updateUserCompanyStmt:                      q.updateUserCompanyStmt,

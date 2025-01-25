@@ -26,4 +26,7 @@ type SessionRepository interface {
 
 	// UpdateSessionLastActivity updates the last activity timestamp for a session
 	UpdateSessionLastActivity(ctx context.Context, sessionID uuid.UUID) error
+
+	// UpdateSession updates a session
+	UpdateSession(ctx context.Context, session model.Session) error
 }

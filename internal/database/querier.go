@@ -297,6 +297,7 @@ type Querier interface {
 	UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) error
 	UpdatePromotionImage(ctx context.Context, arg UpdatePromotionImageParams) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
+	UpdateSession(ctx context.Context, arg UpdateSessionParams) error
 	UpdateSessionLastActivity(ctx context.Context, sessionID uuid.UUID) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
 	UpdateUserCompany(ctx context.Context, arg UpdateUserCompanyParams) error

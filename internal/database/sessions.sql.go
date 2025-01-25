@@ -137,6 +137,29 @@ func (q *Queries) LinkSessionToUser(ctx context.Context, arg LinkSessionToUserPa
 	return err
 }
 
+const updateSession = `-- name: UpdateSession :exec
+UPDATE sessions
+SET user_id = $2, last_activity = NOW(), expires_at = $3, csrf_token = $4
+WHERE session_id = $1
+`
+
+type UpdateSessionParams struct {
+	SessionID uuid.UUID
+	UserID    uuid.NullUUID
+	ExpiresAt time.Time
+	CsrfToken string
+}
+
+func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) error {
+	_, err := q.exec(ctx, q.updateSessionStmt, updateSession,
+		arg.SessionID,
+		arg.UserID,
+		arg.ExpiresAt,
+		arg.CsrfToken,
+	)
+	return err
+}
+
 const updateSessionLastActivity = `-- name: UpdateSessionLastActivity :exec
 UPDATE sessions
 SET last_activity = NOW()

@@ -1,183 +1,160 @@
 package middleware
 
-// // Constants for session duration
-// const sessionDuration = 30 * 24 * time.Hour // 30 days
+import (
+	"context"
+	"net/http"
+	"os"
+	"time"
+	"weblineBackend/internal/model"
+	"weblineBackend/internal/services/i"
+	"weblineBackend/pkg/utils"
 
-// // Helper function to set session cookies
-// func setSessionCookies(w http.ResponseWriter, sessionID string, csrfToken string, expires time.Time, secure bool, sameSite http.SameSite) {
-// 	// Set the session_id cookie
-// 	http.SetCookie(w, &http.Cookie{
-// 		Name:     "session_id",
-// 		Value:    sessionID,
-// 		Expires:  expires,
-// 		HttpOnly: true,
-// 		Secure:   secure,
-// 		Path:     "/",
-// 		SameSite: sameSite,
-// 	})
+	"go.uber.org/zap"
+)
 
-// 	// Set the csrf_token cookie
-// 	http.SetCookie(w, &http.Cookie{
-// 		Name:     "csrf_token",
-// 		Value:    csrfToken,
-// 		Expires:  expires,
-// 		HttpOnly: false, // Accessible via JavaScript
-// 		Secure:   secure,
-// 		Path:     "/",
-// 		SameSite: sameSite,
-// 	})
-// }
+const (
+	sessionCookieName = "webline_session"
+	csrfCookieName    = "webline_csrf"
+	sessionDuration   = 30 * 24 * time.Hour
+)
 
-// // Helper function to clear session cookies
-// func clearSessionCookies(w http.ResponseWriter, secure bool, sameSite http.SameSite) {
-// 	// Clear the session_id cookie
-// 	http.SetCookie(w, &http.Cookie{
-// 		Name:     "session_id",
-// 		Value:    "",
-// 		Expires:  time.Unix(0, 0),
-// 		HttpOnly: true,
-// 		Secure:   secure,
-// 		Path:     "/",
-// 		SameSite: sameSite,
-// 	})
+type sessionContextKey string
 
-// 	// Clear the csrf_token cookie
-// 	http.SetCookie(w, &http.Cookie{
-// 		Name:     "csrf_token",
-// 		Value:    "",
-// 		Expires:  time.Unix(0, 0),
-// 		HttpOnly: false,
-// 		Secure:   secure,
-// 		Path:     "/",
-// 		SameSite: sameSite,
-// 	})
-// }
+var (
+	SessionKey   = sessionContextKey("session")
+	SessionIDKey = sessionContextKey("sessionID")
+	CSRFTokenKey = sessionContextKey("csrfToken")
+)
 
-// // Session middleware manages user sessions and CSRF tokens.
-// func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Handler) http.Handler {
-// 	return func(next http.Handler) http.Handler {
-// 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 			ctx := r.Context()
-// 			logger.Info("Session middleware invoked")
+func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			secure := isProduction()
+			sameSite := getSameSitePolicy()
 
-// 			// Determine if running in production
-// 			isProduction := os.Getenv("ENV") == "production"
+			// 1. Try to get existing valid session
+			sessionID, session, csrfToken, validSession := validateExistingSession(r, sessionService)
 
-// 			// Set Secure and SameSite attributes based on environment
-// 			secure := isProduction
-// 			var sameSite http.SameSite
-// 			if isProduction {
-// 				sameSite = http.SameSiteLaxMode
-// 			} else {
-// 				// In development, omit the SameSite attribute to allow cross-origin cookies
-// 				sameSite = http.SameSiteDefaultMode
-// 			}
+			// 2. Create new session if needed
+			if !validSession {
+				var err error
+				sessionID, session, csrfToken, err = createNewSession(w, r, sessionService, secure, sameSite)
+				if err != nil {
+					logger.Error("Session creation failed", zap.Error(err))
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+			}
 
-// 			expirationTime := time.Now().Add(sessionDuration)
-// 			var sessionID string
-// 			var session model.Session
-// 			var err error
+			// 3. Handle CSRF protection for state-changing methods
+			if shouldValidateCSRF(r) {
+				if !validateCSRFToken(r, session.CSRFToken) {
+					logger.Warn("CSRF validation failed")
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
+			}
 
-// 			cookie, err := r.Cookie("session_id")
-// 			if err != nil || cookie.Value == "" {
-// 				// No existing session, create a new one
-// 				session, err = sessionService.CreateSession(ctx, nil, expirationTime) // nil for Guest userID
-// 				if err != nil {
-// 					logger.Error("Failed to create session", zap.Error(err))
-// 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 					return
-// 				}
-// 				sessionID = session.SessionID.String()
+			// 4. Update context with session information
+			ctx = context.WithValue(ctx, SessionKey, session)
+			ctx = context.WithValue(ctx, SessionIDKey, sessionID)
+			ctx = context.WithValue(ctx, CSRFTokenKey, csrfToken)
 
-// 				// Set the session_id and csrf_token cookies
-// 				setSessionCookies(w, sessionID, session.CSRFToken, session.ExpiresAt, secure, sameSite)
-// 			} else {
-// 				// Existing session found, validate it
-// 				sessionID = cookie.Value
-// 				session, err = sessionService.GetSessionBySessionID(ctx, sessionID)
-// 				if err != nil {
-// 					if errors.Is(err, app_errors.NewSessionNotFoundError()) {
-// 						// Session not found, create a new one
-// 						logger.Warn("Session not found, creating new session", zap.String("sessionID", sessionID))
-// 						session, err = sessionService.CreateSession(ctx, nil, expirationTime)
-// 						if err != nil {
-// 							logger.Error("Failed to create session", zap.Error(err))
-// 							http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 							return
-// 						}
-// 						sessionID = session.SessionID.String()
+			// 5. Set cookies in a browser-compatible way
+			setSessionCookies(w, sessionID, csrfToken, secure, sameSite)
 
-// 						// Set the new session_id and csrf_token cookies
-// 						setSessionCookies(w, sessionID, session.CSRFToken, session.ExpiresAt, secure, sameSite)
-// 					} else {
-// 						// Some other error occurred
-// 						logger.Error("Failed to get session by ID", zap.Error(err), zap.String("sessionID", sessionID))
-// 						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 						return
-// 					}
-// 				} else {
-// 					if session.ExpiresAt.Before(time.Now()) {
-// 						// Session expired, delete it and create a new one
-// 						err := sessionService.DeleteSessionBySessionID(ctx, sessionID)
-// 						if err != nil {
-// 							logger.Warn("Failed to delete expired session", zap.Error(err), zap.String("sessionID", sessionID))
-// 						}
+			// 6. Proceed with request
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
 
-// 						// Clear the session_id and csrf_token cookies
-// 						clearSessionCookies(w, secure, sameSite)
+// Helper functions
+func isProduction() bool {
+	return os.Getenv("ENV") == "production"
+}
 
-// 						// Create a new session
-// 						session, err = sessionService.CreateSession(ctx, nil, expirationTime)
-// 						if err != nil {
-// 							logger.Error("Failed to create session", zap.Error(err))
-// 							http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 							return
-// 						}
-// 						sessionID = session.SessionID.String()
+func getSameSitePolicy() http.SameSite {
+	if isProduction() {
+		return http.SameSiteLaxMode
+	}
+	return http.SameSiteNoneMode // For modern local development with HTTPS
+}
 
-// 						// Set the new session_id and csrf_token cookies
-// 						setSessionCookies(w, sessionID, session.CSRFToken, session.ExpiresAt, secure, sameSite)
-// 					} else {
-// 						// Session is valid, update last_activity
-// 						err = sessionService.UpdateSessionLastActivity(ctx, sessionID)
-// 						if err != nil {
-// 							logger.Error("Failed to update session last_activity", zap.Error(err), zap.String("sessionID", sessionID))
-// 							http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 							return
-// 						}
-// 					}
-// 				}
-// 			}
+func validateExistingSession(r *http.Request, service i.SessionService) (string, model.Session, string, bool) {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return "", model.Session{}, "", false
+	}
 
-// 			// Check for authenticated user
-// 			userID, userAuthenticated := GetUserID(ctx)
-// 			if userAuthenticated {
-// 				err := sessionService.LinkSessionToUser(ctx, sessionID, userID)
-// 				if err != nil {
-// 					logger.Error("Failed to link session to user", zap.Error(err), zap.String("sessionID", sessionID), zap.Stringer("userID", userID))
-// 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 					return
-// 				}
-// 			}
+	session, err := service.GetSessionBySessionID(r.Context(), cookie.Value)
+	if err != nil || session.ExpiresAt.Before(time.Now()) {
+		return "", model.Session{}, "", false
+	}
 
-// 			// Add session to the context
-// 			ctx = context.WithValue(ctx, SessionKey, session)
-// 			ctx = context.WithValue(ctx, SessionIDKey, sessionID)
-// 			next.ServeHTTP(w, r.WithContext(ctx))
-// 		})
-// 	}
-// }
+	csrfCookie, err := r.Cookie(csrfCookieName)
+	if err != nil || csrfCookie.Value != session.CSRFToken {
+		return "", model.Session{}, "", false
+	}
 
-// // GetSessionFromContext retrieves the Session object from the context.
-// // Returns the session and a boolean indicating whether it was found.
-// func GetSessionFromContext(ctx context.Context) (model.Session, bool) {
-// 	session, ok := ctx.Value(SessionKey).(model.Session)
-// 	return session, ok
-// }
+	return cookie.Value, session, csrfCookie.Value, true
+}
 
-// // GetSessionID retrieves the session ID from the context.
-// // Returns the session ID and a boolean indicating whether it was found.
-// func GetSessionID(ctx context.Context) (string, bool) {
-// 	sessionID, ok := ctx.Value(SessionIDKey).(string)
-// 	return sessionID, ok
-// }
+// Add to session middleware function
+func createNewSession(w http.ResponseWriter, r *http.Request, service i.SessionService, secure bool, sameSite http.SameSite) (string, model.Session, string, error) {
+	csrfToken, err := utils.GenerateSecureCSRFToken()
+	if err != nil {
+		return "", model.Session{}, "", err
+	}
+
+	session, err := service.CreateSession(r.Context(), nil, time.Now().Add(sessionDuration), csrfToken)
+	if err != nil {
+		return "", model.Session{}, "", err
+	}
+
+	return session.SessionID.String(), session, csrfToken, nil
+}
+
+func setSessionCookies(w http.ResponseWriter, sessionID, csrfToken string, secure bool, sameSite http.SameSite) {
+	expires := time.Now().Add(sessionDuration)
+
+	// Session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    sessionID,
+		Expires:  expires,
+		HttpOnly: true,
+		Secure:   secure,
+		Path:     "/",
+		SameSite: sameSite,
+	})
+
+	// CSRF cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     csrfCookieName,
+		Value:    csrfToken,
+		Expires:  expires,
+		HttpOnly: false, // Accessible via JavaScript
+		Secure:   secure,
+		Path:     "/",
+		SameSite: sameSite,
+	})
+}
+
+func shouldValidateCSRF(r *http.Request) bool {
+	// Validate CSRF for non-GET/HEAD/OPTIONS requests
+	return r.Method == http.MethodPost ||
+		r.Method == http.MethodPut ||
+		r.Method == http.MethodPatch ||
+		r.Method == http.MethodDelete
+}
+
+// Update CSRF validation
+func validateCSRFToken(r *http.Request, expectedToken string) bool {
+	receivedToken := r.Header.Get("X-CSRF-Token")
+	if receivedToken == "" {
+		receivedToken = r.FormValue("csrf_token")
+	}
+	return utils.VerifyCSRFToken(receivedToken, expectedToken)
+}

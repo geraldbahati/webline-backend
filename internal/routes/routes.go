@@ -94,7 +94,7 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService
 	registerPromotionRoutes(r, handlers)
 	registerAdminPromotionRoutes(r, handlers, logger)
 	registerAdditionalRoutes(r, handlers, logger)
-	registerCartPromotionRoutes(r, handlers, logger)
+	registerCartPromotionRoutes(r, handlers, logger, sessionService)
 
 	return r
 }
@@ -217,10 +217,12 @@ func registerAdminPromotionRoutes(router *mux.Router, handlers *handlers.Handler
 }
 
 // registerCartPromotionRoutes registers cart promotion-related routes.
-func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger, sessionService i.SessionService) {
 	// Cart routes
 	cartRouter := router.PathPrefix("/api/cart").Subrouter()
-	cartRouter.Use(middleware.OptionalAuth(logger))
+	cartRouter.Use(
+		middleware.Session(logger, sessionService),
+	)
 
 	// Updated cart routes without cartID in the path
 	NamedHandleFunc(cartRouter, "/add", handlers.CartHandler.AddToCartHandler, []string{http.MethodPost}, "AddToCart")

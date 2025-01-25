@@ -34,3 +34,8 @@ WHERE session_id = $1;
 UPDATE sessions
 SET last_activity = NOW()
 WHERE session_id = $1;
+
+-- name: UpdateSession :exec
+UPDATE sessions
+SET user_id = $2, last_activity = NOW(), expires_at = $3, csrf_token = $4
+WHERE session_id = $1;

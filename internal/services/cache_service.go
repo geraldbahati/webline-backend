@@ -54,6 +54,7 @@ type CacheService interface {
 	DeleteKeysByPattern(ctx context.Context, pattern string) error
 	HealthCheck(ctx context.Context) error
 	Initialize() error
+	SetWithTTL(ctx context.Context, key string, value interface{}, ttl time.Duration) error
 }
 
 type cacheService struct {
@@ -521,4 +522,33 @@ func isEmpty(dest interface{}) (bool, error) {
 	default:
 		return false, fmt.Errorf("unsupported type for isEmpty check: %T", dest)
 	}
+}
+
+// SetWithTTL sets a value in the cache with a specified key and TTL.
+func (c *cacheService) SetWithTTL(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+	if !c.initialized {
+		if err := c.Initialize(); err != nil {
+			return err
+		}
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		c.logger.Error("Failed to marshal data for caching", zap.Error(err))
+		return fmt.Errorf("marshal data: %w", err)
+	}
+
+	err = c.redisClient.Set(ctx, key, data, ttl).Err()
+	if err != nil {
+		c.logger.Error("Failed to set data in Redis with TTL",
+			zap.Error(err),
+			zap.String("key", key),
+			zap.Duration("ttl", ttl))
+		return fmt.Errorf("set with TTL: %w", err)
+	}
+
+	c.logger.Debug("Data cached successfully with TTL",
+		zap.String("key", key),
+		zap.Duration("ttl", ttl))
+	return nil
 }
