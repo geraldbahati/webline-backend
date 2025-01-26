@@ -12,7 +12,7 @@ import (
 
 type CartRepository interface {
 	// Shopping Cart Operations
-	CreateShoppingCart(ctx context.Context, userID, guestID *uuid.UUID) (*model.ShoppingCart, error)
+	CreateShoppingCart(ctx context.Context, params CreateShoppingCartParams) (*model.ShoppingCart, error)
 	GetShoppingCartByID(ctx context.Context, id uuid.UUID) (*model.ShoppingCart, error)
 	GetShoppingCartByUserID(ctx context.Context, userID uuid.UUID) (*model.ShoppingCart, error)
 	GetCartByGuestID(ctx context.Context, guestID uuid.UUID) (*model.ShoppingCart, error)
@@ -30,4 +30,13 @@ type CartRepository interface {
 	UpdateCartGuestID(ctx context.Context, cartID, guestID uuid.UUID) error
 	UpsertCartItem(ctx context.Context, shoppingCartID, productID uuid.UUID, quantity int32, price string) (*model.CartItem, error)
 	BeginTx(ctx context.Context) (*sql.Tx, error)
+
+	// Add this new method
+	GetCartByOwnerID(ctx context.Context, ownerID uuid.UUID) (*model.ShoppingCart, error)
+}
+
+// Add this struct for better parameter handling
+type CreateShoppingCartParams struct {
+	UserID  *uuid.UUID
+	GuestID *uuid.UUID
 }

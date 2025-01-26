@@ -67,6 +67,19 @@ func Auth(logger *zap.Logger) func(http.Handler) http.Handler {
 				ctx = context.WithValue(ctx, UserIDKey, user.UserID)
 			}
 
+			// After validating the token and creating the user
+			session, _, err := GetSessionFromContext(r.Context())
+			if err == nil && session.UserID != nil {
+				// Verify the session belongs to the authenticated user
+				if user.UserID != *session.UserID {
+					logger.Warn("Session user ID mismatch",
+						zap.String("tokenUserID", user.UserID.String()),
+						zap.String("sessionUserID", session.UserID.String()))
+					writeJSONError(w, http.StatusUnauthorized, "Invalid session")
+					return
+				}
+			}
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

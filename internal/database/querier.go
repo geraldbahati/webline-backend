@@ -109,6 +109,7 @@ type Querier interface {
 	GetBestSellerProducts(ctx context.Context, limit int32) ([]GetBestSellerProductsRow, error)
 	// Get a shopping cart by guest ID
 	GetCartByGuestID(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error)
+	GetCartByOwnerID(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error)
 	// cart_queries.sql
 	// Get a cart item
 	GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCartItemRow, error)

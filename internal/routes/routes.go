@@ -218,13 +218,14 @@ func registerAdminPromotionRoutes(router *mux.Router, handlers *handlers.Handler
 
 // registerCartPromotionRoutes registers cart promotion-related routes.
 func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger, sessionService i.SessionService) {
-	// Cart routes
+	// Cart routes with session handling
 	cartRouter := router.PathPrefix("/api/cart").Subrouter()
 	cartRouter.Use(
 		middleware.Session(logger, sessionService),
+		middleware.OptionalAuth(logger), // Allow both authenticated and guest users
 	)
 
-	// Updated cart routes without cartID in the path
+	// Cart routes that work with both guest and authenticated users
 	NamedHandleFunc(cartRouter, "/add", handlers.CartHandler.AddToCartHandler, []string{http.MethodPost}, "AddToCart")
 	NamedHandleFunc(cartRouter, "/remove", handlers.CartHandler.RemoveFromCartHandler, []string{http.MethodDelete}, "RemoveFromCart")
 	NamedHandleFunc(cartRouter, "/items", handlers.CartHandler.GetCartItemsHandler, []string{http.MethodGet}, "GetCartItems")

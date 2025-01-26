@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -13,9 +14,11 @@ import (
 )
 
 const (
-	sessionCookieName = "webline_session"
-	csrfCookieName    = "webline_csrf"
-	sessionDuration   = 30 * 24 * time.Hour
+	sessionCookieName     = "webline_session"
+	csrfCookieName        = "webline_csrf"
+	sessionDuration       = 30 * 24 * time.Hour
+	UserTypeGuest         = "guest"
+	UserTypeAuthenticated = "authenticated"
 )
 
 type sessionContextKey string
@@ -24,6 +27,7 @@ var (
 	SessionKey   = sessionContextKey("session")
 	SessionIDKey = sessionContextKey("sessionID")
 	CSRFTokenKey = sessionContextKey("csrfToken")
+	UserTypeKey  = sessionContextKey("userType")
 )
 
 func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Handler) http.Handler {
@@ -33,10 +37,13 @@ func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Hand
 			secure := isProduction()
 			sameSite := getSameSitePolicy()
 
-			// 1. Try to get existing valid session
+			// 1. Check if user is authenticated via Auth middleware
+			user, isUserAuthenticated := GetUser(ctx)
+
+			// 2. Try to get existing valid session
 			sessionID, session, csrfToken, validSession := validateExistingSession(r, sessionService)
 
-			// 2. Create new session if needed
+			// 3. Create new session if needed
 			if !validSession {
 				var err error
 				sessionID, session, csrfToken, err = createNewSession(w, r, sessionService, secure, sameSite)
@@ -47,7 +54,25 @@ func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Hand
 				}
 			}
 
-			// 3. Handle CSRF protection for state-changing methods
+			// 4. Link session to user if authenticated
+			if isUserAuthenticated && session.UserID == nil {
+				err := sessionService.LinkSessionToUser(ctx, sessionID, user.UserID)
+				if err != nil {
+					logger.Warn("Failed to link session to user",
+						zap.Error(err),
+						zap.String("sessionID", sessionID),
+						zap.String("userID", user.UserID.String()))
+				}
+			}
+
+			// 5. Set user type in context
+			userType := UserTypeGuest
+			if isUserAuthenticated {
+				userType = UserTypeAuthenticated
+			}
+			ctx = context.WithValue(ctx, UserTypeKey, userType)
+
+			// 6. Handle CSRF protection for state-changing methods
 			if shouldValidateCSRF(r) {
 				if !validateCSRFToken(r, session.CSRFToken) {
 					logger.Warn("CSRF validation failed")
@@ -56,15 +81,15 @@ func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Hand
 				}
 			}
 
-			// 4. Update context with session information
+			// 7. Update context with session information
 			ctx = context.WithValue(ctx, SessionKey, session)
 			ctx = context.WithValue(ctx, SessionIDKey, sessionID)
 			ctx = context.WithValue(ctx, CSRFTokenKey, csrfToken)
 
-			// 5. Set cookies in a browser-compatible way
+			// 8. Set cookies in a browser-compatible way
 			setSessionCookies(w, sessionID, csrfToken, secure, sameSite)
 
-			// 6. Proceed with request
+			// 9. Proceed with request
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -157,4 +182,21 @@ func validateCSRFToken(r *http.Request, expectedToken string) bool {
 		receivedToken = r.FormValue("csrf_token")
 	}
 	return utils.VerifyCSRFToken(receivedToken, expectedToken)
+}
+
+func GetUserType(ctx context.Context) string {
+	if userType, ok := ctx.Value(UserTypeKey).(string); ok {
+		return userType
+	}
+	return UserTypeGuest // Default to guest if not set
+}
+
+func GetSessionFromContext(ctx context.Context) (model.Session, string, error) {
+	session, ok := ctx.Value(SessionKey).(model.Session)
+	if !ok {
+		return model.Session{}, UserTypeGuest, fmt.Errorf("session not found in context")
+	}
+
+	userType := GetUserType(ctx)
+	return session, userType, nil
 }
