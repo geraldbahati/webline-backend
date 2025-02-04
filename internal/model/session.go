@@ -15,3 +15,14 @@ type Session struct {
 	ExpiresAt    time.Time  `json:"expiresAt"`
 	CSRFToken    string     `json:"csrfToken"`
 }
+
+// IsExpired returns true if the session has expired.
+func (s *Session) IsExpired() bool {
+	return time.Now().After(s.ExpiresAt)
+}
+
+// Refresh updates the session's LastActivity and ExpiresAt values.
+func (s *Session) Refresh(newExpiry time.Time) {
+	s.LastActivity = time.Now()
+	s.ExpiresAt = newExpiry
+}
