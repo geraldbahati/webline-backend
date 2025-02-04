@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"log"
 )
 
 // GenerateSecureCSRFToken creates a URL-safe, base64 encoded random token
@@ -19,6 +20,10 @@ func GenerateSecureCSRFToken() (string, error) {
 
 // VerifyCSRFToken securely compares tokens
 func VerifyCSRFToken(received, stored string) bool {
+
+	log.Println("Received token:", received)
+	log.Println("Stored token:", stored)
+
 	return subtle.ConstantTimeCompare(
 		[]byte(received),
 		[]byte(stored),

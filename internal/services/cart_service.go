@@ -10,6 +10,7 @@ import (
 	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
+	"weblineBackend/pkg/utils"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -22,6 +23,7 @@ type CartService struct {
 	cartRepository         repository.CartRepository
 	productRepository      *repository.ProductRepository
 	productImageRepository *repository.ProductImageRepository
+	exchangeRateRepository repository.ExchangeRateRepository
 	cacheService           CacheService
 }
 
@@ -43,6 +45,7 @@ func NewCartService(
 	cartRepository repository.CartRepository,
 	productRepository *repository.ProductRepository,
 	productImageRepository *repository.ProductImageRepository,
+	exchangeRateRepository repository.ExchangeRateRepository,
 	cacheService CacheService,
 ) *CartService {
 	return &CartService{
@@ -51,6 +54,7 @@ func NewCartService(
 		cartRepository:         cartRepository,
 		productRepository:      productRepository,
 		productImageRepository: productImageRepository,
+		exchangeRateRepository: exchangeRateRepository,
 		cacheService:           cacheService,
 	}
 }
@@ -61,7 +65,7 @@ func (s *CartService) constructS3URL(filePath string) string {
 }
 
 // getOrCreateCart gets an existing cart or creates a new one based on session/user context
-func (s *CartService) getOrCreateCart(ctx context.Context, session model.Session, userType string) (*model.ShoppingCart, error) {
+func (s *CartService) getOrCreateCart(ctx context.Context, session *model.Session, userType string) (*model.ShoppingCart, error) {
 	var cart *model.ShoppingCart
 	var err error
 
@@ -111,7 +115,7 @@ func (s *CartService) getOrCreateCart(ctx context.Context, session model.Session
 }
 
 // AddToCart adds an item to the cart
-func (s *CartService) AddToCart(ctx context.Context, session model.Session, userType string, productID string, quantity int32) error {
+func (s *CartService) AddToCart(ctx context.Context, session *model.Session, userType string, productID string, quantity int32) error {
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return fmt.Errorf("get or create cart: %w", err)
@@ -144,53 +148,51 @@ func (s *CartService) AddToCart(ctx context.Context, session model.Session, user
 }
 
 // GetCartItems returns all items in the cart
-func (s *CartService) GetCartItems(ctx context.Context, session model.Session, userType string) ([]*model.CartItem, error) {
-	var ownerUUID uuid.UUID
-	var err error
-
-	switch userType {
-	case middleware.UserTypeAuthenticated:
-		ownerUUID, err = uuid.Parse(session.UserID.String())
-		if err != nil {
-			s.logger.Error("Invalid owner ID format", zap.Error(err))
-			return nil, fmt.Errorf("invalid owner ID format: %w", err)
-		}
-	case middleware.UserTypeGuest:
-		ownerUUID = session.SessionID
-	default:
-		return nil, fmt.Errorf("invalid user type: %s", userType)
-	}
-
+func (s *CartService) GetCartItems(ctx context.Context, session *model.Session, userType string) ([]*model.CartItem, error) {
 	// Try to get cart
-	cart, err := s.cartRepository.GetCartByOwnerID(ctx, ownerUUID)
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Return empty list for new cart
-			return []*model.CartItem{}, nil
-		}
 		s.logger.Error("Failed to get cart", zap.Error(err))
 		return nil, fmt.Errorf("get cart: %w", err)
 	}
 
-	// Try cache first
 	var items []*model.CartItem
 	cacheKey := CartItemsKey(cart.ID.String())
-	err = s.cacheService.Get(ctx, cacheKey, &items)
-	if err == nil {
+	// Attempt to retrieve cart items from cache
+	if err = s.cacheService.Get(ctx, cacheKey, &items); err == nil && items != nil {
+		s.logger.Debug("Cart items retrieved from cache", zap.String("cartID", cart.ID.String()))
 		return items, nil
 	}
 
-	// Get from database
+	// Get from database if cache miss
 	items, err = s.cartRepository.GetAllCartItems(ctx, cart.ID)
 	if err != nil {
 		s.logger.Error("Failed to get cart items", zap.Error(err))
 		return nil, fmt.Errorf("get cart items: %w", err)
 	}
 
-	// Update cache
+	// Fetch the latest exchange rate like in product service.
+	exchangeRate, err := s.exchangeRateRepository.GetLatestExchangeRate(ctx, "USD")
+	if err != nil {
+		s.logger.Warn("Failed to fetch exchange rate, using default", zap.Error(err))
+		exchangeRate = 0
+	}
+
+	s.logger.Info("Exchange rate", zap.Float64("exchangeRate", exchangeRate))
+
+	// Transform each cart item:
+	// - Update the image URL to the full S3 URL.
+	// - Convert the price from USD to KES.
+	utils.TransformCartItems(items, s.config.AWSBucketName, s.config.AWSRegion, exchangeRate)
+
+	s.logger.Info("Cart items retrieved from database and transformed", zap.String("cartID", cart.ID.String()))
+
+	// Update cache with the latest cart items
 	if err := s.cacheService.SetWithTTL(ctx, cacheKey, items, 24*time.Hour); err != nil {
 		s.logger.Warn("Failed to cache cart items", zap.Error(err))
 	}
+
+	s.logger.Debug("Cart items cached", zap.Any("items", items))
 
 	return items, nil
 }
@@ -299,7 +301,7 @@ func (s *CartService) clearCartCache(ctx context.Context, cartID uuid.UUID) {
 }
 
 // RemoveFromCart removes an item from the cart.
-func (s *CartService) RemoveFromCart(ctx context.Context, session model.Session, userType string, productID string) error {
+func (s *CartService) RemoveFromCart(ctx context.Context, session *model.Session, userType string, productID string) error {
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
@@ -342,7 +344,7 @@ func (s *CartService) RemoveFromCart(ctx context.Context, session model.Session,
 }
 
 // ClearCart removes all items from the cart.
-func (s *CartService) ClearCart(ctx context.Context, session model.Session, userType string) error {
+func (s *CartService) ClearCart(ctx context.Context, session *model.Session, userType string) error {
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
@@ -377,7 +379,7 @@ func (s *CartService) ClearCart(ctx context.Context, session model.Session, user
 }
 
 // CalculateCartTotal calculates the total price of all items in the cart.
-func (s *CartService) CalculateCartTotal(ctx context.Context, session model.Session, userType string) (float64, error) {
+func (s *CartService) CalculateCartTotal(ctx context.Context, session *model.Session, userType string) (float64, error) {
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return 0, err
@@ -411,7 +413,7 @@ func (s *CartService) CalculateCartTotal(ctx context.Context, session model.Sess
 }
 
 // UpdateCartItemQuantity updates the quantity of an item in the cart.
-func (s *CartService) UpdateCartItemQuantity(ctx context.Context, session model.Session, userType string, productID string, quantity int32) error {
+func (s *CartService) UpdateCartItemQuantity(ctx context.Context, session *model.Session, userType string, productID string, quantity int32) error {
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
@@ -445,16 +447,14 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, session model.
 	if err != nil {
 		s.logger.Warn("Failed to fetch updated cart item", zap.Error(err))
 	} else {
-		// Construct the S3 URL for the image
+		// Retrieve the full S3 URL for the image using the utility function.
 		if updatedItem.ImageURL != "" {
-			imagePath := updatedItem.ImageURL
-			s3URL := s.constructS3URL(imagePath)
-			updatedItem.ImageURL = s3URL
+			updatedItem.ImageURL = utils.ConstructS3URL(s.config.AWSBucketName, s.config.AWSRegion, updatedItem.ImageURL)
 		}
 
 		// Update the cache with the new cart item.
 		cacheKey := CartItemKey(cart.ID.String(), productID)
-		err = s.cacheService.Set(ctx, cacheKey, *updatedItem)
+		err = s.cacheService.SetWithTTL(ctx, cacheKey, *updatedItem, 24*time.Hour)
 		if err != nil {
 			s.logger.Warn("Failed to update cart item cache", zap.Error(err))
 		}
@@ -474,11 +474,10 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, session model.
 
 	s.logger.Info("Updated cart item quantity", zap.String("productID", productID), zap.String("cartID", cart.ID.String()), zap.Int32("quantity", quantity))
 	return nil
-
 }
 
 // CreateShoppingCart creates a new shopping cart associated with a user or session.
-func (s *CartService) CreateShoppingCart(ctx context.Context, session model.Session, userType string) (model.ShoppingCart, error) {
+func (s *CartService) CreateShoppingCart(ctx context.Context, session *model.Session, userType string) (model.ShoppingCart, error) {
 	// Create the shopping cart in the repository.
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
@@ -489,7 +488,7 @@ func (s *CartService) CreateShoppingCart(ctx context.Context, session model.Sess
 }
 
 // ReplaceCartItems replaces all items in the cart with the provided items.
-func (s *CartService) ReplaceCartItems(ctx context.Context, session model.Session, userType string, items []CartItemInput) error {
+func (s *CartService) ReplaceCartItems(ctx context.Context, session *model.Session, userType string, items []CartItemInput) error {
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
@@ -547,16 +546,14 @@ func (s *CartService) ReplaceCartItems(ctx context.Context, session model.Sessio
 			return fmt.Errorf("upsert cart item: %w", err)
 		}
 
-		// Construct the S3 URL for the image
+		// Retrieve the full S3 URL for the image using the utility function.
 		if cartItem.ImageURL != "" {
-			imagePath := cartItem.ImageURL
-			s3URL := s.constructS3URL(imagePath)
-			cartItem.ImageURL = s3URL
+			cartItem.ImageURL = utils.ConstructS3URL(s.config.AWSBucketName, s.config.AWSRegion, cartItem.ImageURL)
 		}
 
 		// Update cache for each item.
 		cacheKey := CartItemKey(cart.ID.String(), item.ProductID)
-		err = s.cacheService.Set(ctx, cacheKey, *cartItem)
+		err = s.cacheService.SetWithTTL(ctx, cacheKey, *cartItem, 24*time.Hour)
 		if err != nil {
 			s.logger.Warn("Failed to cache cart item", zap.Error(err))
 		}
@@ -579,7 +576,7 @@ func (s *CartService) ReplaceCartItems(ctx context.Context, session model.Sessio
 }
 
 // GetShoppingCart retrieves the shopping cart by its ID.
-func (s *CartService) GetShoppingCart(ctx context.Context, session model.Session, userType string) (model.ShoppingCart, error) {
+func (s *CartService) GetShoppingCart(ctx context.Context, session *model.Session, userType string) (model.ShoppingCart, error) {
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return model.ShoppingCart{}, err

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"net/http"
+	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/handlers"
 	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/services/i"
@@ -11,8 +12,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService i.SessionService) *mux.Router {
+func SetupRouter(cfg appconfig.Config, logger *zap.Logger, handlers *handlers.Handlers, sessionService i.SessionService) *mux.Router {
 	r := mux.NewRouter()
+
+	// Add CORS middleware using rs/cors with configuration-based options.
+	r.Use(middleware.CORS(&cfg, logger))
 
 	// Initialize Middleware
 	recoveryMiddleware := middleware.RecoveryMiddleware(middleware.RecoveryOptions{
@@ -51,13 +55,6 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService
 		Preload:           true,
 	})
 
-	corsMiddleware := middleware.CORS(logger, middleware.CORSOptions{
-		AllowedOrigins:   []string{"http://localhost:3000", "https://www.weblineshop.co.ke"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "X-CSRF-Token", "Authorization"},
-		AllowCredentials: true,
-	})
-
 	// Apply Middleware to the Router in the correct order
 	r.Use(recoveryMiddleware)
 	r.Use(requestIDMiddleware)
@@ -65,7 +62,6 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService
 	// r.Use(rateLimitMiddleware)
 	r.Use(cspMiddleware)
 	r.Use(hstsMiddleware)
-	r.Use(corsMiddleware)
 	r.Use(middleware.OptionalAuth(logger))
 	r.Use(middleware.MetricsMiddleware(logger))
 
@@ -93,8 +89,8 @@ func SetupRouter(logger *zap.Logger, handlers *handlers.Handlers, sessionService
 	registerAdminProductRoutes(r, handlers, logger)
 	registerPromotionRoutes(r, handlers)
 	registerAdminPromotionRoutes(r, handlers, logger)
-	registerAdditionalRoutes(r, handlers, logger)
 	registerCartPromotionRoutes(r, handlers, logger, sessionService)
+	registerSessionRoutes(r, cfg, handlers, logger, sessionService)
 
 	return r
 }
@@ -235,82 +231,22 @@ func registerCartPromotionRoutes(router *mux.Router, handlers *handlers.Handlers
 	NamedHandleFunc(cartRouter, "/replace", handlers.CartHandler.ReplaceCartItemsHandler, []string{http.MethodPut}, "ReplaceCartItems")
 }
 
-// registerAdditionalRoutes registers other related routes like variants, images, specifications, options, cart, orders, promotions, etc.
-func registerAdditionalRoutes(r *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
-	// Product Variant routes
-	variantRouter := r.PathPrefix("/api/product-variants").Subrouter()
-	NamedHandleFunc(variantRouter, "", handlers.ProductVariantHandler.CreateProductVariantHandler, []string{http.MethodPost}, "CreateProductVariant")
-	NamedHandleFunc(variantRouter, "/{id}", handlers.ProductVariantHandler.GetProductVariantByIDHandler, []string{http.MethodGet}, "GetProductVariantByID")
-	NamedHandleFunc(variantRouter, "/product/{id}", handlers.ProductVariantHandler.ListProductVariantsByProductIDHandler, []string{http.MethodGet}, "ListProductVariantsByProductID")
-	NamedHandleFunc(variantRouter, "/{id}", handlers.ProductVariantHandler.UpdateProductVariantHandler, []string{http.MethodPut}, "UpdateProductVariant")
-	NamedHandleFunc(variantRouter, "/{id}", handlers.ProductVariantHandler.DeleteProductVariantHandler, []string{http.MethodDelete}, "DeleteProductVariant")
+// registerSessionRoutes registers session-related routes.
+func registerSessionRoutes(r *mux.Router, cfg appconfig.Config, handlers *handlers.Handlers, logger *zap.Logger, sessionService i.SessionService) {
+	// Update the route prefix to match frontend expectations
+	sessionRouter := r.PathPrefix("/api/session").Subrouter()
 
-	// Product Image routes
-	imageRouter := r.PathPrefix("/api/product-images").Subrouter()
-	NamedHandleFunc(imageRouter, "", handlers.ProductImageHandler.CreateProductImageHandler, []string{http.MethodPost}, "CreateProductImage")
-	NamedHandleFunc(imageRouter, "/{id}", handlers.ProductImageHandler.GetProductImageByIDHandler, []string{http.MethodGet}, "GetProductImageByID")
-	NamedHandleFunc(imageRouter, "/product/{product_id}", handlers.ProductImageHandler.GetProductImagesByProductIDHandler, []string{http.MethodGet}, "GetProductImagesByProductID")
-	NamedHandleFunc(imageRouter, "/{id}", handlers.ProductImageHandler.UpdateProductImageHandler, []string{http.MethodPut}, "UpdateProductImage")
-	NamedHandleFunc(imageRouter, "/{id}", handlers.ProductImageHandler.DeleteProductImageHandler, []string{http.MethodDelete}, "DeleteProductImage")
+	sessionRouter.Use(middleware.OptionalAuth(logger), middleware.CORS(&cfg, logger))
 
-	// Product Specification routes
-	specRouter := r.PathPrefix("/api/product-specifications").Subrouter()
-	NamedHandleFunc(specRouter, "", handlers.ProductSpecificationHandler.CreateProductSpecificationHandler, []string{http.MethodPost}, "CreateProductSpecification")
-	NamedHandleFunc(specRouter, "", handlers.ProductSpecificationHandler.ListProductSpecificationsByProductIDHandler, []string{http.MethodGet}, "ListProductSpecificationsByProductID")
-	NamedHandleFunc(specRouter, "/{id}", handlers.ProductSpecificationHandler.DeleteProductSpecificationHandler, []string{http.MethodDelete}, "DeleteProductSpecification")
+	sessionBasedRouter := sessionRouter.PathPrefix("").Subrouter()
 
-	// Product Option routes
-	optionRouter := r.PathPrefix("/api/product-options").Subrouter()
-	NamedHandleFunc(optionRouter, "/{id}", handlers.ProductOptionHandler.CreateProductOptionHandler, []string{http.MethodPost}, "CreateProductOption")
-	NamedHandleFunc(optionRouter, "/{id}", handlers.ProductOptionHandler.ListProductOptionsByProductIDHandler, []string{http.MethodGet}, "ListProductOptionsByProductID")
-	NamedHandleFunc(optionRouter, "/{id}", handlers.ProductOptionHandler.DeleteProductOptionHandler, []string{http.MethodDelete}, "DeleteProductOption")
-	NamedHandleFunc(optionRouter, "/{id}", handlers.ProductOptionHandler.UpdateProductOptionHandler, []string{http.MethodPut}, "UpdateProductOption")
+	sessionBasedRouter.Use(
+		middleware.Session(logger, sessionService),
+		middleware.OptionalAuth(logger), // Allow both authenticated and guest users
+		middleware.CORS(&cfg, logger),
+	)
 
-	// Product Option Value routes
-	optionValueRouter := r.PathPrefix("/api/product-option-values").Subrouter()
-	NamedHandleFunc(optionValueRouter, "/{id}", handlers.ProductOptionHandler.CreateProductOptionValueHandler, []string{http.MethodPost}, "CreateProductOptionValue")
-	NamedHandleFunc(optionValueRouter, "/{id}", handlers.ProductOptionHandler.ListProductOptionValuesByOptionIDHandler, []string{http.MethodGet}, "ListProductOptionValuesByOptionID")
-	NamedHandleFunc(optionValueRouter, "/{id}", handlers.ProductOptionHandler.DeleteProductOptionValueHandler, []string{http.MethodDelete}, "DeleteProductOptionValue")
-	NamedHandleFunc(optionValueRouter, "/{id}", handlers.ProductOptionHandler.UpdateProductOptionValueHandler, []string{http.MethodPut}, "UpdateProductOptionValue")
-
-	// Order routes
-	orderRouter := r.PathPrefix("/api/orders").Subrouter()
-	NamedHandleFunc(orderRouter, "", handlers.OrderHandler.CreateOrder, []string{http.MethodPost}, "CreateOrder")
-	NamedHandleFunc(orderRouter, "", handlers.OrderHandler.ListOrders, []string{http.MethodGet}, "ListOrders")
-	NamedHandleFunc(orderRouter, "/{id}", handlers.OrderHandler.GetOrder, []string{http.MethodGet}, "GetOrder")
-	NamedHandleFunc(orderRouter, "/pay", handlers.OrderHandler.PayOrder, []string{http.MethodPost}, "PayOrder")
-	NamedHandleFunc(orderRouter, "/pay/status", handlers.OrderHandler.GetPaymentStatus, []string{http.MethodGet}, "GetPaymentStatus")
-	NamedHandleFunc(orderRouter, "/pay/mpesa-callback", handlers.OrderHandler.HandleMpesaCallback, []string{http.MethodPost}, "HandleMpesaCallback")
-	NamedHandleFunc(orderRouter, "/{id}/cancel", handlers.OrderHandler.CancelOrder, []string{http.MethodPut}, "CancelOrder")
-	NamedHandleFunc(orderRouter, "/{id}/pay", handlers.OrderHandler.ChangeOrderPaymentMethod, []string{http.MethodPut}, "ChangeOrderPaymentMethod")
-
-	// Admin order routes
-	adminOrderRouter := r.PathPrefix("/api/v2/orders").Subrouter()
-	protectedAdminOrderRouter := adminOrderRouter.PathPrefix("").Subrouter()
-	protectedAdminOrderRouter.Use(middleware.Auth(logger))
-	NamedHandleFunc(protectedAdminOrderRouter, "/total-revenue", handlers.OrderHandler.GetTotalRevenue, []string{http.MethodGet}, "GetTotalRevenue")
-	NamedHandleFunc(protectedAdminOrderRouter, "/monthly-sales", handlers.OrderHandler.GetMonthlySales, []string{http.MethodGet}, "GetMonthlySales")
-	NamedHandleFunc(protectedAdminOrderRouter, "/monthly-revenue", handlers.OrderHandler.GetMonthlyRevenue, []string{http.MethodGet}, "GetMonthlyRevenue")
-	NamedHandleFunc(protectedAdminOrderRouter, "/sales-trend", handlers.OrderHandler.GetSalesTrend, []string{http.MethodGet}, "GetSalesTrend")
-	NamedHandleFunc(protectedAdminOrderRouter, "/recent-sales", handlers.OrderHandler.GetRecentSales, []string{http.MethodGet}, "GetRecentSales")
-	NamedHandleFunc(protectedAdminOrderRouter, "/monthly-total-sales", handlers.OrderHandler.GetTotalSalesCurrentMonth, []string{http.MethodGet}, "GetTotalSalesCurrentMonth")
-	NamedHandleFunc(protectedAdminOrderRouter, "/exchange-rate", handlers.OrderHandler.GetExchangeRate, []string{http.MethodGet}, "GetExchangeRate")
-	NamedHandleFunc(protectedAdminOrderRouter, "/exchange-rate", handlers.OrderHandler.UpdateExchangeRate, []string{http.MethodPut}, "UpdateExchangeRate")
-
-	// Product Analytic routes
-	productAnalyticRouter := r.PathPrefix("/api/product-analytics").Subrouter()
-	NamedHandleFunc(productAnalyticRouter, "/best-sellers", handlers.ProductAnalyticHandler.GetBestSellerProducts, []string{http.MethodGet}, "GetBestSellerProducts")
-	NamedHandleFunc(productAnalyticRouter, "/featured", handlers.ProductAnalyticHandler.GetFeaturedProducts, []string{http.MethodGet}, "GetFeaturedProducts")
-	NamedHandleFunc(productAnalyticRouter, "/new-arrivals", handlers.ProductAnalyticHandler.GetNewArrivalProducts, []string{http.MethodGet}, "GetNewArrivalProducts")
-	NamedHandleFunc(productAnalyticRouter, "/daily-deals", handlers.ProductAnalyticHandler.GetDailyDealsProducts, []string{http.MethodGet}, "GetDailyDealsProducts")
-
-	// Discount routes
-	discountRouter := r.PathPrefix("/api/discounts").Subrouter()
-	protectedDiscountRouter := discountRouter.PathPrefix("").Subrouter()
-	protectedDiscountRouter.Use(middleware.Auth(logger))
-	protectedDiscountRouter.HandleFunc("", handlers.DiscountHandler.CreateDiscountHandler).Methods(http.MethodPost)
-
-	// Role routes
-	roleRouter := r.PathPrefix("/api/roles").Subrouter()
-	roleRouter.HandleFunc("", handlers.RoleHandler.CreateRole).Methods(http.MethodPost)
+	// Routes now match frontend URLs
+	NamedHandleFunc(sessionRouter, "/guest", handlers.SessionHandler.CreateGuestSession, []string{http.MethodPost}, "CreateGuestSession")
+	NamedHandleFunc(sessionBasedRouter, "/merge", handlers.SessionHandler.MergeSession, []string{http.MethodPost}, "MergeSession")
 }

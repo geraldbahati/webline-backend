@@ -3,12 +3,13 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
-	"weblineBackend/internal/services/i"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -20,6 +21,8 @@ const (
 	sessionCleanupBatch    = 100
 	sessionRefreshInterval = 24 * time.Hour
 	minSessionLifetime     = 24 * time.Hour // Minimum session lifetime for permanent login
+	sessionDuration        = 24 * time.Hour
+	csrfTokenLength        = 32
 )
 
 type SessionService struct {
@@ -28,7 +31,7 @@ type SessionService struct {
 	cacheService      CacheService
 }
 
-func NewSessionService(logger *zap.Logger, sessionRepository repository.SessionRepository, cacheService CacheService) i.SessionService {
+func NewSessionService(logger *zap.Logger, sessionRepository repository.SessionRepository, cacheService CacheService) *SessionService {
 	return &SessionService{
 		logger:            logger.Named("session_service"),
 		sessionRepository: sessionRepository,
@@ -38,7 +41,7 @@ func NewSessionService(logger *zap.Logger, sessionRepository repository.SessionR
 
 // generateCSRFToken generates a cryptographically secure random token
 func generateCSRFToken() (string, error) {
-	tokenBytes := make([]byte, 32)
+	tokenBytes := make([]byte, csrfTokenLength)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", fmt.Errorf("failed to generate random bytes: %w", err)
 	}
@@ -113,11 +116,55 @@ func (s *SessionService) GetSessionBySessionID(ctx context.Context, sessionID st
 	return session, nil
 }
 
-// cacheSession helper function to cache a session
+// cacheSession stores a session in the cache
 func (s *SessionService) cacheSession(ctx context.Context, session model.Session) error {
 	cacheKey := SessionKey(session.SessionID.String())
-	ttl := time.Until(session.ExpiresAt)
-	return s.cacheService.SetWithTTL(ctx, cacheKey, session, ttl)
+	expiryDuration := time.Until(session.ExpiresAt)
+
+	if err := s.cacheService.SetWithTTL(ctx, cacheKey, session, expiryDuration); err != nil {
+		return fmt.Errorf("cache set: %w", err)
+	}
+
+	// If session has a user, add to user's sessions set
+	if session.UserID != nil {
+		userSessionsKey := UserSessionsKey(session.UserID.String())
+		if err := s.cacheService.SAdd(ctx, userSessionsKey, session.SessionID.String()); err != nil {
+			s.logger.Warn("Failed to add session to user's set",
+				zap.Error(err),
+				zap.String("userID", session.UserID.String()))
+		}
+	}
+
+	return nil
+}
+
+// invalidateSessionCache removes a session from all caches
+func (s *SessionService) invalidateSessionCache(ctx context.Context, sessionID string, userID *uuid.UUID) {
+	// Remove session data
+	cacheKey := SessionKey(sessionID)
+	if err := s.cacheService.Delete(ctx, cacheKey); err != nil {
+		s.logger.Warn("Failed to delete session from cache",
+			zap.Error(err),
+			zap.String("sessionID", sessionID))
+	}
+
+	// Remove from user's sessions set if applicable
+	if userID != nil {
+		userSessionsKey := UserSessionsKey(userID.String())
+		if err := s.cacheService.SRem(ctx, userSessionsKey, sessionID); err != nil {
+			s.logger.Warn("Failed to remove session from user's set",
+				zap.Error(err),
+				zap.String("userID", userID.String()))
+		}
+	}
+
+	// Remove expiry tracking
+	expiryKey := SessionExpiryKey(sessionID)
+	if err := s.cacheService.Delete(ctx, expiryKey); err != nil {
+		s.logger.Warn("Failed to delete session expiry",
+			zap.Error(err),
+			zap.String("sessionID", sessionID))
+	}
 }
 
 // Update SessionService.GetSessionsByUserID to accept uuid.UUID
@@ -311,4 +358,130 @@ func (s *SessionService) RefreshSession(ctx context.Context, sessionID string) (
 	}
 
 	return session, nil
+}
+
+// CreateGuestSession creates a new guest session
+func (s *SessionService) CreateGuestSession(ctx context.Context) (*model.Session, error) {
+	// Generate session ID and CSRF token
+	sessionID := uuid.New()
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		s.logger.Error("Failed to generate CSRF token", zap.Error(err))
+		return nil, fmt.Errorf("failed to generate CSRF token: %w", err)
+	}
+
+	// Create session with expiration
+	expiresAt := time.Now().Add(sessionDuration)
+	session := &model.Session{
+		SessionID: sessionID,
+		CSRFToken: csrfToken,
+		ExpiresAt: expiresAt,
+	}
+
+	// Store in repository
+	_, err = s.sessionRepository.CreateSession(ctx, nil, sessionID, csrfToken, expiresAt)
+	if err != nil {
+		s.logger.Error("Failed to create session in repository", zap.Error(err))
+		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
+
+	// Use the helper method for caching
+	if err := s.cacheSession(ctx, *session); err != nil {
+		s.logger.Warn("Failed to cache guest session",
+			zap.Error(err),
+			zap.String("sessionID", sessionID.String()))
+	}
+
+	return session, nil
+}
+
+// MergeGuestSession merges a guest session with a user session
+func (s *SessionService) MergeGuestSession(ctx context.Context, sessionID string, userID uuid.UUID) (*model.Session, error) {
+	// Get existing session
+	session, err := s.GetSessionBySessionID(ctx, sessionID)
+	if err != nil {
+		s.logger.Error("Failed to get session", zap.Error(err))
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// Generate new CSRF token
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		s.logger.Error("Failed to generate CSRF token", zap.Error(err))
+		return nil, fmt.Errorf("failed to generate CSRF token: %w", err)
+	}
+
+	// Update session with user ID and new CSRF token
+	session.UserID = &userID
+	session.CSRFToken = csrfToken
+	session.ExpiresAt = time.Now().Add(sessionDuration)
+
+	// Update in repository
+	err = s.sessionRepository.UpdateSession(ctx, session)
+	if err != nil {
+		s.logger.Error("Failed to update session", zap.Error(err))
+		return nil, fmt.Errorf("failed to update session: %w", err)
+	}
+
+	// Use the helper method for caching
+	if err := s.cacheSession(ctx, session); err != nil {
+		s.logger.Warn("Failed to cache merged session",
+			zap.Error(err),
+			zap.String("sessionID", sessionID))
+	}
+
+	return &session, nil
+}
+
+// DeleteSession deletes a session
+func (s *SessionService) DeleteSession(ctx context.Context, sessionID string) error {
+	sessionUUID, err := uuid.Parse(sessionID)
+	if err != nil {
+		return fmt.Errorf("parse session ID: %w", err)
+	}
+
+	// Get session to get userID before deletion
+	session, err := s.GetSessionBySessionID(ctx, sessionID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.logger.Warn("Failed to get session before deletion",
+			zap.Error(err),
+			zap.String("sessionID", sessionID))
+	}
+
+	// Delete from repository
+	err = s.sessionRepository.DeleteSessionBySessionID(ctx, sessionUUID)
+	if err != nil {
+		s.logger.Error("Failed to delete session from repository",
+			zap.Error(err),
+			zap.String("sessionID", sessionID))
+		return fmt.Errorf("failed to delete session: %w", err)
+	}
+
+	// Invalidate all cache entries
+	s.invalidateSessionCache(ctx, sessionID, session.UserID)
+
+	return nil
+}
+
+// Add a new method for cleaning up expired sessions
+func (s *SessionService) CleanupExpiredSessions(ctx context.Context) error {
+	pattern := fmt.Sprintf("%s:*", NamespaceSession)
+	keys, err := s.cacheService.Keys(ctx, pattern)
+	if err != nil {
+		return fmt.Errorf("get session keys: %w", err)
+	}
+
+	now := time.Now()
+	for _, key := range keys {
+		var session model.Session
+		if err := s.cacheService.Get(ctx, key, &session); err != nil {
+			continue
+		}
+
+		if session.ExpiresAt.Before(now) {
+			s.DeleteSession(ctx, session.SessionID.String())
+		}
+	}
+
+	return nil
 }
