@@ -37,6 +37,12 @@ const (
 	SubNamespaceFeatured    = "featured"
 	SubNamespaceOnSale      = "on-sale"
 	SubNamespaceDailyDeals  = "daily-deals"
+
+	// Session-related cache keys
+	NamespaceSession   = "session"
+	SubNamespaceUser   = "user"
+	SubNamespaceGuest  = "guest"
+	SubNamespaceExpiry = "expiry"
 )
 
 // GenerateCacheKey constructs a standardized Redis cache key.
@@ -83,7 +89,7 @@ func ProductAllKey() string {
 func ProductSitemapKey() string {
 	return GenerateCacheKey(NamespaceProduct, SubNamespaceSitemap)
 }
- 
+
 // ExchangeRateKey generates a Redis key for exchange rates by currency.
 func ExchangeRateKey(currency string) string {
 	return GenerateCacheKey(NamespaceExchangeRate, SubNamespaceRate, currency)
@@ -116,7 +122,7 @@ func ProductCartKey(slug string) string {
 
 // SessionKey generates a Redis key for session information.
 func SessionKey(sessionID string) string {
-	return GenerateCacheKey(NamespaceUser, SubNamespaceSession, sessionID)
+	return GenerateCacheKey(NamespaceSession, sessionID)
 }
 
 // CartItemsKey generates a Redis key for cart items.
@@ -162,4 +168,14 @@ func ProductDailyDealsKey() string {
 // ProductCachePattern generates a Redis key pattern for product cache.
 func ProductCachePattern() string {
 	return fmt.Sprintf("%s:*", GenerateCacheKey(NamespaceProduct))
+}
+
+// UserSessionsKey generates a Redis key for user sessions
+func UserSessionsKey(userID string) string {
+	return GenerateCacheKey(NamespaceSession, SubNamespaceUser, userID)
+}
+
+// SessionExpiryKey generates a Redis key for session expiry tracking
+func SessionExpiryKey(sessionID string) string {
+	return GenerateCacheKey(NamespaceSession, SubNamespaceExpiry, sessionID)
 }

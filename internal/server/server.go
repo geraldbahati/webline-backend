@@ -66,7 +66,7 @@ func NewServer(cfg appconfig.Config) (*Server, error) {
 	handlers := initializeHandlers(services, cfg, logger)
 
 	// 7. Set Up Router
-	router := routes.SetupRouter(logger, handlers, services.SessionService)
+	router := routes.SetupRouter(cfg, logger, handlers, services.SessionService)
 
 	// 8. Construct Server Instance
 	server := &Server{
@@ -178,7 +178,7 @@ func initializeServices(repos *repository.Repositories, cfg appconfig.Config, lo
 		UserService:             services.NewUserService(repos.UserRepo, repos.RoleRepo, repos.UserRoleRepo, repos.VerificationTokenRepo, repos.PasswordResetRepo, repos.AdminRequestRepo, repos.TokenRepo, repos.GuestCheckoutRepo, &cfg, logger, s3Client),
 		CategoryService:         services.NewCategoryService(repos.CategoryRepo, repos.UserRepo, logger, &cfg, s3Client),
 		ProductService:          services.NewProductService(repos.ProductRepo, repos.ProductVariantRepo, repos.ProductImageRepo, repos.ProductSpecificationRepo, repos.CategoryRepo, repos.ProductOptionRepo, repos.DiscountRepo, repos.UserRepo, repos.ExchangeRateRepo, cacheService, logger, &cfg, s3Client),
-		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo, cacheService),
+		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo, repos.ExchangeRateRepo, cacheService),
 		OrderService:            services.NewOrderService(logger, repos.GuestCheckoutRepo, repos.OrderRepo, repos.OrderItemRepo, repos.PaymentRepo, repos.UserRepo, repos.ProductRepo, repos.DiscountRepo, repos.ExchangeRateRepo, repos.CompanyRepository, cacheService, &cfg),
 		PaymentService:          services.NewPaymentService(repos.PaymentRepo, repos.OrderRepo, repos.OrderItemRepo, logger, &cfg),
 		InquiryService:          services.NewInquiryService(repos.ProductRepo, logger, &cfg),
@@ -211,5 +211,6 @@ func initializeHandlers(svc *services.Services, cfg appconfig.Config, logger *za
 		DiscountHandler:             handlers.NewDiscountHandler(svc.DiscountService),
 		RoleHandler:                 handlers.NewRoleHandler(svc.RoleService),
 		GuestHandler:                handlers.NewGuestHandler(logger),
+		SessionHandler:              handlers.NewSessionHandler(logger, svc.SessionService),
 	}
 }

@@ -294,6 +294,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCartByGuestIDStmt, err = db.PrepareContext(ctx, getCartByGuestID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartByGuestID: %w", err)
 	}
+	if q.getCartByOwnerIDStmt, err = db.PrepareContext(ctx, getCartByOwnerID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCartByOwnerID: %w", err)
+	}
 	if q.getCartItemStmt, err = db.PrepareContext(ctx, getCartItem); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartItem: %w", err)
 	}
@@ -722,6 +725,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateRoleStmt, err = db.PrepareContext(ctx, updateRole); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateRole: %w", err)
+	}
+	if q.updateSessionStmt, err = db.PrepareContext(ctx, updateSession); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateSession: %w", err)
 	}
 	if q.updateSessionLastActivityStmt, err = db.PrepareContext(ctx, updateSessionLastActivity); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateSessionLastActivity: %w", err)
@@ -1209,6 +1215,11 @@ func (q *Queries) Close() error {
 	if q.getCartByGuestIDStmt != nil {
 		if cerr := q.getCartByGuestIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCartByGuestIDStmt: %w", cerr)
+		}
+	}
+	if q.getCartByOwnerIDStmt != nil {
+		if cerr := q.getCartByOwnerIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartByOwnerIDStmt: %w", cerr)
 		}
 	}
 	if q.getCartItemStmt != nil {
@@ -1926,6 +1937,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateRoleStmt: %w", cerr)
 		}
 	}
+	if q.updateSessionStmt != nil {
+		if cerr := q.updateSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateSessionStmt: %w", cerr)
+		}
+	}
 	if q.updateSessionLastActivityStmt != nil {
 		if cerr := q.updateSessionLastActivityStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateSessionLastActivityStmt: %w", cerr)
@@ -2110,6 +2126,7 @@ type Queries struct {
 	getApprovalTokenStmt                       *sql.Stmt
 	getBestSellerProductsStmt                  *sql.Stmt
 	getCartByGuestIDStmt                       *sql.Stmt
+	getCartByOwnerIDStmt                       *sql.Stmt
 	getCartItemStmt                            *sql.Stmt
 	getCategoriesByParentIDStmt                *sql.Stmt
 	getCategoriesWithProductsCountStmt         *sql.Stmt
@@ -2253,6 +2270,7 @@ type Queries struct {
 	updatePromotionStmt                        *sql.Stmt
 	updatePromotionImageStmt                   *sql.Stmt
 	updateRoleStmt                             *sql.Stmt
+	updateSessionStmt                          *sql.Stmt
 	updateSessionLastActivityStmt              *sql.Stmt
 	updateUserStmt                             *sql.Stmt
 	updateUserCompanyStmt                      *sql.Stmt
@@ -2360,6 +2378,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getApprovalTokenStmt:                       q.getApprovalTokenStmt,
 		getBestSellerProductsStmt:                  q.getBestSellerProductsStmt,
 		getCartByGuestIDStmt:                       q.getCartByGuestIDStmt,
+		getCartByOwnerIDStmt:                       q.getCartByOwnerIDStmt,
 		getCartItemStmt:                            q.getCartItemStmt,
 		getCategoriesByParentIDStmt:                q.getCategoriesByParentIDStmt,
 		getCategoriesWithProductsCountStmt:         q.getCategoriesWithProductsCountStmt,
@@ -2503,6 +2522,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updatePromotionStmt:                        q.updatePromotionStmt,
 		updatePromotionImageStmt:                   q.updatePromotionImageStmt,
 		updateRoleStmt:                             q.updateRoleStmt,
+		updateSessionStmt:                          q.updateSessionStmt,
 		updateSessionLastActivityStmt:              q.updateSessionLastActivityStmt,
 		updateUserStmt:                             q.updateUserStmt,
 		updateUserCompanyStmt:                      q.updateUserCompanyStmt,

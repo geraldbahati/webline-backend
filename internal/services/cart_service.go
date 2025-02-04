@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/repository"
+	"weblineBackend/pkg/utils"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -21,6 +23,7 @@ type CartService struct {
 	cartRepository         repository.CartRepository
 	productRepository      *repository.ProductRepository
 	productImageRepository *repository.ProductImageRepository
+	exchangeRateRepository repository.ExchangeRateRepository
 	cacheService           CacheService
 }
 
@@ -42,6 +45,7 @@ func NewCartService(
 	cartRepository repository.CartRepository,
 	productRepository *repository.ProductRepository,
 	productImageRepository *repository.ProductImageRepository,
+	exchangeRateRepository repository.ExchangeRateRepository,
 	cacheService CacheService,
 ) *CartService {
 	return &CartService{
@@ -50,6 +54,7 @@ func NewCartService(
 		cartRepository:         cartRepository,
 		productRepository:      productRepository,
 		productImageRepository: productImageRepository,
+		exchangeRateRepository: exchangeRateRepository,
 		cacheService:           cacheService,
 	}
 }
@@ -59,100 +64,245 @@ func (s *CartService) constructS3URL(filePath string) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)
 }
 
-// AddToCart adds an item to the cart or updates the quantity if it already exists.
-func (s *CartService) AddToCart(ctx context.Context, user middleware.User, productID string, quantity int32, price float64) error {
+// getOrCreateCart gets an existing cart or creates a new one based on session/user context
+func (s *CartService) getOrCreateCart(ctx context.Context, session *model.Session, userType string) (*model.ShoppingCart, error) {
 	var cart *model.ShoppingCart
 	var err error
 
-	// Retrieve the shopping cart based on provided user information
-	if user.IsGuest {
-		// Handle guest user
-		guestUUID, err := uuid.Parse(user.GuestID)
-		if err != nil {
-			s.logger.Error("Invalid guest ID format", zap.Error(err))
-			return fmt.Errorf("invalid guest ID format: %w", err)
+	switch userType {
+	case middleware.UserTypeAuthenticated:
+		if session.UserID == nil {
+			return nil, fmt.Errorf("authenticated session without user ID")
+		}
+		// Try to get cart by user ID
+		cart, err = s.cartRepository.GetShoppingCartByUserID(ctx, *session.UserID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("get user cart: %w", err)
 		}
 
-		cart, err = s.cartRepository.GetCartByGuestID(ctx, guestUUID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				// Cart does not exist; create a new one
-				cart, err = s.cartRepository.CreateShoppingCart(ctx, nil, &guestUUID)
-				if err != nil {
-					s.logger.Error("Failed to create shopping cart for guest", zap.Error(err))
-					return fmt.Errorf("create shopping cart for guest: %w", err)
-				}
-			} else {
-				s.logger.Error("Failed to get cart by guest ID", zap.Error(err))
-				return fmt.Errorf("get cart by guest ID: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Create new cart for authenticated user
+			cart, err = s.cartRepository.CreateShoppingCart(ctx, repository.CreateShoppingCartParams{
+				UserID: session.UserID,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("create user cart: %w", err)
 			}
 		}
-	} else {
-		// Handle authenticated user
-		cart, err = s.cartRepository.GetShoppingCartByUserID(ctx, user.UserID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				// Cart does not exist; create a new one
-				cart, err = s.cartRepository.CreateShoppingCart(ctx, &user.UserID, nil)
-				if err != nil {
-					s.logger.Error("Failed to create shopping cart for user", zap.Error(err))
-					return fmt.Errorf("create shopping cart for user: %w", err)
-				}
-			} else {
-				s.logger.Error("Failed to get cart by user ID", zap.Error(err))
-				return fmt.Errorf("get cart by user ID: %w", err)
+
+	case middleware.UserTypeGuest:
+		// Try to get cart by session ID
+		cart, err = s.cartRepository.GetCartByGuestID(ctx, session.SessionID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("get guest cart: %w", err)
+		}
+
+		if errors.Is(err, sql.ErrNoRows) {
+			// Create new cart for guest
+			cart, err = s.cartRepository.CreateShoppingCart(ctx, repository.CreateShoppingCartParams{
+				GuestID: &session.SessionID,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("create guest cart: %w", err)
 			}
 		}
+
+	default:
+		return nil, fmt.Errorf("invalid user type: %s", userType)
 	}
 
-	// Parse productID
+	return cart, nil
+}
+
+// AddToCart adds an item to the cart
+func (s *CartService) AddToCart(ctx context.Context, session *model.Session, userType string, productID string, quantity int32) error {
+	cart, err := s.getOrCreateCart(ctx, session, userType)
+	if err != nil {
+		return fmt.Errorf("get or create cart: %w", err)
+	}
+
+	// Parse product ID
 	productUUID, err := uuid.Parse(productID)
 	if err != nil {
-		s.logger.Error("Failed to parse product ID", zap.Error(err))
-		return fmt.Errorf("parse product ID: %w", err)
+		return fmt.Errorf("invalid product ID: %w", err)
 	}
 
-	// Retrieve product by ID
+	// Get product details
 	product, err := s.productRepository.GetProductByID(ctx, productUUID)
 	if err != nil {
-		s.logger.Error("Failed to get product by ID", zap.Error(err))
-		return fmt.Errorf("get product by ID: %w", err)
+		return fmt.Errorf("get product: %w", err)
 	}
 
-	// Upsert the cart item
-	cartItem, err := s.cartRepository.UpsertCartItem(ctx, cart.ID, product.ID, quantity, fmt.Sprintf("%.2f", price))
+	// Add item to cart
+	cartItem, err := s.cartRepository.UpsertCartItem(ctx, cart.ID, productUUID, quantity, product.USD)
 	if err != nil {
-		s.logger.Error("Failed to upsert cart item", zap.Error(err))
 		return fmt.Errorf("upsert cart item: %w", err)
 	}
 
-	// Construct the S3 URL for the image (assuming constructS3URL is defined)
-	if cartItem.ImageURL != "" {
-		imagePath := cartItem.ImageURL
-		s3URL := s.constructS3URL(imagePath)
-		cartItem.ImageURL = s3URL
+	// Update cache
+	if err := s.updateCartCache(ctx, cart.ID, cartItem); err != nil {
+		s.logger.Warn("Failed to update cart cache", zap.Error(err))
 	}
 
-	// Update cache for the specific cart item
-	cacheKey := CartItemKey(cart.ID.String(), productID)
-	err = s.cacheService.Set(ctx, cacheKey, *cartItem)
-	if err != nil {
-		s.logger.Warn("Failed to cache cart item", zap.Error(err))
-	}
-
-	// Invalidate the cached list of cart items
-	cartItemsCacheKey := CartItemsKey(cart.ID.String())
-	if delErr := s.cacheService.Delete(ctx, cartItemsCacheKey); delErr != nil {
-		s.logger.Warn("Failed to delete cart items cache", zap.String("key", cartItemsCacheKey), zap.Error(delErr))
-	}
-
-	s.logger.Info("Added/Updated product in cart", zap.String("productID", product.ID.String()), zap.String("cartID", cart.ID.String()))
 	return nil
 }
 
+// GetCartItems returns all items in the cart
+func (s *CartService) GetCartItems(ctx context.Context, session *model.Session, userType string) ([]*model.CartItem, error) {
+	// Try to get cart
+	cart, err := s.getOrCreateCart(ctx, session, userType)
+	if err != nil {
+		s.logger.Error("Failed to get cart", zap.Error(err))
+		return nil, fmt.Errorf("get cart: %w", err)
+	}
+
+	var items []*model.CartItem
+	cacheKey := CartItemsKey(cart.ID.String())
+	// Attempt to retrieve cart items from cache
+	if err = s.cacheService.Get(ctx, cacheKey, &items); err == nil && items != nil {
+		s.logger.Debug("Cart items retrieved from cache", zap.String("cartID", cart.ID.String()))
+		return items, nil
+	}
+
+	// Get from database if cache miss
+	items, err = s.cartRepository.GetAllCartItems(ctx, cart.ID)
+	if err != nil {
+		s.logger.Error("Failed to get cart items", zap.Error(err))
+		return nil, fmt.Errorf("get cart items: %w", err)
+	}
+
+	// Fetch the latest exchange rate like in product service.
+	exchangeRate, err := s.exchangeRateRepository.GetLatestExchangeRate(ctx, "USD")
+	if err != nil {
+		s.logger.Warn("Failed to fetch exchange rate, using default", zap.Error(err))
+		exchangeRate = 0
+	}
+
+	s.logger.Info("Exchange rate", zap.Float64("exchangeRate", exchangeRate))
+
+	// Transform each cart item:
+	// - Update the image URL to the full S3 URL.
+	// - Convert the price from USD to KES.
+	utils.TransformCartItems(items, s.config.AWSBucketName, s.config.AWSRegion, exchangeRate)
+
+	s.logger.Info("Cart items retrieved from database and transformed", zap.String("cartID", cart.ID.String()))
+
+	// Update cache with the latest cart items
+	if err := s.cacheService.SetWithTTL(ctx, cacheKey, items, 24*time.Hour); err != nil {
+		s.logger.Warn("Failed to cache cart items", zap.Error(err))
+	}
+
+	s.logger.Debug("Cart items cached", zap.Any("items", items))
+
+	return items, nil
+}
+
+// updateCartCache helper function to manage cart caching
+func (s *CartService) updateCartCache(ctx context.Context, cartID uuid.UUID, item *model.CartItem) error {
+	// Update item cache
+	itemKey := CartItemKey(cartID.String(), item.ProductID.String())
+	if err := s.cacheService.SetWithTTL(ctx, itemKey, item, 24*time.Hour); err != nil {
+		return err
+	}
+
+	// Invalidate items list cache
+	itemsKey := CartItemsKey(cartID.String())
+	if err := s.cacheService.Delete(ctx, itemsKey); err != nil {
+		return err
+	}
+
+	// Invalidate total cache
+	totalKey := CartTotalKey(cartID.String())
+	if err := s.cacheService.Delete(ctx, totalKey); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// MigrateGuestCart migrates a guest cart to a user cart after login
+func (s *CartService) MigrateGuestCart(ctx context.Context, guestSession model.Session, userID uuid.UUID) error {
+	// Get guest cart
+	guestCart, err := s.cartRepository.GetCartByGuestID(ctx, guestSession.SessionID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("get guest cart: %w", err)
+	}
+
+	if guestCart == nil {
+		// No guest cart to migrate
+		return nil
+	}
+
+	// Get or create user cart
+	userCart, err := s.cartRepository.GetShoppingCartByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			userCart, err = s.cartRepository.CreateShoppingCart(ctx, repository.CreateShoppingCartParams{
+				UserID: &userID,
+			})
+			if err != nil {
+				return fmt.Errorf("create user cart: %w", err)
+			}
+		} else {
+			return fmt.Errorf("get user cart: %w", err)
+		}
+	}
+
+	// Begin transaction for migration
+	tx, err := s.cartRepository.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Get all items from guest cart
+	items, err := s.cartRepository.GetAllCartItems(ctx, guestCart.ID)
+	if err != nil {
+		return fmt.Errorf("get guest cart items: %w", err)
+	}
+
+	// Move items to user cart
+	for _, item := range items {
+		_, err = s.cartRepository.UpsertCartItem(ctx, userCart.ID, item.ProductID, item.Quantity, item.Price)
+		if err != nil {
+			return fmt.Errorf("migrate cart item: %w", err)
+		}
+	}
+
+	// Delete guest cart
+	if err := s.cartRepository.DeleteShoppingCart(ctx, guestCart.ID); err != nil {
+		return fmt.Errorf("delete guest cart: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	// Clear cache for both carts
+	s.clearCartCache(ctx, guestCart.ID)
+	s.clearCartCache(ctx, userCart.ID)
+
+	return nil
+}
+
+// Helper function to clear cart cache
+func (s *CartService) clearCartCache(ctx context.Context, cartID uuid.UUID) {
+	cacheKeys := []string{
+		CartItemsKey(cartID.String()),
+		CartTotalKey(cartID.String()),
+	}
+	for _, key := range cacheKeys {
+		if err := s.cacheService.Delete(ctx, key); err != nil {
+			s.logger.Warn("Failed to delete cart cache",
+				zap.Error(err),
+				zap.String("key", key))
+		}
+	}
+}
+
 // RemoveFromCart removes an item from the cart.
-func (s *CartService) RemoveFromCart(ctx context.Context, user middleware.User, productID string) error {
-	cart, err := s.getOrCreateCart(ctx, user)
+func (s *CartService) RemoveFromCart(ctx context.Context, session *model.Session, userType string, productID string) error {
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
 	}
@@ -193,93 +343,9 @@ func (s *CartService) RemoveFromCart(ctx context.Context, user middleware.User, 
 	return nil
 }
 
-// GetCartItems returns all items in the cart.
-func (s *CartService) GetCartItems(ctx context.Context, user middleware.User) ([]*model.CartItem, error) {
-
-	// Retrieve or create cart
-	cart, err := s.getOrCreateCart(ctx, user)
-	if err != nil {
-		// Error already logged and wrapped in getOrCreateCart
-		return nil, err
-	}
-
-	// Attempt to retrieve cart items from cache
-	cacheKey := CartItemsKey(cart.ID.String())
-	var cartItems []*model.CartItem
-	err = s.cacheService.GetOrSet(ctx, cacheKey, &cartItems, func() error {
-		items, err := s.cartRepository.GetAllCartItems(ctx, cart.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get all cart items: %w", err)
-		}
-
-		// Optimize image URL construction
-		for _, item := range items {
-			if item.ImageURL != "" {
-				item.ImageURL = s.constructS3URL(item.ImageURL)
-			}
-		}
-
-		cartItems = items
-		return nil
-	})
-	if err != nil {
-		s.logger.Error("Failed to get cart items", zap.Error(err))
-		return nil, fmt.Errorf("get cart items: %w", err)
-	}
-
-	s.logger.Info("Retrieved cart items", zap.String("cartID", cart.ID.String()), zap.Int("count", len(cartItems)))
-	return cartItems, nil
-}
-
-func (s *CartService) getOrCreateCart(ctx context.Context, user middleware.User) (*model.ShoppingCart, error) {
-	if user.IsGuest {
-		// Handle guest user
-		guestUUID, err := uuid.Parse(user.GuestID)
-		if err != nil {
-			s.logger.Error("Invalid guest ID format", zap.Error(err))
-			return nil, fmt.Errorf("invalid guest ID format: %w", err)
-		}
-
-		cart, err := s.cartRepository.GetCartByGuestID(ctx, guestUUID)
-		if err == nil {
-			return cart, nil
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			s.logger.Error("Failed to get cart by guest ID", zap.Error(err))
-			return nil, fmt.Errorf("get cart by guest ID: %w", err)
-		}
-
-		// Create a new cart for guest
-		cart, err = s.cartRepository.CreateShoppingCart(ctx, nil, &guestUUID)
-		if err != nil {
-			s.logger.Error("Failed to create shopping cart for guest", zap.Error(err))
-			return nil, fmt.Errorf("create shopping cart for guest: %w", err)
-		}
-		return cart, nil
-	}
-
-	// Handle authenticated user
-	cart, err := s.cartRepository.GetShoppingCartByUserID(ctx, user.UserID)
-	if err == nil {
-		return cart, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		s.logger.Error("Failed to get cart by user ID", zap.Error(err))
-		return nil, fmt.Errorf("get cart by user ID: %w", err)
-	}
-
-	// Create a new cart for authenticated user
-	cart, err = s.cartRepository.CreateShoppingCart(ctx, &user.UserID, nil)
-	if err != nil {
-		s.logger.Error("Failed to create shopping cart for user", zap.Error(err))
-		return nil, fmt.Errorf("create shopping cart for user: %w", err)
-	}
-	return cart, nil
-}
-
 // ClearCart removes all items from the cart.
-func (s *CartService) ClearCart(ctx context.Context, user middleware.User) error {
-	cart, err := s.getOrCreateCart(ctx, user)
+func (s *CartService) ClearCart(ctx context.Context, session *model.Session, userType string) error {
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
 	}
@@ -313,8 +379,8 @@ func (s *CartService) ClearCart(ctx context.Context, user middleware.User) error
 }
 
 // CalculateCartTotal calculates the total price of all items in the cart.
-func (s *CartService) CalculateCartTotal(ctx context.Context, user middleware.User) (float64, error) {
-	cart, err := s.getOrCreateCart(ctx, user)
+func (s *CartService) CalculateCartTotal(ctx context.Context, session *model.Session, userType string) (float64, error) {
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return 0, err
 	}
@@ -347,8 +413,8 @@ func (s *CartService) CalculateCartTotal(ctx context.Context, user middleware.Us
 }
 
 // UpdateCartItemQuantity updates the quantity of an item in the cart.
-func (s *CartService) UpdateCartItemQuantity(ctx context.Context, user middleware.User, productID string, quantity int32) error {
-	cart, err := s.getOrCreateCart(ctx, user)
+func (s *CartService) UpdateCartItemQuantity(ctx context.Context, session *model.Session, userType string, productID string, quantity int32) error {
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
 	}
@@ -381,16 +447,14 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, user middlewar
 	if err != nil {
 		s.logger.Warn("Failed to fetch updated cart item", zap.Error(err))
 	} else {
-		// Construct the S3 URL for the image
+		// Retrieve the full S3 URL for the image using the utility function.
 		if updatedItem.ImageURL != "" {
-			imagePath := updatedItem.ImageURL
-			s3URL := s.constructS3URL(imagePath)
-			updatedItem.ImageURL = s3URL
+			updatedItem.ImageURL = utils.ConstructS3URL(s.config.AWSBucketName, s.config.AWSRegion, updatedItem.ImageURL)
 		}
 
 		// Update the cache with the new cart item.
 		cacheKey := CartItemKey(cart.ID.String(), productID)
-		err = s.cacheService.Set(ctx, cacheKey, *updatedItem)
+		err = s.cacheService.SetWithTTL(ctx, cacheKey, *updatedItem, 24*time.Hour)
 		if err != nil {
 			s.logger.Warn("Failed to update cart item cache", zap.Error(err))
 		}
@@ -410,52 +474,22 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, user middlewar
 
 	s.logger.Info("Updated cart item quantity", zap.String("productID", productID), zap.String("cartID", cart.ID.String()), zap.Int32("quantity", quantity))
 	return nil
-
 }
 
 // CreateShoppingCart creates a new shopping cart associated with a user or session.
-func (s *CartService) CreateShoppingCart(ctx context.Context, userID *uuid.UUID, guestID *uuid.UUID) (model.ShoppingCart, error) {
+func (s *CartService) CreateShoppingCart(ctx context.Context, session *model.Session, userType string) (model.ShoppingCart, error) {
 	// Create the shopping cart in the repository.
-	cart, err := s.cartRepository.CreateShoppingCart(ctx, userID, guestID)
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
-		s.logger.Error("Failed to create shopping cart", zap.Error(err))
-		return model.ShoppingCart{}, fmt.Errorf("create shopping cart: %w", err)
+		return model.ShoppingCart{}, err
 	}
 
-	s.logger.Info("Created shopping cart", zap.String("cartID", cart.ID.String()))
 	return *cart, nil
 }
 
-// GetShoppingCartByUserID retrieves the shopping cart associated with a user.
-func (s *CartService) GetShoppingCartByUserID(ctx context.Context, userID string) (string, error) {
-	userUUID, err := uuid.Parse(userID)
-	if err != nil {
-		s.logger.Error("Failed to parse user ID", zap.Error(err))
-		return "", fmt.Errorf("parse user ID: %w", err)
-	}
-
-	cart, err := s.cartRepository.GetShoppingCartByUserID(ctx, userUUID)
-	if err != nil && err != sql.ErrNoRows {
-		s.logger.Error("Failed to get shopping cart by user ID", zap.Error(err))
-		return "", fmt.Errorf("get shopping cart by user ID: %w", err)
-	}
-
-	if err == sql.ErrNoRows {
-		// Create a new shopping cart
-		cart, err := s.CreateShoppingCart(ctx, &userUUID, nil)
-		if err != nil {
-			s.logger.Error("Failed to create shopping cart", zap.Error(err))
-			return "", fmt.Errorf("create shopping cart: %w", err)
-		}
-		return cart.ID.String(), nil
-	}
-
-	return cart.ID.String(), nil
-}
-
 // ReplaceCartItems replaces all items in the cart with the provided items.
-func (s *CartService) ReplaceCartItems(ctx context.Context, user middleware.User, items []CartItemInput) error {
-	cart, err := s.getOrCreateCart(ctx, user)
+func (s *CartService) ReplaceCartItems(ctx context.Context, session *model.Session, userType string, items []CartItemInput) error {
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return err
 	}
@@ -512,16 +546,14 @@ func (s *CartService) ReplaceCartItems(ctx context.Context, user middleware.User
 			return fmt.Errorf("upsert cart item: %w", err)
 		}
 
-		// Construct the S3 URL for the image
+		// Retrieve the full S3 URL for the image using the utility function.
 		if cartItem.ImageURL != "" {
-			imagePath := cartItem.ImageURL
-			s3URL := s.constructS3URL(imagePath)
-			cartItem.ImageURL = s3URL
+			cartItem.ImageURL = utils.ConstructS3URL(s.config.AWSBucketName, s.config.AWSRegion, cartItem.ImageURL)
 		}
 
 		// Update cache for each item.
 		cacheKey := CartItemKey(cart.ID.String(), item.ProductID)
-		err = s.cacheService.Set(ctx, cacheKey, *cartItem)
+		err = s.cacheService.SetWithTTL(ctx, cacheKey, *cartItem, 24*time.Hour)
 		if err != nil {
 			s.logger.Warn("Failed to cache cart item", zap.Error(err))
 		}
@@ -544,8 +576,8 @@ func (s *CartService) ReplaceCartItems(ctx context.Context, user middleware.User
 }
 
 // GetShoppingCart retrieves the shopping cart by its ID.
-func (s *CartService) GetShoppingCart(ctx context.Context, user middleware.User) (model.ShoppingCart, error) {
-	cart, err := s.getOrCreateCart(ctx, user)
+func (s *CartService) GetShoppingCart(ctx context.Context, session *model.Session, userType string) (model.ShoppingCart, error) {
+	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return model.ShoppingCart{}, err
 	}

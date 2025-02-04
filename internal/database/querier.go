@@ -109,6 +109,7 @@ type Querier interface {
 	GetBestSellerProducts(ctx context.Context, limit int32) ([]GetBestSellerProductsRow, error)
 	// Get a shopping cart by guest ID
 	GetCartByGuestID(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error)
+	GetCartByOwnerID(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error)
 	// cart_queries.sql
 	// Get a cart item
 	GetCartItem(ctx context.Context, arg GetCartItemParams) (GetCartItemRow, error)
@@ -297,6 +298,7 @@ type Querier interface {
 	UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) error
 	UpdatePromotionImage(ctx context.Context, arg UpdatePromotionImageParams) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
+	UpdateSession(ctx context.Context, arg UpdateSessionParams) error
 	UpdateSessionLastActivity(ctx context.Context, sessionID uuid.UUID) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
 	UpdateUserCompany(ctx context.Context, arg UpdateUserCompanyParams) error
