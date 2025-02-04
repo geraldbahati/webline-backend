@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"weblineBackend/internal/middleware"
+	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 
 	"go.uber.org/zap"
@@ -16,22 +17,25 @@ type CartHandler struct {
 	logger      *zap.Logger
 }
 
-// CartContext holds cart operation context information
-type CartContext struct {
-	UserID    string // Can be either user ID or session ID
-	UserType  string // "authenticated" or "guest"
-	SessionID string
+// NewCartHandler creates a new CartHandler
+func NewCartHandler(cartService *services.CartService, logger *zap.Logger) *CartHandler {
+	return &CartHandler{
+		cartService: cartService,
+		logger:      logger,
+	}
 }
 
 // AddToCartHandler adds an item to the cart
 func (h *CartHandler) AddToCartHandler(w http.ResponseWriter, r *http.Request) {
-	// Get session and user type
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	// Get session from context
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
-		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
+		RespondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
 
 	var req struct {
 		ProductID string `json:"productId" validate:"required,uuid"`
@@ -58,12 +62,14 @@ func (h *CartHandler) AddToCartHandler(w http.ResponseWriter, r *http.Request) {
 
 // RemoveFromCartHandler removes an item from the cart.
 func (h *CartHandler) RemoveFromCartHandler(w http.ResponseWriter, r *http.Request) {
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
-		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
+		RespondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
 
 	// Parse the request body.
 	var req struct {
@@ -93,13 +99,17 @@ func (h *CartHandler) RemoveFromCartHandler(w http.ResponseWriter, r *http.Reque
 
 // GetCartItemsHandler returns the items in the cart.
 func (h *CartHandler) GetCartItemsHandler(w http.ResponseWriter, r *http.Request) {
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
 		return
 	}
 
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
+
+	// Call the service to get the cart items.
 	items, err := h.cartService.GetCartItems(r.Context(), session, userType)
 	if err != nil {
 		h.logger.Error("Failed to get cart items",
@@ -109,17 +119,24 @@ func (h *CartHandler) GetCartItemsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if items == nil {
+		RespondWithJSON(w, http.StatusOK, []model.CartItem{})
+		return
+	}
+
 	RespondWithJSON(w, http.StatusOK, items)
 }
 
 // ClearCartHandler clears the cart.
 func (h *CartHandler) ClearCartHandler(w http.ResponseWriter, r *http.Request) {
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
 		return
 	}
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
 
 	// Call the service to clear the cart.
 	if err := h.cartService.ClearCart(r.Context(), session, userType); err != nil {
@@ -133,12 +150,14 @@ func (h *CartHandler) ClearCartHandler(w http.ResponseWriter, r *http.Request) {
 
 // UpdateCartItemQuantityHandler updates the quantity of an item in the cart.
 func (h *CartHandler) UpdateCartItemQuantityHandler(w http.ResponseWriter, r *http.Request) {
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
 		return
 	}
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
 
 	// Parse the request body.
 	var req struct {
@@ -169,12 +188,14 @@ func (h *CartHandler) UpdateCartItemQuantityHandler(w http.ResponseWriter, r *ht
 
 // CalculateCartTotalHandler calculates the total price of the items in the cart.
 func (h *CartHandler) CalculateCartTotalHandler(w http.ResponseWriter, r *http.Request) {
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
 		return
 	}
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
 
 	// Call the service to calculate the total.
 	total, err := h.cartService.CalculateCartTotal(r.Context(), session, userType)
@@ -189,12 +210,14 @@ func (h *CartHandler) CalculateCartTotalHandler(w http.ResponseWriter, r *http.R
 
 // ReplaceCartItemsHandler replaces the items in the cart.
 func (h *CartHandler) ReplaceCartItemsHandler(w http.ResponseWriter, r *http.Request) {
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
 		return
 	}
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
 
 	// Parse the request body.
 	var req struct {
@@ -242,12 +265,14 @@ func (h *CartHandler) ReplaceCartItemsHandler(w http.ResponseWriter, r *http.Req
 
 // GetShoppingCartHandler returns the shopping cart for the current user.
 func (h *CartHandler) GetShoppingCartHandler(w http.ResponseWriter, r *http.Request) {
-	session, userType, err := middleware.GetSessionFromContext(r.Context())
+	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, "Invalid session")
 		return
 	}
+	// Retrieve user type from context
+	userType := middleware.GetUserType(r.Context())
 
 	// Call the service to get the shopping cart.
 	cart, err := h.cartService.GetShoppingCart(r.Context(), session, userType)
