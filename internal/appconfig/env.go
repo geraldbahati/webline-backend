@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -41,6 +42,7 @@ type Config struct {
 	RedisTTL           time.Duration
 	RedisRateLimit     int
 	Env                string
+	AllowedOrigins     []string
 }
 
 // LoadConfig reads environment variables and constructs a Config struct.
@@ -116,6 +118,10 @@ func LoadConfig() (*Config, error) {
 	// Parse Server Port.
 	serverPort := getEnv("BACKEND_PORT", "8080")
 
+	// Parse Allowed Origins.
+	allowedOriginsStr := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
+	allowedOrigins := strings.Split(allowedOriginsStr, ",")
+
 	// Initialize Config struct.
 	cfg := &Config{
 		Port:               serverPort,
@@ -150,6 +156,7 @@ func LoadConfig() (*Config, error) {
 		RedisTTL:           time.Duration(redisTTL),
 		RedisRateLimit:     redisRateLimit,
 		Env:                getEnv("ENV", "local"),
+		AllowedOrigins:     allowedOrigins,
 	}
 
 	return cfg, nil

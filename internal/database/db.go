@@ -294,6 +294,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCartByGuestIDStmt, err = db.PrepareContext(ctx, getCartByGuestID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartByGuestID: %w", err)
 	}
+	if q.getCartByOwnerIDStmt, err = db.PrepareContext(ctx, getCartByOwnerID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCartByOwnerID: %w", err)
+	}
 	if q.getCartItemStmt, err = db.PrepareContext(ctx, getCartItem); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCartItem: %w", err)
 	}
@@ -1214,6 +1217,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCartByGuestIDStmt: %w", cerr)
 		}
 	}
+	if q.getCartByOwnerIDStmt != nil {
+		if cerr := q.getCartByOwnerIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartByOwnerIDStmt: %w", cerr)
+		}
+	}
 	if q.getCartItemStmt != nil {
 		if cerr := q.getCartItemStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCartItemStmt: %w", cerr)
@@ -2118,6 +2126,7 @@ type Queries struct {
 	getApprovalTokenStmt                       *sql.Stmt
 	getBestSellerProductsStmt                  *sql.Stmt
 	getCartByGuestIDStmt                       *sql.Stmt
+	getCartByOwnerIDStmt                       *sql.Stmt
 	getCartItemStmt                            *sql.Stmt
 	getCategoriesByParentIDStmt                *sql.Stmt
 	getCategoriesWithProductsCountStmt         *sql.Stmt
@@ -2369,6 +2378,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getApprovalTokenStmt:                       q.getApprovalTokenStmt,
 		getBestSellerProductsStmt:                  q.getBestSellerProductsStmt,
 		getCartByGuestIDStmt:                       q.getCartByGuestIDStmt,
+		getCartByOwnerIDStmt:                       q.getCartByOwnerIDStmt,
 		getCartItemStmt:                            q.getCartItemStmt,
 		getCategoriesByParentIDStmt:                q.getCategoriesByParentIDStmt,
 		getCategoriesWithProductsCountStmt:         q.getCategoriesWithProductsCountStmt,

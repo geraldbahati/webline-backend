@@ -125,7 +125,7 @@ RETURNING *;
 
 -- name: UpdateCartTotals :exec
 UPDATE shopping_carts
-SET 
+SET
     total_price = (
         SELECT COALESCE(SUM(price * quantity), 0)
         FROM cart_items
@@ -145,10 +145,24 @@ DELETE FROM shopping_carts
 WHERE id = $1;
 
 -- name: CreateShoppingCart :one
-INSERT INTO shopping_carts (user_id, guest_id, total_items, total_price)
-VALUES ($1, $2, 0, 0.0)
-ON CONFLICT (user_id)
-DO UPDATE SET updated_at = NOW()
+INSERT INTO shopping_carts (
+    id,
+    user_id,
+    guest_id,
+    total_items,
+    total_price,
+    created_at,
+    updated_at
+)
+VALUES (
+    gen_random_uuid(),
+    $1,  -- user_id
+    $2,  -- guest_id
+    0,   -- total_items
+    '0', -- total_price
+    NOW(),
+    NOW()
+)
 RETURNING *;
 
 -- Get a shopping cart by ID
@@ -156,3 +170,10 @@ RETURNING *;
 SELECT *
 FROM shopping_carts
 WHERE id = $1;
+
+-- name: GetCartByOwnerID :one
+SELECT *
+FROM shopping_carts
+WHERE user_id = $1 OR guest_id = $1
+ORDER BY created_at DESC
+LIMIT 1;

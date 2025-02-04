@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
@@ -40,37 +39,38 @@ func (r *cartRepositoryImpl) BeginTx(ctx context.Context) (*sql.Tx, error) {
 	return tx, nil
 }
 
-// CreateShoppingCart creates a new shopping cart for a user or guest.
-// Only one of userID or guestID should be non-nil to maintain mutual exclusivity.
-func (r *cartRepositoryImpl) CreateShoppingCart(ctx context.Context, userID, guestID *uuid.UUID) (*model.ShoppingCart, error) {
-	var userNull, guestNull uuid.NullUUID
-
-	if userID != nil && guestID != nil {
-		return nil, fmt.Errorf("either userID or guestID should be provided, not both")
+// CreateShoppingCart creates a new shopping cart for either a user or guest
+func (r *cartRepositoryImpl) CreateShoppingCart(ctx context.Context, params repository.CreateShoppingCartParams) (*model.ShoppingCart, error) {
+	// Validate that only one ID is provided
+	if (params.UserID != nil && params.GuestID != nil) || (params.UserID == nil && params.GuestID == nil) {
+		return nil, fmt.Errorf("exactly one of userID or guestID must be provided")
 	}
 
-	if userID != nil {
-		userNull = uuid.NullUUID{UUID: *userID, Valid: true}
+	// Convert to NullUUID
+	userIDNull := uuid.NullUUID{Valid: params.UserID != nil}
+	if params.UserID != nil {
+		userIDNull.UUID = *params.UserID
 	}
 
-	if guestID != nil {
-		guestNull = uuid.NullUUID{UUID: *guestID, Valid: true}
+	guestIDNull := uuid.NullUUID{Valid: params.GuestID != nil}
+	if params.GuestID != nil {
+		guestIDNull.UUID = *params.GuestID
 	}
 
-	params := database.CreateShoppingCartParams{
-		UserID:  userNull,
-		GuestID: guestNull,
-	}
-
-	log.Println("params", params)
-
-	cart, err := r.Queries.CreateShoppingCart(ctx, params)
+	// Create the cart
+	dbCart, err := r.Queries.CreateShoppingCart(ctx, database.CreateShoppingCartParams{
+		UserID:  userIDNull,
+		GuestID: guestIDNull,
+	})
 	if err != nil {
-		r.logger.Error("Failed to create shopping cart", zap.Error(err))
+		r.logger.Error("Failed to create shopping cart",
+			zap.Error(err),
+			zap.Any("userID", params.UserID),
+			zap.Any("guestID", params.GuestID))
 		return nil, fmt.Errorf("create shopping cart: %w", err)
 	}
 
-	return convertDBShoppingCartToModel(cart), nil
+	return convertDBShoppingCartToModel(dbCart), nil
 }
 
 // GetShoppingCartByID retrieves a shopping cart by its ID.
@@ -238,6 +238,25 @@ func (r *cartRepositoryImpl) UpsertCartItem(ctx context.Context, shoppingCartID,
 		return nil, fmt.Errorf("upsert cart item: %w", err)
 	}
 	return convertDBUpsertCartItemToModel(item), nil
+}
+
+// GetCartByOwnerID retrieves a shopping cart by either user_id or guest_id
+func (r *cartRepositoryImpl) GetCartByOwnerID(ctx context.Context, ownerID uuid.UUID) (*model.ShoppingCart, error) {
+	cart, err := r.Queries.GetCartByOwnerID(ctx, uuid.NullUUID{UUID: ownerID, Valid: true})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Create a new cart if one doesn't exist
+			return r.CreateShoppingCart(ctx, repository.CreateShoppingCartParams{
+				UserID: &ownerID, // Default to user ID, can be updated later if needed
+			})
+		}
+		r.logger.Error("Failed to get cart by owner ID",
+			zap.Error(err),
+			zap.String("ownerID", ownerID.String()))
+		return nil, fmt.Errorf("get cart by owner ID: %w", err)
+	}
+
+	return convertDBShoppingCartToModel(cart), nil
 }
 
 // Helper functions to convert database models to domain models

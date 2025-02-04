@@ -60,11 +60,25 @@ func Auth(logger *zap.Logger) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Store the user in the context
-			ctx := context.WithValue(r.Context(), UserContextKey, user)
-			// Optionally, store userID for easy access
+			// Store the user in the context using standardized keys.
+			ctx := context.WithValue(r.Context(), userContextKey, user)
+			// Optionally, store userID for easy access if authenticated.
 			if !user.IsGuest {
-				ctx = context.WithValue(ctx, UserIDKey, user.UserID)
+				ctx = context.WithValue(ctx, userIDContextKey, user.UserID)
+			}
+
+			// After validating the token and creating the user,
+			// verify that the session (if present) belongs to the authenticated user.
+			session, err := GetSessionFromContext(r.Context())
+			if err == nil && session.UserID != nil {
+				// Verify the session belongs to the authenticated user
+				if user.UserID != *session.UserID {
+					logger.Warn("Session user ID mismatch",
+						zap.String("tokenUserID", user.UserID.String()),
+						zap.String("sessionUserID", session.UserID.String()))
+					writeJSONError(w, http.StatusUnauthorized, "Invalid session")
+					return
+				}
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -122,13 +136,13 @@ func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
 
 // GetUser retrieves the user from the context
 func GetUser(ctx context.Context) (User, bool) {
-	user, ok := ctx.Value(UserContextKey).(User)
+	user, ok := ctx.Value(userContextKey).(User)
 	return user, ok
 }
 
 // GetUserID retrieves the user ID from the context
 func GetUserID(ctx context.Context) (uuid.UUID, bool) {
-	userID, ok := ctx.Value(UserIDKey).(uuid.UUID)
+	userID, ok := ctx.Value(userIDContextKey).(uuid.UUID)
 	return userID, ok
 }
 
@@ -165,9 +179,9 @@ func OptionalAuth(logger *zap.Logger) func(next http.Handler) http.Handler {
 				}
 
 				// Store the user in the context
-				ctx := context.WithValue(r.Context(), UserContextKey, user)
+				ctx := context.WithValue(r.Context(), userContextKey, user)
 
-				ctx = context.WithValue(ctx, UserIDKey, user.UserID)
+				ctx = context.WithValue(ctx, userIDContextKey, user.UserID)
 
 				r = r.WithContext(ctx)
 			}
