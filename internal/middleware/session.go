@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -153,6 +154,8 @@ func shouldValidateCSRF(r *http.Request) bool {
 // Update CSRF validation
 func validateCSRFToken(r *http.Request, expectedToken string) bool {
 	receivedToken := r.Header.Get("X-CSRF-Token")
+	fmt.Println("Received CSRF token:", receivedToken)
+	fmt.Println("Expected CSRF token:", expectedToken)
 	if receivedToken == "" {
 		receivedToken = r.FormValue("csrf_token")
 	}
