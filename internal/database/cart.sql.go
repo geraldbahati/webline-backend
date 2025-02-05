@@ -86,10 +86,24 @@ func (q *Queries) CreateCartForUser(ctx context.Context, userID uuid.NullUUID) (
 }
 
 const createShoppingCart = `-- name: CreateShoppingCart :one
-INSERT INTO shopping_carts (user_id, guest_id, total_items, total_price)
-VALUES ($1, $2, 0, 0.0)
-ON CONFLICT (user_id)
-DO UPDATE SET updated_at = NOW()
+INSERT INTO shopping_carts (
+    id,
+    user_id,
+    guest_id,
+    total_items,
+    total_price,
+    created_at,
+    updated_at
+)
+VALUES (
+    gen_random_uuid(),
+    $1,  -- user_id
+    $2,  -- guest_id
+    0,   -- total_items
+    '0', -- total_price
+    NOW(),
+    NOW()
+)
 RETURNING id, user_id, total_items, total_price, created_at, updated_at, guest_id
 `
 
@@ -193,6 +207,29 @@ LIMIT 1
 // Get a shopping cart by guest ID
 func (q *Queries) GetCartByGuestID(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error) {
 	row := q.queryRow(ctx, q.getCartByGuestIDStmt, getCartByGuestID, guestID)
+	var i ShoppingCart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TotalItems,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestID,
+	)
+	return i, err
+}
+
+const getCartByOwnerID = `-- name: GetCartByOwnerID :one
+SELECT id, user_id, total_items, total_price, created_at, updated_at, guest_id
+FROM shopping_carts
+WHERE user_id = $1 OR guest_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetCartByOwnerID(ctx context.Context, userID uuid.NullUUID) (ShoppingCart, error) {
+	row := q.queryRow(ctx, q.getCartByOwnerIDStmt, getCartByOwnerID, userID)
 	var i ShoppingCart
 	err := row.Scan(
 		&i.ID,
@@ -355,7 +392,7 @@ func (q *Queries) UpdateCartItemQuantity(ctx context.Context, arg UpdateCartItem
 
 const updateCartTotals = `-- name: UpdateCartTotals :exec
 UPDATE shopping_carts
-SET 
+SET
     total_price = (
         SELECT COALESCE(SUM(price * quantity), 0)
         FROM cart_items

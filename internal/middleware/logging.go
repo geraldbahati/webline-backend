@@ -51,6 +51,12 @@ func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 			start := time.Now()
 			rec := newStatusRecorder(w)
 
+			// Log that the request has started processing.
+			logger.Debug("Started processing request",
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path),
+			)
+
 			// Proceed with the next handler
 			next.ServeHTTP(rec, r)
 
@@ -79,7 +85,7 @@ func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 
 // getRequestID retrieves the Request ID from the context, if available.
 func getRequestID(ctx context.Context) string {
-	if reqID, ok := ctx.Value(RequestIDKey).(string); ok {
+	if reqID, ok := ctx.Value(requestIDContextKey).(string); ok {
 		return reqID
 	}
 	return "unknown"

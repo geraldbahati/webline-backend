@@ -44,7 +44,8 @@ type CacheService interface {
 	HSet(ctx context.Context, key, field string, value interface{}) error
 	HGet(ctx context.Context, key, field string) (string, error)
 	Pipeline(ctx context.Context, fn func(redis.Pipeliner) error) error
-	SAdd(ctx context.Context, key string, members ...interface{}) error
+	SAdd(ctx context.Context, key string, member string) error
+	SRem(ctx context.Context, key string, member string) error
 	SMembers(ctx context.Context, key string) ([]string, error)
 	ZAdd(ctx context.Context, key string, members ...*redis.Z) error
 	ZRange(ctx context.Context, key string, start, stop int64) ([]string, error)
@@ -55,6 +56,7 @@ type CacheService interface {
 	HealthCheck(ctx context.Context) error
 	Initialize() error
 	SetWithTTL(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	Keys(ctx context.Context, pattern string) ([]string, error)
 }
 
 type cacheService struct {
@@ -256,21 +258,40 @@ func (c *cacheService) Pipeline(ctx context.Context, fn func(redis.Pipeliner) er
 }
 
 // SAdd adds members to a Redis set.
-func (c *cacheService) SAdd(ctx context.Context, key string, members ...interface{}) error {
+func (c *cacheService) SAdd(ctx context.Context, key string, member string) error {
 	if !c.initialized {
 		if err := c.Initialize(); err != nil {
 			return err
 		}
 	}
 
-	err := c.redisClient.SAdd(ctx, key, members...).Err()
+	err := c.redisClient.SAdd(ctx, key, member).Err()
 	if err != nil {
 		cacheErrors.Inc()
-		c.logger.Error("Failed to add members to set", zap.Error(err), zap.String("key", key))
+		c.logger.Error("Failed to add member to set", zap.Error(err), zap.String("key", key), zap.String("member", member))
 		return err
 	}
 
-	c.logger.Debug("Members added to set successfully", zap.String("key", key))
+	c.logger.Debug("Member added to set successfully", zap.String("key", key), zap.String("member", member))
+	return nil
+}
+
+// SRem removes members from a Redis set.
+func (c *cacheService) SRem(ctx context.Context, key string, member string) error {
+	if !c.initialized {
+		if err := c.Initialize(); err != nil {
+			return err
+		}
+	}
+
+	err := c.redisClient.SRem(ctx, key, member).Err()
+	if err != nil {
+		cacheErrors.Inc()
+		c.logger.Error("Failed to remove member from set", zap.Error(err), zap.String("key", key), zap.String("member", member))
+		return err
+	}
+
+	c.logger.Debug("Member removed from set successfully", zap.String("key", key), zap.String("member", member))
 	return nil
 }
 
@@ -551,4 +572,14 @@ func (c *cacheService) SetWithTTL(ctx context.Context, key string, value interfa
 		zap.String("key", key),
 		zap.Duration("ttl", ttl))
 	return nil
+}
+
+// Keys returns all keys matching a specific pattern.
+func (c *cacheService) Keys(ctx context.Context, pattern string) ([]string, error) {
+	if !c.initialized {
+		if err := c.Initialize(); err != nil {
+			return nil, err
+		}
+	}
+	return c.redisClient.Keys(ctx, pattern).Result()
 }
