@@ -67,6 +67,14 @@ func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Hand
 						zap.Error(err),
 						zap.String("sessionID", sessionID),
 						zap.String("userID", user.UserID.String()))
+				} else {
+					// Reload the session from the service to get the updated userID field.
+					updatedSession, err := sessionService.GetSessionBySessionID(ctx, sessionID)
+					if err != nil {
+						logger.Warn("Failed to reload updated session", zap.Error(err), zap.String("sessionID", sessionID))
+					} else {
+						session = updatedSession
+					}
 				}
 				logger.Debug("Session linked to user", zap.String("sessionID", sessionID))
 			}
@@ -83,13 +91,19 @@ func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Hand
 			// 6. Handle CSRF protection for state-changing methods
 			logger.Debug("Validating CSRF token")
 			if shouldValidateCSRF(r) {
-				if !validateCSRFToken(r, session.CSRFToken) {
-					logger.Debug("CSRF validation failed", zap.String("csrfToken", csrfToken))
-					logger.Warn("CSRF validation failed")
-					http.Error(w, "Forbidden", http.StatusForbidden)
-					return
+				// If the user is not authenticated, enforce CSRF validation.
+				_, isUserAuthenticated := GetUser(r.Context())
+				if !isUserAuthenticated {
+					if !validateCSRFToken(r, session.CSRFToken) {
+						logger.Debug("CSRF validation failed", zap.String("csrfToken", csrfToken))
+						logger.Warn("CSRF validation failed")
+						http.Error(w, "Forbidden", http.StatusForbidden)
+						return
+					}
+					logger.Debug("CSRF validation passed")
+				} else {
+					logger.Debug("Skipping CSRF validation for authenticated user")
 				}
-				logger.Debug("CSRF validation passed")
 			}
 
 			// 7. Update context with session information
@@ -133,8 +147,13 @@ func validateExistingSession(r *http.Request, service i.SessionService, logger *
 	logger.Debug("Validating existing session", zap.String("sessionID", cookie.Value))
 
 	session, err := service.GetSessionBySessionID(r.Context(), cookie.Value)
-	if err != nil || session.ExpiresAt.Before(time.Now()) {
-		logger.Error("Session validation failed", zap.Error(err))
+	if err != nil {
+		logger.Error("Session retrieval failed", zap.Error(err))
+		return "", model.Session{}, "", false
+	}
+	// Check if the session has expired
+	if session.ExpiresAt.Before(time.Now()) {
+		logger.Warn("Session expired", zap.String("sessionID", cookie.Value))
 		return "", model.Session{}, "", false
 	}
 
