@@ -26,6 +26,8 @@ INSERT INTO companies (
     $4, -- phone_number
     $5 -- email
 )
+ON CONFLICT (kra_pin) DO UPDATE SET
+    kra_pin = companies.kra_pin -- no-op update to return the existing row id
 RETURNING id
 `
 
