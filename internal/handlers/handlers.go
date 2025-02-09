@@ -17,6 +17,7 @@ type Handlers struct {
 	PromotionHandler            *PromotionHandler
 	GuestHandler                *GuestHandler
 	SessionHandler              *SessionHandler
+	SearchHandler               *SearchHandler
 }
 
 type Dependencies struct {
@@ -36,6 +37,7 @@ type Dependencies struct {
 	PromotionHandler            *PromotionHandler
 	GuestHandler                *GuestHandler
 	SessionHandler              *SessionHandler
+	SearchHandler               *SearchHandler
 }
 
 // NewHandlers initializes and returns a Handlers instance with all handlers.
@@ -57,5 +59,6 @@ func NewHandlers(deps Dependencies) *Handlers {
 		PromotionHandler:            deps.PromotionHandler,
 		GuestHandler:                deps.GuestHandler,
 		SessionHandler:              deps.SessionHandler,
+		SearchHandler:               deps.SearchHandler,
 	}
 }

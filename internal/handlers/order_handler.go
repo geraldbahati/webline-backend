@@ -1,14 +1,13 @@
 package handlers
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
+	"time"
 	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
@@ -62,12 +61,34 @@ type CreateOrderItemParams struct {
 }
 
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	// Start timer for order creation duration
+	startTime := time.Now()
+	defer func() {
+		h.logger.Info("Order creation processed", zap.Duration("duration", time.Since(startTime)))
+	}()
+
 	var req CreateOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Error("Failed to decode request body", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
+	// Ensure the request body is closed after reading
+	defer r.Body.Close()
+
+	h.logger.Info("Checkout process initiated",
+		zap.String("email", req.Email),
+		zap.String("firstName", req.FirstName),
+		zap.String("lastName", req.LastName))
+
+	// Retrieve and validate session from context
+	session, err := middleware.GetSessionFromContext(r.Context())
+	if err != nil {
+		h.logger.Error("No valid session found in checkout", zap.Error(err))
+		RespondWithError(w, http.StatusUnauthorized, "Session expired or missing")
+		return
+	}
+	h.logger.Debug("Checkout: validated session", zap.String("sessionID", session.SessionID.String()))
 
 	if err := h.validateCreateOrderRequest(&req); err != nil {
 		h.logger.Error("Invalid create order request", zap.Error(err))
@@ -75,31 +96,20 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retrieve userID from context
-	userID, isAuthenticated := middleware.GetUserID(r.Context())
-
-	var userUUID *uuid.UUID
-	var guestUUID *uuid.UUID
-	var err error
-
-	if isAuthenticated {
-		// User is logged in
-		userUUID = &userID
-		err = h.userService.UpdateUserInfo(r.Context(), model.UpdateUserInfoParams{
+	// Retrieve user info (existing, new, or guest) using the user service.
+	_, isAuthenticated := middleware.GetUserID(r.Context())
+	var userUUID, guestUUID *uuid.UUID
+	if !isAuthenticated {
+		// Delegate user resolution (creating a new account vs. guest) to the userService.
+		userUUID, guestUUID, err = h.userService.ResolveUserForOrder(r.Context(), &model.CreateOrderParams{
 			FirstName:   req.FirstName,
 			LastName:    req.LastName,
-			PhoneNumber: req.Phone,
-		}, nil)
+			Country:     req.Country,
+			KraPIN:      &req.KraPIN,
+			CompanyName: &req.CompanyName,
+		})
 		if err != nil {
-			h.logger.Error("Failed to update user profile", zap.Error(err))
-			RespondWithError(w, http.StatusInternalServerError, "Failed to update user profile")
-			return
-		}
-	} else {
-		// User is not logged in
-		userUUID, guestUUID, err = h.handleGuestOrExistingUser(r.Context(), &req)
-		if err != nil {
-			h.logger.Error("Failed to handle guest or existing user", zap.Error(err))
+			h.logger.Error("Failed to resolve user info for order", zap.Error(err))
 			RespondWithError(w, http.StatusInternalServerError, "Failed to process user information")
 			return
 		}
@@ -140,50 +150,6 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusCreated, map[string]interface{}{
 		"orderID": orderID,
 	})
-}
-
-func (h *OrderHandler) handleGuestOrExistingUser(ctx context.Context, req *CreateOrderRequest) (*uuid.UUID, *uuid.UUID, error) {
-	// Check if the email already exists
-	existingUser, err := h.userService.GetUserByEmail(ctx, req.Email)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, err
-	}
-
-	if existingUser != nil {
-		// Email exists, return the user ID
-		return &existingUser.ID, nil, nil
-	}
-
-	if req.CanCreateAccount {
-		// User chose to create an account
-		newUserID, err := h.userService.CreateUserFromOrder(ctx, model.CreateUserParams{
-			Email:       req.Email,
-			Password:    req.Password,
-			FirstName:   req.FirstName,
-			LastName:    req.LastName,
-			PhoneNumber: req.Phone,
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		return &newUserID, nil, nil
-	}
-
-	// Create guest user
-	guestID, err := h.userService.CreateGuestUser(ctx, model.CreateGuestUserParams{
-		Email:     req.Email,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Phone:     req.Phone,
-		City:      req.City,
-		County:    req.County,
-		Country:   req.Country,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return nil, guestID, nil
 }
 
 func (h *OrderHandler) validateCreateOrderRequest(req *CreateOrderRequest) error {

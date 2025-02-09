@@ -30,6 +30,10 @@ func (h *CartHandler) AddToCartHandler(w http.ResponseWriter, r *http.Request) {
 	// Get session from context
 	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
+		// If the error indicates expiration, set a custom header
+		if err.Error() == "session has expired" {
+			w.Header().Set("X-Session-Expired", "true")
+		}
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, err.Error())
 		return
