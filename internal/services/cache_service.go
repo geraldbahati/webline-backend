@@ -57,6 +57,7 @@ type CacheService interface {
 	Initialize() error
 	SetWithTTL(ctx context.Context, key string, value interface{}, ttl time.Duration) error
 	Keys(ctx context.Context, pattern string) ([]string, error)
+	GetOrSetWithTTL(ctx context.Context, key string, dest interface{}, fetchFunc func() error, ttl time.Duration) error
 }
 
 type cacheService struct {
@@ -458,12 +459,7 @@ func (c *cacheService) GetOrSet(ctx context.Context, key string, dest interface{
 	}
 
 	// Check if cache miss
-	isEmpty, err := isEmpty(dest)
-	if err != nil {
-		cacheErrors.Inc()
-		c.logger.Error("Failed to check if destination is empty", zap.Error(err), zap.String("key", key))
-		return err
-	}
+	isEmpty := isEmpty(dest)
 	if !isEmpty {
 		// Cache hit
 		cacheHits.Inc()
@@ -498,50 +494,52 @@ func (c *cacheService) GetOrSet(ctx context.Context, key string, dest interface{
 }
 
 // isEmpty checks if the destination is empty (cache miss).
-func isEmpty(dest interface{}) (bool, error) {
+func isEmpty(dest interface{}) bool {
 	switch v := dest.(type) {
 	case *model.V2ProductDetail:
-		return v == nil || v.Slug == "", nil
+		return v == nil || v.Slug == ""
 	case *model.ProductSEO:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *[]*model.Product:
-		return v == nil || len(*v) == 0, nil
+		return v == nil || len(*v) == 0
 	case *[]*model.ProductSitemap:
-		return v == nil || len(*v) == 0, nil
+		return v == nil || len(*v) == 0
 	case *model.ProductSchema:
-		return v == nil || v.Slug == "", nil
+		return v == nil || v.Slug == ""
 	case *float64:
 		// For exchange rate
-		return v == nil || *v == 0, nil
+		return v == nil || *v == 0
 	case *model.ProductPricing:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *model.ProductSpecs:
-		return v == nil || v.Description == "" || len(v.Specs) == 0, nil
+		return v == nil || v.Description == "" || len(v.Specs) == 0
 	case *[]string: // Handle []string
-		return v == nil || len(*v) == 0, nil
+		return v == nil || len(*v) == 0
 	case *model.ProductCart:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *model.Session:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *model.AdminRequest:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *model.ApprovalToken:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *model.User:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *model.ShoppingCart:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *model.CartItem:
-		return v == nil || v.ID == uuid.Nil, nil
+		return v == nil || v.ID == uuid.Nil
 	case *[]model.CartItem:
-		return v == nil || len(*v) == 0, nil
+		return v == nil || len(*v) == 0
 	case *[]*model.CartItem:
-		return v == nil || len(*v) == 0, nil
+		return v == nil || len(*v) == 0
 	case *[]model.ProductImage:
-		return v == nil || len(*v) == 0, nil
-	// Add more cases based on your models
+		return v == nil || len(*v) == 0
+	case *[]model.SearchProductResult:
+		return v == nil || len(*v) == 0
+	// Add more cases based on your models as needed.
 	default:
-		return false, fmt.Errorf("unsupported type for isEmpty check: %T", dest)
+		return false
 	}
 }
 
@@ -582,4 +580,30 @@ func (c *cacheService) Keys(ctx context.Context, pattern string) ([]string, erro
 		}
 	}
 	return c.redisClient.Keys(ctx, pattern).Result()
+}
+
+// GetOrSetWithTTL attempts to retrieve the value from cache using the given key,
+// and if not found, it executes fetchFunc to obtain the value and then caches it with the specified TTL.
+func (c *cacheService) GetOrSetWithTTL(ctx context.Context, key string, dest interface{}, fetchFunc func() error, ttl time.Duration) error {
+	// Try to get the cached value.
+	err := c.Get(ctx, key, dest)
+	if err == nil {
+		cacheHits.Inc()
+		return nil
+	}
+	cacheMisses.Inc()
+
+	// Not in cache; fetch the value.
+	if err := fetchFunc(); err != nil {
+		return err
+	}
+
+	// Cache the fetched value with the provided TTL.
+	if err := c.SetWithTTL(ctx, key, dest, ttl); err != nil {
+		cacheErrors.Inc()
+		c.logger.Error("failed to set cache with TTL", zap.Error(err), zap.String("key", key), zap.Duration("ttl", ttl))
+		// Proceed even if caching fails.
+	}
+
+	return nil
 }

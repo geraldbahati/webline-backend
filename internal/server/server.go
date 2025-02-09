@@ -170,7 +170,6 @@ func initializeRepositories(db *sql.DB, logger *zap.Logger) *repository.Reposito
 }
 
 func initializeServices(repos *repository.Repositories, cfg appconfig.Config, logger *zap.Logger, s3Client *s3.Client, redisClient *redis.Client) *services.Services {
-
 	cacheService := services.NewCacheService(redisClient, logger, cfg.RedisTTL, cfg.RedisRateLimit)
 
 	return &services.Services{
@@ -191,6 +190,7 @@ func initializeServices(repos *repository.Repositories, cfg appconfig.Config, lo
 		FilterService:           services.NewFilterService(logger, repos.FilterCategoryProductRepo, repos.FilterProductRepo, repos.CategoryRepo, &cfg),
 		ProductAttributeService: services.NewProductAttributeService(repos.ProductAttributeRepo, logger),
 		SessionService:          services.NewSessionService(logger, repos.SessionRepo, cacheService),
+		SearchService:           services.NewSearchService(repos.SearchRepo, cacheService, logger),
 	}
 }
 
@@ -212,5 +212,6 @@ func initializeHandlers(svc *services.Services, cfg appconfig.Config, logger *za
 		RoleHandler:                 handlers.NewRoleHandler(svc.RoleService),
 		GuestHandler:                handlers.NewGuestHandler(logger),
 		SessionHandler:              handlers.NewSessionHandler(logger, svc.SessionService),
+		SearchHandler:               handlers.NewSearchHandler(*svc.SearchService, logger),
 	}
 }

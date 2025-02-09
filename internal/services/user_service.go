@@ -810,3 +810,47 @@ func (s *UserService) handleUserProfileImage(ctx context.Context, image *model.I
 
 	return filePath, nil
 }
+
+// New method added to centralize user resolution during checkout
+// ResolveUserForOrder resolves user details during order creation.
+// It returns a user UUID (if the user exists or is created) or a guest UUID.
+func (s *UserService) ResolveUserForOrder(ctx context.Context, req *model.CreateOrderParams) (*uuid.UUID, *uuid.UUID, error) {
+	// Check if the user already exists.
+	existingUser, err := s.GetUserByEmail(ctx, req.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, err
+	}
+	if existingUser != nil {
+		return &existingUser.ID, nil, nil
+	}
+
+	if req.CanCreateAccount {
+		// Create user account from order data.
+		newUserID, err := s.CreateUserFromOrder(ctx, model.CreateUserParams{
+			Email:       req.Email,
+			Password:    *req.Password,
+			FirstName:   req.FirstName,
+			LastName:    req.LastName,
+			PhoneNumber: req.Phone,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newUserID, nil, nil
+	}
+
+	// Create a guest user.
+	guestID, err := s.CreateGuestUser(ctx, model.CreateGuestUserParams{
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Phone:     req.Phone,
+		City:      req.City,
+		County:    req.County,
+		Country:   req.Country,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, guestID, nil
+}

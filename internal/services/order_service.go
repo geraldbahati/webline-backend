@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -87,28 +88,35 @@ type OrderResponse struct {
 
 // Optimized CreateOrder creates a new order with items
 func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.CreateOrderParams, items []model.CreateOrderItemParams) (*uuid.UUID, error) {
+	// Start timer for CreateOrder service call
+	startTime := time.Now()
+	defer func() {
+		s.logger.Info("OrderService.CreateOrder completed", zap.Duration("duration", time.Since(startTime)))
+	}()
+
 	var orderAmounts model.OrderAmounts
 	var orderID uuid.UUID
 	var notificationItems []utils.OrderItem
 
 	err := s.orderRepository.ExecTx(ctx, func(q *database.Queries) error {
-		// Create the order record
+		// Create the order record and log the order ID.
 		order, err := s.createOrderRecord(ctx, q, orderParams)
 		if err != nil {
 			return fmt.Errorf("createOrderRecord failed: %w", err)
 		}
-
 		orderID = order.ID
-		orderParams.OrderDate = order.CreatedAt
-		orderParams.OrderNumber = order.OrderNumber
+		s.logger.Info("Order record created", zap.String("orderID", order.ID.String()))
 
 		// Process the order items
 		notifyItems, totalPrice, totalDiscount, err := s.processOrderItems(ctx, q, orderID, items)
 		if err != nil {
 			return fmt.Errorf("processOrderItems failed: %w", err)
 		}
-
 		notificationItems = notifyItems
+		s.logger.Info("Order items processed",
+			zap.Int("numberOfItems", len(notificationItems)),
+			zap.Float64("totalPrice", totalPrice),
+			zap.Float64("totalDiscount", totalDiscount))
 
 		// Update order amounts in the database
 		updateParams := database.UpdateOrderAmountsParams{
@@ -123,6 +131,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 		if err != nil {
 			return fmt.Errorf("UpdateOrderAmounts failed: %w", err)
 		}
+		s.logger.Info("Order amounts updated", zap.String("orderID", orderID.String()))
 
 		// Parse the float fields directly without using intermediate maps
 		orderAmounts, err = parseOrderAmounts(row, s.logger)
@@ -337,21 +346,20 @@ func (s *OrderService) processOrderItems(ctx context.Context, q *database.Querie
 }
 
 func (s *OrderService) createOrderRecord(ctx context.Context, q *database.Queries, orderParams *model.CreateOrderParams) (*model.OrderSchema, error) {
-	// create company if it company name and kra pin are provided
 	var companyID *uuid.UUID
 	var err error
-	if *orderParams.CompanyName != "" && *orderParams.KraPIN != "" {
-		// check if company already exists
+	if orderParams.CompanyName != nil && orderParams.KraPIN != nil &&
+		*orderParams.CompanyName != "" && *orderParams.KraPIN != "" {
+		// First, attempt to get an existing company
 		companyID, err = s.companyRepo.GetCompanyID(ctx, *orderParams.CompanyName, *orderParams.KraPIN)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			s.logger.Error("failed to get company ID", zap.Error(err))
 			return nil, fmt.Errorf("failed to get company ID: %w", err)
 		}
-
-		// create company if it doesn't exist
-		if err == sql.ErrNoRows {
+		// If the company doesn't exist, create it
+		if companyID == nil {
 			companyID, err = s.companyRepo.CreateCompany(ctx, *orderParams.CompanyName, *orderParams.KraPIN, orderParams.County, orderParams.Phone, orderParams.Email)
-			if err != nil && err != sql.ErrNoRows {
+			if err != nil {
 				s.logger.Error("failed to create company", zap.Error(err))
 				return nil, fmt.Errorf("failed to create company: %w", err)
 			}

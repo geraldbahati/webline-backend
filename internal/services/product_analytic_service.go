@@ -282,3 +282,16 @@ func (s *ProductAnalyticService) GetDailyDealsProducts(ctx context.Context) ([]*
 	s.logger.Debug("Daily deals products retrieved", zap.Int("count", len(products)))
 	return products, nil
 }
+
+// InvalidateAnalyticProductCache invalidates all caches related to product analytics.
+// Since analytic cache keys are in the same product namespace as other product caches,
+// calling this function will ensure that changes to products (via create, update or delete)
+// are immediately reflected in analytic queries.
+func (s *ProductAnalyticService) InvalidateAnalyticProductCache(ctx context.Context) {
+	pattern := ProductCachePattern() // e.g. "product:*"
+	if err := s.cacheService.DeleteKeysByPattern(ctx, pattern); err != nil {
+		s.logger.Warn("failed to invalidate analytic product caches", zap.String("pattern", pattern), zap.Error(err))
+	} else {
+		s.logger.Debug("analytic product caches invalidated using pattern", zap.String("pattern", pattern))
+	}
+}
