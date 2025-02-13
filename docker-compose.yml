@@ -114,6 +114,6 @@ volumes:
 
 networks:
   webline-backend-network:
-    driver: bridge
+    external: true
   webline-network:
-    driver: bridge
+    external: true
