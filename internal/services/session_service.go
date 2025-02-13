@@ -17,7 +17,7 @@ import (
 
 const (
 	maxSessionsPerUser     = 5
-	sessionGracePeriod     = 5 * time.Minute
+	sessionGracePeriod     = 30 * 24 * time.Hour // 30 days
 	sessionCleanupBatch    = 100
 	sessionRefreshInterval = 24 * time.Hour
 	minSessionLifetime     = 24 * time.Hour // Minimum session lifetime for permanent login
@@ -50,10 +50,12 @@ func generateCSRFToken() (string, error) {
 
 // CreateSession creates a new session with proper CSRF handling
 func (s *SessionService) CreateSession(ctx context.Context, userID *uuid.UUID, expiresAt time.Time, csrfToken string) (model.Session, error) {
+	s.logger.Debug("Creating new session", zap.Any("userID", userID), zap.Time("expiresAt", expiresAt), zap.String("csrfToken", csrfToken))
 	sessionID := uuid.New()
 
 	// Validate expiration time
 	if expiresAt.Before(time.Now()) {
+		s.logger.Error("invalid expiration time", zap.Time("expiresAt", expiresAt))
 		return model.Session{}, fmt.Errorf("invalid expiration time")
 	}
 
@@ -64,14 +66,20 @@ func (s *SessionService) CreateSession(ctx context.Context, userID *uuid.UUID, e
 			zap.Any("userID", userID))
 		return model.Session{}, fmt.Errorf("session creation failed: %w", err)
 	}
+	s.logger.Debug("Session created", zap.String("sessionID", createdSession.SessionID.String()), zap.Any("userID", createdSession.UserID))
 
-	// Cache the session
+	// Remove any stale cached value before re-caching the updated session.
+	cacheKey := SessionKey(createdSession.SessionID.String())
+	_ = s.cacheService.Delete(ctx, cacheKey)
+
+	// Cache the session with the updated values.
 	if err := s.cacheSession(ctx, createdSession); err != nil {
 		s.logger.Warn("failed to cache session",
 			zap.Error(err),
 			zap.String("sessionID", sessionID.String()))
 	}
 
+	s.logger.Debug("Session created", zap.String("sessionID", createdSession.SessionID.String()))
 	return createdSession, nil
 }
 
@@ -217,23 +225,35 @@ func (s *SessionService) LinkSessionToUser(ctx context.Context, sessionID string
 	// Get and validate existing session
 	session, err := s.GetSessionBySessionID(ctx, sessionID)
 	if err != nil {
+		s.logger.Warn("failed to get session", zap.Error(err), zap.String("sessionID", sessionID))
 		return fmt.Errorf("session not found: %w", err)
 	}
 
 	// Enhanced session fixation protection
 	if session.UserID != nil {
+		s.logger.Warn("session already linked to another user", zap.String("sessionID", sessionID), zap.Any("userID", session.UserID))
 		return fmt.Errorf("session already linked to another user")
 	}
 
-	if time.Since(session.LastActivity) > sessionGracePeriod {
-		return fmt.Errorf("session too old to link")
-	}
+	// if time.Since(session.LastActivity) > sessionGracePeriod {
+	// 	s.logger.Debug("session too old to link",
+	// 		zap.String("sessionID", sessionID),
+	// 		zap.Any("lastActivity", session.LastActivity),
+	// 		zap.Duration("sessionGracePeriod", sessionGracePeriod),
+	// 		zap.Duration("timeSinceLastActivity", time.Since(session.LastActivity)),
+	// 	)
+	// 	s.logger.Warn("session too old to link", zap.String("sessionID", sessionID), zap.Any("lastActivity", session.LastActivity))
+	// 	return fmt.Errorf("session too old to link")
+	// }
 
-	if session.ExpiresAt.Before(time.Now().Add(minSessionLifetime)) {
-		return fmt.Errorf("session expiration too short for permanent login")
-	}
+	// if session.ExpiresAt.Before(time.Now().Add(minSessionLifetime)) {
+	// 	return fmt.Errorf("session expiration too short for permanent login")
+	// }
 
+	// Link the session to the user by setting the user id.
 	session.UserID = &userID
+	// New debug log to confirm session is now linked with the given user id.
+	s.logger.Debug("Session linked to user", zap.String("sessionID", sessionID), zap.Any("userID", session.UserID))
 	return s.UpdateSession(ctx, session)
 }
 
@@ -310,7 +330,11 @@ func (s *SessionService) UpdateSession(ctx context.Context, session model.Sessio
 		return fmt.Errorf("session update failed: %w", err)
 	}
 
-	// Update cache with proper TTL
+	// Invalidate the cached value.
+	cacheKey := SessionKey(session.SessionID.String())
+	_ = s.cacheService.Delete(ctx, cacheKey)
+
+	// Re-cache the session with the updated values.
 	if err := s.cacheSession(ctx, session); err != nil {
 		s.logger.Warn("failed to update cached session",
 			zap.Error(err),

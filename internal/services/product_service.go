@@ -1129,6 +1129,33 @@ func (s *ProductService) GetProductDetail(ctx context.Context, slug string) (*mo
 	return &product, nil
 }
 
+func (s *ProductService) getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	userID, ok := middleware.GetUserID(ctx)
+	if !ok {
+		return uuid.Nil, app_errors.NewUnauthorizedUserError()
+	}
+	return userID, nil
+}
+
+func (s *ProductService) verifyAdminStatus(ctx context.Context, userID uuid.UUID) error {
+	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
+	if err != nil || !isAdmin {
+		return app_errors.NewUnauthorizedUserError()
+	}
+	return nil
+}
+
+// NEW HELPER FUNCTION: Invalidate all product-related caches
+func (s *ProductService) invalidateProductCache(ctx context.Context) {
+	pattern := ProductCachePattern() // e.g. "product:*"
+	if err := s.cacheService.DeleteKeysByPattern(ctx, pattern); err != nil {
+		s.logger.Warn("failed to invalidate product cache by pattern", zap.String("pattern", pattern), zap.Error(err))
+	} else {
+		s.logger.Debug("product cache invalidated using pattern", zap.String("pattern", pattern))
+	}
+}
+
+// Modified CreateV2Product method
 func (s *ProductService) CreateV2Product(ctx context.Context, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
 	timer := prometheus.NewTimer(productCreationDuration)
 	defer timer.ObserveDuration()
@@ -1175,30 +1202,10 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 	if result != nil {
 		productCreationErrors.Inc()
 	} else {
-		// Invalidate cache on successful creation/update
-		err := s.cacheService.Delete(ctx, cacheKey)
-		if err != nil {
-			s.logger.Warn("failed to invalidate product cache", zap.Error(err))
-		}
+		// Invalidate all product caches upon successful creation/update
+		s.invalidateProductCache(ctx)
 	}
-
 	return result
-}
-
-func (s *ProductService) getUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
-	userID, ok := middleware.GetUserID(ctx)
-	if !ok {
-		return uuid.Nil, app_errors.NewUnauthorizedUserError()
-	}
-	return userID, nil
-}
-
-func (s *ProductService) verifyAdminStatus(ctx context.Context, userID uuid.UUID) error {
-	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
-	if err != nil || !isAdmin {
-		return app_errors.NewUnauthorizedUserError()
-	}
-	return nil
 }
 
 func (s *ProductService) updateExistingProduct(ctx context.Context, productID uuid.UUID, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
@@ -1360,7 +1367,7 @@ func (s *ProductService) logAndReturnError(message string, err error) error {
 	return fmt.Errorf("%s: %w", message, err)
 }
 
-// DeleteProduct deletes a product
+// Modified DeleteProduct method
 func (s *ProductService) DeleteProduct(ctx context.Context, slug string) error {
 	// Get the product by slug
 	product, err := s.productRepo.GetProductBySlug(ctx, slug)
@@ -1389,10 +1396,12 @@ func (s *ProductService) DeleteProduct(ctx context.Context, slug string) error {
 		return fmt.Errorf("failed to delete product images: %w", err)
 	}
 
+	// Invalidate all product caches upon deletion
+	s.invalidateProductCache(ctx)
 	return nil
 }
 
-// ArchiveProduct archives a product
+// Modified ArchiveProduct method
 func (s *ProductService) ArchiveProduct(ctx context.Context, slug string) error {
 	// Get the product by slug
 	product, err := s.productRepo.GetProductBySlug(ctx, slug)
@@ -1408,12 +1417,13 @@ func (s *ProductService) ArchiveProduct(ctx context.Context, slug string) error 
 		return fmt.Errorf("failed to archive product: %w", err)
 	}
 
+	// Invalidate cache after archiving
+	s.invalidateProductCache(ctx)
 	return nil
 }
 
-// ArchiveProducts archives multiple products
+// Modified ArchiveProducts method
 func (s *ProductService) ArchiveProducts(ctx context.Context, slugs []string) error {
-	// Get the user ID from the context
 	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1421,7 +1431,6 @@ func (s *ProductService) ArchiveProducts(ctx context.Context, slugs []string) er
 		return err
 	}
 
-	// Check if user is admin
 	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
 	if err != nil {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1435,19 +1444,19 @@ func (s *ProductService) ArchiveProducts(ctx context.Context, slugs []string) er
 		return err
 	}
 
-	// Archive the products
 	err = s.productRepo.ArchiveProductsBySlugs(ctx, userID, slugs)
 	if err != nil {
 		s.logger.Error("failed to archive products", zap.Error(err))
 		return fmt.Errorf("failed to archive products: %w", err)
 	}
 
+	// Invalidate all product caches after archiving multiple products
+	s.invalidateProductCache(ctx)
 	return nil
 }
 
-// ActivateProducts activates multiple products
+// Modified ActivateProducts method
 func (s *ProductService) ActivateProducts(ctx context.Context, slugs []string) error {
-	// Get the user ID from the context
 	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1455,7 +1464,6 @@ func (s *ProductService) ActivateProducts(ctx context.Context, slugs []string) e
 		return err
 	}
 
-	// Check if user is admin
 	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
 	if err != nil {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1469,19 +1477,19 @@ func (s *ProductService) ActivateProducts(ctx context.Context, slugs []string) e
 		return err
 	}
 
-	// Activate the products
 	err = s.productRepo.ActivateProductsBySlugs(ctx, userID, slugs)
 	if err != nil {
 		s.logger.Error("failed to activate products", zap.Error(err))
 		return fmt.Errorf("failed to activate products: %w", err)
 	}
 
+	// Invalidate cache after activating products
+	s.invalidateProductCache(ctx)
 	return nil
 }
 
-// DeleteProducts deletes multiple products
+// Modified DeleteProducts method
 func (s *ProductService) DeleteProducts(ctx context.Context, slugs []string) error {
-	// Get the user ID from the context
 	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1489,7 +1497,6 @@ func (s *ProductService) DeleteProducts(ctx context.Context, slugs []string) err
 		return err
 	}
 
-	// Check if user is admin
 	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
 	if err != nil {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1503,19 +1510,19 @@ func (s *ProductService) DeleteProducts(ctx context.Context, slugs []string) err
 		return err
 	}
 
-	// Delete the products
 	err = s.productRepo.DeleteProductsBySlugs(ctx, slugs)
 	if err != nil {
 		s.logger.Error("failed to delete products", zap.Error(err))
 		return fmt.Errorf("failed to delete products: %w", err)
 	}
 
+	// Invalidate all product caches after deletion
+	s.invalidateProductCache(ctx)
 	return nil
 }
 
-// DraftProducts drafts multiple products
+// Modified DraftProducts method
 func (s *ProductService) DraftProducts(ctx context.Context, slugs []string) error {
-	// Get the user ID from the context
 	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1523,7 +1530,6 @@ func (s *ProductService) DraftProducts(ctx context.Context, slugs []string) erro
 		return err
 	}
 
-	// Check if user is admin
 	isAdmin, err := s.userRepo.IsAdmin(ctx, userID)
 	if err != nil {
 		err := app_errors.NewUnauthorizedUserError()
@@ -1537,13 +1543,14 @@ func (s *ProductService) DraftProducts(ctx context.Context, slugs []string) erro
 		return err
 	}
 
-	// Draft the products
 	err = s.productRepo.DraftProductsBySlugs(ctx, userID, slugs)
 	if err != nil {
 		s.logger.Error("failed to draft products", zap.Error(err))
 		return fmt.Errorf("failed to draft products: %w", err)
 	}
 
+	// Invalidate cache after drafting products
+	s.invalidateProductCache(ctx)
 	return nil
 }
 

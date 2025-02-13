@@ -3,14 +3,15 @@ package middleware
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services/i"
 	"weblineBackend/pkg/utils"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -29,81 +30,67 @@ func Session(logger *zap.Logger, sessionService i.SessionService) func(http.Hand
 			secure := isProduction()
 			sameSite := getSameSitePolicy()
 
-			logger.Debug("Session middleware", zap.String("secure", fmt.Sprintf("%t", secure)))
-
 			// 1. Check if user is authenticated via Auth middleware
-			logger.Debug("Checking if user is authenticated")
-			user, isUserAuthenticated := GetUser(ctx)
-			logger.Debug("User authenticated", zap.String("isUserAuthenticated", fmt.Sprintf("%t", isUserAuthenticated)))
+			userID, isUserAuthenticated := GetUserID(ctx)
 
 			// 2. Try to get existing valid session
-			logger.Debug("Validating existing session")
 			sessionID, session, csrfToken, validSession := validateExistingSession(r, sessionService, logger)
-			logger.Debug("Session validated", zap.String("sessionID", sessionID))
-
-			logger.Debug("Session", zap.Any("session", session))
-			logger.Debug("CSRF token", zap.String("csrfToken", csrfToken))
-			logger.Debug("Valid session", zap.String("validSession", fmt.Sprintf("%t", validSession)))
 
 			// 3. Create new session if needed
 			if !validSession {
-				logger.Debug("Creating new session")
 				var err error
-				sessionID, session, csrfToken, err = createNewSession(w, r, sessionService, secure, sameSite, logger)
+				var uid *uuid.UUID
+				if isUserAuthenticated {
+					uid = &userID
+				}
+				sessionID, session, csrfToken, err = createNewSession(w, r, sessionService, secure, sameSite, logger, uid)
 				if err != nil {
-					logger.Error("Session creation failed", zap.Error(err))
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 					return
 				}
-				logger.Debug("New session created", zap.String("sessionID", sessionID))
 			}
 
-			// 4. Link session to user if authenticated
-			if isUserAuthenticated && session.UserID == nil {
-				logger.Debug("Linking session to user")
-				err := sessionService.LinkSessionToUser(ctx, sessionID, user.UserID)
-				if err != nil {
-					logger.Warn("Failed to link session to user",
-						zap.Error(err),
-						zap.String("sessionID", sessionID),
-						zap.String("userID", user.UserID.String()))
+			// Update last activity before proceeding
+			_ = sessionService.UpdateSessionLastActivity(ctx, sessionID)
+
+			// 4. Link session to user if authenticated and session not yet linked
+			if isUserAuthenticated && (session.UserID == nil || *session.UserID == uuid.Nil) {
+				err := sessionService.LinkSessionToUser(ctx, sessionID, userID)
+				if err == nil {
+					updatedSession, err := sessionService.GetSessionBySessionID(ctx, sessionID)
+					if err == nil {
+						session = updatedSession
+					}
 				}
-				logger.Debug("Session linked to user", zap.String("sessionID", sessionID))
 			}
 
 			// 5. Set user type in context
-			logger.Debug("Setting user type in context")
 			userType := UserTypeGuest
 			if isUserAuthenticated {
 				userType = UserTypeAuthenticated
 			}
 			ctx = context.WithValue(ctx, userTypeContextKey, userType)
-			logger.Debug("User type set in context", zap.String("userType", userType))
 
 			// 6. Handle CSRF protection for state-changing methods
-			logger.Debug("Validating CSRF token")
 			if shouldValidateCSRF(r) {
-				if !validateCSRFToken(r, session.CSRFToken) {
-					logger.Debug("CSRF validation failed", zap.String("csrfToken", csrfToken))
-					logger.Warn("CSRF validation failed")
-					http.Error(w, "Forbidden", http.StatusForbidden)
-					return
+				_, isUserAuthenticated := GetUser(r.Context())
+				if !isUserAuthenticated {
+					if !validateCSRFToken(r, session.CSRFToken) {
+						http.Error(w, "Forbidden", http.StatusForbidden)
+						return
+					}
 				}
-				logger.Debug("CSRF validation passed")
 			}
 
 			// 7. Update context with session information
-			logger.Debug("Updating context with session information")
 			ctx = context.WithValue(ctx, sessionContextKey, &session)
 			ctx = context.WithValue(ctx, sessionIDContextKey, sessionID)
 			ctx = context.WithValue(ctx, csrfTokenContextKey, csrfToken)
 
 			// 8. Set cookies in a browser-compatible way
-			logger.Debug("Setting cookies")
 			setSessionCookies(w, sessionID, csrfToken, secure, sameSite, logger)
 
 			// 9. Proceed with request
-			logger.Debug("Proceeding with request")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -126,53 +113,48 @@ func getSameSitePolicy() http.SameSite {
 func validateExistingSession(r *http.Request, service i.SessionService, logger *zap.Logger) (string, model.Session, string, bool) {
 	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
-		logger.Error("Error getting session cookie", zap.Error(err))
 		return "", model.Session{}, "", false
 	}
 
-	logger.Debug("Validating existing session", zap.String("sessionID", cookie.Value))
-
-	session, err := service.GetSessionBySessionID(r.Context(), cookie.Value)
-	if err != nil || session.ExpiresAt.Before(time.Now()) {
-		logger.Error("Session validation failed", zap.Error(err))
+	// Decode the cookie value in case it's URL-encoded.
+	sessionID, err := url.QueryUnescape(cookie.Value)
+	if err != nil {
 		return "", model.Session{}, "", false
 	}
 
-	logger.Debug("Session validated", zap.String("sessionID", cookie.Value))
+	session, err := service.GetSessionBySessionID(r.Context(), sessionID)
+	if err != nil {
+		return "", model.Session{}, "", false
+	}
+	// Check if the session has expired
+	if session.ExpiresAt.Before(time.Now()) {
+		return "", model.Session{}, "", false
+	}
 
 	csrfCookie, err := r.Cookie(csrfCookieName)
 	if err != nil || csrfCookie.Value != session.CSRFToken {
-		logger.Error("CSRF validation failed", zap.Error(err))
 		return "", model.Session{}, "", false
 	}
 
-	logger.Debug("CSRF validation passed", zap.String("csrfToken", csrfCookie.Value))
-
-	return cookie.Value, session, csrfCookie.Value, true
+	return sessionID, session, csrfCookie.Value, true
 }
 
 // Add to session middleware function
-func createNewSession(w http.ResponseWriter, r *http.Request, service i.SessionService, secure bool, sameSite http.SameSite, logger *zap.Logger) (string, model.Session, string, error) {
-	logger.Debug("Creating new session")
+func createNewSession(w http.ResponseWriter, r *http.Request, service i.SessionService, secure bool, sameSite http.SameSite, logger *zap.Logger, uid *uuid.UUID) (string, model.Session, string, error) {
 	csrfToken, err := utils.GenerateSecureCSRFToken()
 	if err != nil {
-		logger.Error("Failed to generate CSRF token", zap.Error(err))
 		return "", model.Session{}, "", err
 	}
 
-	session, err := service.CreateSession(r.Context(), nil, time.Now().Add(sessionDuration), csrfToken)
+	session, err := service.CreateSession(r.Context(), uid, time.Now().Add(sessionDuration), csrfToken)
 	if err != nil {
-		logger.Error("Failed to create session", zap.Error(err))
 		return "", model.Session{}, "", err
 	}
-
-	logger.Debug("New session created", zap.String("sessionID", session.SessionID.String()))
 
 	return session.SessionID.String(), session, csrfToken, nil
 }
 
 func setSessionCookies(w http.ResponseWriter, sessionID, csrfToken string, secure bool, sameSite http.SameSite, logger *zap.Logger) {
-	logger.Debug("Setting session cookies")
 	expires := time.Now().Add(sessionDuration)
 
 	// Session cookie
@@ -185,7 +167,6 @@ func setSessionCookies(w http.ResponseWriter, sessionID, csrfToken string, secur
 		Secure:   secure,
 		SameSite: sameSite,
 	})
-	logger.Debug("Session cookie set")
 
 	// CSRF cookie
 	http.SetCookie(w, &http.Cookie{
@@ -197,8 +178,6 @@ func setSessionCookies(w http.ResponseWriter, sessionID, csrfToken string, secur
 		Secure:   secure,
 		SameSite: sameSite,
 	})
-	logger.Debug("CSRF cookie set")
-	logger.Debug("Cookies set")
 }
 
 func shouldValidateCSRF(r *http.Request) bool {
@@ -216,7 +195,6 @@ func validateCSRFToken(r *http.Request, expectedToken string) bool {
 		receivedToken = r.FormValue("csrf_token")
 	}
 
-	// Remove direct logger.Debug call since logger is undefined
 	return utils.VerifyCSRFToken(receivedToken, expectedToken)
 }
 

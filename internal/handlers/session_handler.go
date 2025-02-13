@@ -51,7 +51,8 @@ func (h *SessionHandler) CreateGuestSession(w http.ResponseWriter, r *http.Reque
 
 	h.logger.Info("Session cookie set",
 		zap.String("sessionID", session.SessionID.String()),
-		zap.String("secure", fmt.Sprintf("%t", secure)))
+		zap.String("secure", fmt.Sprintf("%t", secure)),
+	)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webline_csrf",
@@ -65,6 +66,10 @@ func (h *SessionHandler) CreateGuestSession(w http.ResponseWriter, r *http.Reque
 	h.logger.Info("CSRF cookie set",
 		zap.String("csrfToken", session.CSRFToken),
 		zap.String("secure", fmt.Sprintf("%t", secure)))
+
+	if err := h.sessionService.UpdateSessionLastActivity(r.Context(), session.SessionID.String()); err != nil {
+		h.logger.Warn("Failed to update session last activity", zap.Error(err))
+	}
 
 	RespondWithJSON(w, http.StatusOK, session)
 }
@@ -113,10 +118,10 @@ func (h *SessionHandler) MergeSession(w http.ResponseWriter, r *http.Request) {
 		Name:     "webline_session",
 		Value:    session.SessionID.String(),
 		Path:     "/",
+		Expires:  time.Now().Add(30 * 24 * time.Hour),
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: sameSite,
-		Expires:  time.Now().Add(30 * 24 * time.Hour), // persists for 30 days
 	})
 
 	http.SetCookie(w, &http.Cookie{
@@ -128,6 +133,10 @@ func (h *SessionHandler) MergeSession(w http.ResponseWriter, r *http.Request) {
 		SameSite: sameSite,
 		Expires:  time.Now().Add(30 * 24 * time.Hour), // persists for 30 days
 	})
+
+	if err := h.sessionService.UpdateSessionLastActivity(r.Context(), session.SessionID.String()); err != nil {
+		h.logger.Warn("Failed to update session last activity", zap.Error(err))
+	}
 
 	RespondWithJSON(w, http.StatusOK, session)
 }

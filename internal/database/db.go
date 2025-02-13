@@ -51,6 +51,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.assignRoleToUserStmt, err = db.PrepareContext(ctx, assignRoleToUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AssignRoleToUser: %w", err)
 	}
+	if q.autocompleteSuggestionsStmt, err = db.PrepareContext(ctx, autocompleteSuggestions); err != nil {
+		return nil, fmt.Errorf("error preparing query AutocompleteSuggestions: %w", err)
+	}
 	if q.calculateCartTotalStmt, err = db.PrepareContext(ctx, calculateCartTotal); err != nil {
 		return nil, fmt.Errorf("error preparing query CalculateCartTotal: %w", err)
 	}
@@ -762,6 +765,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.upsertProductSpecificationStmt, err = db.PrepareContext(ctx, upsertProductSpecification); err != nil {
 		return nil, fmt.Errorf("error preparing query UpsertProductSpecification: %w", err)
 	}
+	if q.v2SearchProductsStmt, err = db.PrepareContext(ctx, v2SearchProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query V2SearchProducts: %w", err)
+	}
+	if q.v2SearchProductsCountStmt, err = db.PrepareContext(ctx, v2SearchProductsCount); err != nil {
+		return nil, fmt.Errorf("error preparing query V2SearchProductsCount: %w", err)
+	}
+	if q.v2SearchProductsPaginatedStmt, err = db.PrepareContext(ctx, v2SearchProductsPaginated); err != nil {
+		return nil, fmt.Errorf("error preparing query V2SearchProductsPaginated: %w", err)
+	}
 	return &q, nil
 }
 
@@ -810,6 +822,11 @@ func (q *Queries) Close() error {
 	if q.assignRoleToUserStmt != nil {
 		if cerr := q.assignRoleToUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing assignRoleToUserStmt: %w", cerr)
+		}
+	}
+	if q.autocompleteSuggestionsStmt != nil {
+		if cerr := q.autocompleteSuggestionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing autocompleteSuggestionsStmt: %w", cerr)
 		}
 	}
 	if q.calculateCartTotalStmt != nil {
@@ -1997,6 +2014,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing upsertProductSpecificationStmt: %w", cerr)
 		}
 	}
+	if q.v2SearchProductsStmt != nil {
+		if cerr := q.v2SearchProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing v2SearchProductsStmt: %w", cerr)
+		}
+	}
+	if q.v2SearchProductsCountStmt != nil {
+		if cerr := q.v2SearchProductsCountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing v2SearchProductsCountStmt: %w", cerr)
+		}
+	}
+	if q.v2SearchProductsPaginatedStmt != nil {
+		if cerr := q.v2SearchProductsPaginatedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing v2SearchProductsPaginatedStmt: %w", cerr)
+		}
+	}
 	return err
 }
 
@@ -2045,6 +2077,7 @@ type Queries struct {
 	archiveProductsBySlugsStmt                 *sql.Stmt
 	archivePromotionsStmt                      *sql.Stmt
 	assignRoleToUserStmt                       *sql.Stmt
+	autocompleteSuggestionsStmt                *sql.Stmt
 	calculateCartTotalStmt                     *sql.Stmt
 	cancelOrderStmt                            *sql.Stmt
 	changeOrderPaymentMethodStmt               *sql.Stmt
@@ -2282,6 +2315,9 @@ type Queries struct {
 	updateVATPercentageStmt                    *sql.Stmt
 	upsertCartItemStmt                         *sql.Stmt
 	upsertProductSpecificationStmt             *sql.Stmt
+	v2SearchProductsStmt                       *sql.Stmt
+	v2SearchProductsCountStmt                  *sql.Stmt
+	v2SearchProductsPaginatedStmt              *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -2297,6 +2333,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		archiveProductsBySlugsStmt:                 q.archiveProductsBySlugsStmt,
 		archivePromotionsStmt:                      q.archivePromotionsStmt,
 		assignRoleToUserStmt:                       q.assignRoleToUserStmt,
+		autocompleteSuggestionsStmt:                q.autocompleteSuggestionsStmt,
 		calculateCartTotalStmt:                     q.calculateCartTotalStmt,
 		cancelOrderStmt:                            q.cancelOrderStmt,
 		changeOrderPaymentMethodStmt:               q.changeOrderPaymentMethodStmt,
@@ -2534,5 +2571,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateVATPercentageStmt:                    q.updateVATPercentageStmt,
 		upsertCartItemStmt:                         q.upsertCartItemStmt,
 		upsertProductSpecificationStmt:             q.upsertProductSpecificationStmt,
+		v2SearchProductsStmt:                       q.v2SearchProductsStmt,
+		v2SearchProductsCountStmt:                  q.v2SearchProductsCountStmt,
+		v2SearchProductsPaginatedStmt:              q.v2SearchProductsPaginatedStmt,
 	}
 }

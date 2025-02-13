@@ -21,6 +21,8 @@ type Querier interface {
 	ArchiveProductsBySlugs(ctx context.Context, arg ArchiveProductsBySlugsParams) error
 	ArchivePromotions(ctx context.Context, dollar_1 []string) error
 	AssignRoleToUser(ctx context.Context, arg AssignRoleToUserParams) (AssignRoleToUserRow, error)
+	// Returns distinct suggestions for auto-completion based on product and category names.
+	AutocompleteSuggestions(ctx context.Context, arg AutocompleteSuggestionsParams) ([]string, error)
 	// Calculate the total price of items in the cart
 	CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (string, error)
 	CancelOrder(ctx context.Context, id uuid.UUID) (sql.NullString, error)
@@ -311,6 +313,12 @@ type Querier interface {
 	// Insert or update the item in the cart
 	UpsertCartItem(ctx context.Context, arg UpsertCartItemParams) (UpsertCartItemRow, error)
 	UpsertProductSpecification(ctx context.Context, arg UpsertProductSpecificationParams) (ProductSpecification, error)
+	// Search products using full-text search. This query supports partial matches
+	// by splitting the input string into tokens and appending the :* operator
+	// for prefix matching. Matching products are ranked by relevance.
+	V2SearchProducts(ctx context.Context, arg V2SearchProductsParams) ([]V2SearchProductsRow, error)
+	V2SearchProductsCount(ctx context.Context, regexpSplitToTable string) (int64, error)
+	V2SearchProductsPaginated(ctx context.Context, arg V2SearchProductsPaginatedParams) ([]V2SearchProductsPaginatedRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

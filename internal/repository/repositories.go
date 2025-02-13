@@ -28,6 +28,7 @@ type Repositories struct {
 	ProductAttributeRepo      ProductAttributeRepository
 	CompanyRepository         CompanyRepository
 	SessionRepo               SessionRepository
+	SearchRepo                SearchRepository
 }
 
 type Dependencies struct {
@@ -58,6 +59,7 @@ type Dependencies struct {
 	ProductAttributeRepo      ProductAttributeRepository
 	CompanyRepository         CompanyRepository
 	SessionRepo               SessionRepository
+	SearchRepo                SearchRepository
 }
 
 // NewRepositories initializes and returns a Repositories instance with all repositories.
@@ -90,5 +92,6 @@ func NewRepositories(deps Dependencies) *Repositories {
 		ProductAttributeRepo:      deps.ProductAttributeRepo,
 		CompanyRepository:         deps.CompanyRepository,
 		SessionRepo:               deps.SessionRepo,
+		SearchRepo:                deps.SearchRepo,
 	}
 }

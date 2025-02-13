@@ -91,6 +91,16 @@ func SetupRouter(cfg appconfig.Config, logger *zap.Logger, handlers *handlers.Ha
 	registerAdminPromotionRoutes(r, handlers, logger)
 	registerCartPromotionRoutes(r, handlers, logger, sessionService)
 	registerSessionRoutes(r, cfg, handlers, logger, sessionService)
+	registerAdminAnalyticsRoutes(r, handlers, logger)
+
+	// Register order routes
+	registerOrderRoutes(r, handlers, logger, sessionService)
+
+	// Search routes
+	searchRouter := r.PathPrefix("/api/search").Subrouter()
+	NamedHandleFunc(searchRouter, "", handlers.SearchHandler.SearchProducts, []string{http.MethodGet}, "SearchProducts")
+	NamedHandleFunc(searchRouter, "/paginated", handlers.SearchHandler.SearchProductsPaginated, []string{http.MethodGet}, "SearchProductsPaginated")
+	NamedHandleFunc(searchRouter, "/autocomplete", handlers.SearchHandler.AutocompleteSuggestions, []string{http.MethodGet}, "AutocompleteSuggestions")
 
 	return r
 }
@@ -249,4 +259,49 @@ func registerSessionRoutes(r *mux.Router, cfg appconfig.Config, handlers *handle
 	// Routes now match frontend URLs
 	NamedHandleFunc(sessionRouter, "/guest", handlers.SessionHandler.CreateGuestSession, []string{http.MethodPost}, "CreateGuestSession")
 	NamedHandleFunc(sessionBasedRouter, "/merge", handlers.SessionHandler.MergeSession, []string{http.MethodPost}, "MergeSession")
+}
+
+// registerOrderRoutes registers order-related routes.
+func registerOrderRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger, sessionService i.SessionService) {
+	orderRouter := router.PathPrefix("/api/orders").Subrouter()
+
+	protectedOrderRouter := orderRouter.PathPrefix("").Subrouter()
+	protectedOrderRouter.Use(middleware.OptionalAuth(logger), middleware.Session(logger, sessionService))
+	// Checkout endpoint (create new order)
+	NamedHandleFunc(protectedOrderRouter, "/checkout", handlers.OrderHandler.CreateOrder, []string{http.MethodPost}, "CreateOrder")
+
+	// List orders for the current user
+	NamedHandleFunc(orderRouter, "", handlers.OrderHandler.ListOrders, []string{http.MethodGet}, "ListOrders")
+
+	// Get order details
+	orderRouter.HandleFunc("/{id}", handlers.OrderHandler.GetOrder).Methods(http.MethodGet)
+
+	// Payment endpoint to pay for order (query param "method" required, e.g., ?method=mpesa)
+	NamedHandleFunc(orderRouter, "/pay", handlers.OrderHandler.PayOrder, []string{http.MethodPost}, "PayOrder")
+
+	// Cancel order endpoint
+	orderRouter.HandleFunc("/{id}/cancel", handlers.OrderHandler.CancelOrder).Methods(http.MethodPost)
+
+	// Change payment method endpoint
+	orderRouter.HandleFunc("/{id}/change-payment", handlers.OrderHandler.ChangeOrderPaymentMethod).Methods(http.MethodPost)
+
+	// M-Pesa Callback endpoint
+	orderRouter.HandleFunc("/mpesa/callback", handlers.OrderHandler.HandleMpesaCallback).Methods(http.MethodPost)
+
+	// Payment status endpoint
+	orderRouter.HandleFunc("/payment/status", handlers.OrderHandler.GetPaymentStatus).Methods(http.MethodGet)
+}
+
+func registerAdminAnalyticsRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+	adminAnalyticsRouter := router.PathPrefix("/api/v2/orders").Subrouter()
+	protectedAdminAnalyticsRouter := adminAnalyticsRouter.PathPrefix("").Subrouter()
+	protectedAdminAnalyticsRouter.Use(middleware.Auth(logger))
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/total-revenue", handlers.OrderHandler.GetTotalRevenue, []string{http.MethodGet}, "GetTotalRevenue")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/monthly-sales", handlers.OrderHandler.GetMonthlySales, []string{http.MethodGet}, "GetMonthlySales")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/monthly-revenue", handlers.OrderHandler.GetMonthlyRevenue, []string{http.MethodGet}, "GetMonthlyRevenue")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/sales-trend", handlers.OrderHandler.GetSalesTrend, []string{http.MethodGet}, "GetSalesTrend")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/recent-sales", handlers.OrderHandler.GetRecentSales, []string{http.MethodGet}, "GetRecentSales")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/total-sales-current-month", handlers.OrderHandler.GetTotalSalesCurrentMonth, []string{http.MethodGet}, "GetTotalSalesCurrentMonth")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/exchange-rate", handlers.OrderHandler.GetExchangeRate, []string{http.MethodGet}, "GetExchangeRate")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/exchange-rate", handlers.OrderHandler.UpdateExchangeRate, []string{http.MethodPut}, "UpdateExchangeRate")
 }

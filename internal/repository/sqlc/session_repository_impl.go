@@ -106,7 +106,7 @@ func (r *sessionRepositoryImpl) UpdateSessionLastActivity(ctx context.Context, s
 		r.logger.Error("failed to update session last activity", zap.Error(err))
 		return fmt.Errorf("update session last activity: %w", err)
 	}
-
+	r.logger.Debug("Session last activity updated", zap.String("sessionID", sessionID.String()))
 	return nil
 }
 

@@ -15,6 +15,7 @@ const (
 	NamespaceOrder        = "order"
 	NamespaceExchangeRate = "exchange"
 	NamespaceCart         = "cart"
+	NamespaceSearch       = "search"
 
 	// Subnamespaces
 	SubNamespaceAdmin       = "admin"
@@ -178,4 +179,15 @@ func UserSessionsKey(userID string) string {
 // SessionExpiryKey generates a Redis key for session expiry tracking
 func SessionExpiryKey(sessionID string) string {
 	return GenerateCacheKey(NamespaceSession, SubNamespaceExpiry, sessionID)
+}
+
+// SearchProductsKey generates a Redis key for storing search results.
+// It includes the search term, page number, and limit.
+func SearchProductsKey(searchTerm string, page int, limit int) string {
+	return GenerateCacheKey(NamespaceSearch, "products", searchTerm, "page", strconv.Itoa(page), "limit", strconv.Itoa(limit))
+}
+
+// AutocompleteSuggestionsKey generates a Redis key for storing autocomplete search suggestions.
+func AutocompleteSuggestionsKey(searchTerm string, limit int) string {
+	return GenerateCacheKey(NamespaceSearch, "autocomplete", searchTerm, strconv.Itoa(limit))
 }

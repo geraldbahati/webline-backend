@@ -25,6 +25,7 @@ type CartService struct {
 	productImageRepository *repository.ProductImageRepository
 	exchangeRateRepository repository.ExchangeRateRepository
 	cacheService           CacheService
+	sessionService         *SessionService
 }
 
 // CartItemInput represents the input for adding/updating a cart item.
@@ -47,6 +48,7 @@ func NewCartService(
 	productImageRepository *repository.ProductImageRepository,
 	exchangeRateRepository repository.ExchangeRateRepository,
 	cacheService CacheService,
+	sessionService *SessionService,
 ) *CartService {
 	return &CartService{
 		logger:                 logger,
@@ -56,6 +58,7 @@ func NewCartService(
 		productImageRepository: productImageRepository,
 		exchangeRateRepository: exchangeRateRepository,
 		cacheService:           cacheService,
+		sessionService:         sessionService,
 	}
 }
 
@@ -116,6 +119,10 @@ func (s *CartService) getOrCreateCart(ctx context.Context, session *model.Sessio
 
 // AddToCart adds an item to the cart
 func (s *CartService) AddToCart(ctx context.Context, session *model.Session, userType string, productID string, quantity int32) error {
+	if err := s.sessionService.UpdateSessionLastActivity(ctx, session.SessionID.String()); err != nil {
+		s.logger.Warn("Failed to update session last activity", zap.Error(err))
+	}
+
 	cart, err := s.getOrCreateCart(ctx, session, userType)
 	if err != nil {
 		return fmt.Errorf("get or create cart: %w", err)
