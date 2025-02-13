@@ -14,6 +14,8 @@ import (
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
 
+	"weblineBackend/internal/middleware"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -31,6 +33,7 @@ type OrderService struct {
 	companyRepo         repository.CompanyRepository
 	cacheService        CacheService
 	cfg                 *appconfig.Config
+	sessionService      *SessionService
 }
 
 func NewOrderService(
@@ -45,7 +48,8 @@ func NewOrderService(
 	exchangeRateRepo repository.ExchangeRateRepository,
 	companyRepo repository.CompanyRepository,
 	cacheService CacheService,
-	cfg *appconfig.Config) *OrderService {
+	cfg *appconfig.Config,
+	sessionService *SessionService) *OrderService {
 	return &OrderService{
 		logger:              logger,
 		guestCheckoutRepo:   guestCheckoutRepo,
@@ -59,6 +63,7 @@ func NewOrderService(
 		discountRepo:        discountRepo,
 		cacheService:        cacheService,
 		cfg:                 cfg,
+		sessionService:      sessionService,
 	}
 }
 
@@ -88,6 +93,13 @@ type OrderResponse struct {
 
 // Optimized CreateOrder creates a new order with items
 func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.CreateOrderParams, items []model.CreateOrderItemParams) (*uuid.UUID, error) {
+	// If context contains a valid session, update its last activity
+	if session, err := middleware.GetSessionFromContext(ctx); err == nil {
+		if err := s.sessionService.UpdateSessionLastActivity(ctx, session.SessionID.String()); err != nil {
+			s.logger.Warn("Failed to update session last activity", zap.Error(err))
+		}
+	}
+
 	// Start timer for CreateOrder service call
 	startTime := time.Now()
 	defer func() {
@@ -549,23 +561,27 @@ func (s *OrderService) ChangeOrderPaymentMethod(ctx context.Context, orderID uui
 
 // GetTotalRevenue gets the total revenue
 func (s *OrderService) GetTotalRevenue(ctx context.Context) (*model.Revenue, error) {
+	s.logger.Info("Getting total revenue")
 	statusID, err := s.paymentRepository.GetPaymentStatusIDByStatus(ctx, "paid")
 	if err != nil {
 		s.logger.Error("failed to get payment status ID", zap.Error(err))
 		return nil, fmt.Errorf("failed to get payment status ID: %w", err)
 	}
+	s.logger.Info("Payment status ID", zap.Int32("statusID", statusID))
 
 	revenue, err := s.orderRepository.GetTotalRevenue(ctx, statusID)
 	if err != nil {
 		s.logger.Error("failed to get total revenue", zap.Error(err))
 		return nil, fmt.Errorf("failed to get total revenue: %w", err)
 	}
+	s.logger.Info("Total revenue", zap.Float64("revenue", revenue))
 
 	currentRevenue, previousRevenue, err := s.orderRepository.GetTotalRevenueForLastTwoMonths(ctx, statusID)
 	if err != nil {
 		s.logger.Error("failed to get last two months revenue", zap.Error(err))
 		return nil, fmt.Errorf("failed to get last two months revenue: %w", err)
 	}
+	s.logger.Info("Last two months revenue", zap.Float64("currentRevenue", currentRevenue), zap.Float64("previousRevenue", previousRevenue))
 
 	// percentage growth
 	percentageGrowth := 0.0

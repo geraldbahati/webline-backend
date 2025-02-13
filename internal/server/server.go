@@ -171,14 +171,16 @@ func initializeRepositories(db *sql.DB, logger *zap.Logger) *repository.Reposito
 
 func initializeServices(repos *repository.Repositories, cfg appconfig.Config, logger *zap.Logger, s3Client *s3.Client, redisClient *redis.Client) *services.Services {
 	cacheService := services.NewCacheService(redisClient, logger, cfg.RedisTTL, cfg.RedisRateLimit)
+	sessionService := services.NewSessionService(logger, repos.SessionRepo, cacheService)
+	orderService := services.NewOrderService(logger, repos.GuestCheckoutRepo, repos.OrderRepo, repos.OrderItemRepo, repos.PaymentRepo, repos.UserRepo, repos.ProductRepo, repos.DiscountRepo, repos.ExchangeRateRepo, repos.CompanyRepository, cacheService, &cfg, sessionService)
 
 	return &services.Services{
 		CacheService:            cacheService,
 		UserService:             services.NewUserService(repos.UserRepo, repos.RoleRepo, repos.UserRoleRepo, repos.VerificationTokenRepo, repos.PasswordResetRepo, repos.AdminRequestRepo, repos.TokenRepo, repos.GuestCheckoutRepo, &cfg, logger, s3Client),
 		CategoryService:         services.NewCategoryService(repos.CategoryRepo, repos.UserRepo, logger, &cfg, s3Client),
 		ProductService:          services.NewProductService(repos.ProductRepo, repos.ProductVariantRepo, repos.ProductImageRepo, repos.ProductSpecificationRepo, repos.CategoryRepo, repos.ProductOptionRepo, repos.DiscountRepo, repos.UserRepo, repos.ExchangeRateRepo, cacheService, logger, &cfg, s3Client),
-		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo, repos.ExchangeRateRepo, cacheService),
-		OrderService:            services.NewOrderService(logger, repos.GuestCheckoutRepo, repos.OrderRepo, repos.OrderItemRepo, repos.PaymentRepo, repos.UserRepo, repos.ProductRepo, repos.DiscountRepo, repos.ExchangeRateRepo, repos.CompanyRepository, cacheService, &cfg),
+		CartService:             services.NewCartService(logger, &cfg, repos.CartRepo, repos.ProductRepo, repos.ProductImageRepo, repos.ExchangeRateRepo, cacheService, sessionService),
+		OrderService:            orderService,
 		PaymentService:          services.NewPaymentService(repos.PaymentRepo, repos.OrderRepo, repos.OrderItemRepo, logger, &cfg),
 		InquiryService:          services.NewInquiryService(repos.ProductRepo, logger, &cfg),
 		ProductSEOService:       services.NewProductSEOService(logger, &cfg, repos.ProductRepo, cacheService),
@@ -203,8 +205,8 @@ func initializeHandlers(svc *services.Services, cfg appconfig.Config, logger *za
 		ProductImageHandler:         handlers.NewProductImageHandler(svc.ProductService),
 		ProductSpecificationHandler: handlers.NewProductSpecificationHandler(svc.ProductService),
 		ProductOptionHandler:        handlers.NewProductOptionHandler(svc.ProductService),
-		CartHandler:                 handlers.NewCartHandler(svc.CartService, logger),
-		OrderHandler:                handlers.NewOrderHandler(logger, svc.OrderService, svc.PaymentService, svc.UserService),
+		CartHandler:                 handlers.NewCartHandler(svc.CartService, svc.SessionService, logger),
+		OrderHandler:                handlers.NewOrderHandler(logger, svc.OrderService, svc.PaymentService, svc.UserService, svc.SessionService),
 		InquiryHandler:              handlers.NewInquiryHandler(logger, svc.InquiryService),
 		ProductAnalyticHandler:      handlers.NewProductAnalyticHandler(svc.ProductAnalyticService),
 		PromotionHandler:            handlers.NewPromotionHandler(svc.PromotionService),

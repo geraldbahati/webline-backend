@@ -13,15 +13,17 @@ import (
 
 // CartHandler handles cart-related HTTP requests.
 type CartHandler struct {
-	cartService *services.CartService
-	logger      *zap.Logger
+	cartService    *services.CartService
+	sessionService *services.SessionService
+	logger         *zap.Logger
 }
 
 // NewCartHandler creates a new CartHandler
-func NewCartHandler(cartService *services.CartService, logger *zap.Logger) *CartHandler {
+func NewCartHandler(cartService *services.CartService, sessionService *services.SessionService, logger *zap.Logger) *CartHandler {
 	return &CartHandler{
-		cartService: cartService,
-		logger:      logger,
+		cartService:    cartService,
+		sessionService: sessionService,
+		logger:         logger,
 	}
 }
 
@@ -31,12 +33,16 @@ func (h *CartHandler) AddToCartHandler(w http.ResponseWriter, r *http.Request) {
 	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
 		// If the error indicates expiration, set a custom header
-		if err.Error() == "session has expired" {
+		if err.Error() == "session expired" {
 			w.Header().Set("X-Session-Expired", "true")
 		}
 		h.logger.Error("Failed to get session", zap.Error(err))
 		RespondWithError(w, http.StatusUnauthorized, err.Error())
 		return
+	}
+	// Update session last activity
+	if err := h.sessionService.UpdateSessionLastActivity(r.Context(), session.SessionID.String()); err != nil {
+		h.logger.Warn("Failed to update session last activity", zap.Error(err))
 	}
 	// Retrieve user type from context
 	userType := middleware.GetUserType(r.Context())

@@ -18,4 +18,5 @@ type SessionService interface {
 	DeleteSessionBySessionID(ctx context.Context, sessionID string) error
 	UpdateSession(ctx context.Context, session model.Session) error
 	InvalidateUserSessions(ctx context.Context, userID uuid.UUID) error
+	UpdateSessionLastActivity(ctx context.Context, sessionID string) error
 }

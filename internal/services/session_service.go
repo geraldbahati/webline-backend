@@ -50,10 +50,12 @@ func generateCSRFToken() (string, error) {
 
 // CreateSession creates a new session with proper CSRF handling
 func (s *SessionService) CreateSession(ctx context.Context, userID *uuid.UUID, expiresAt time.Time, csrfToken string) (model.Session, error) {
+	s.logger.Debug("Creating new session", zap.Any("userID", userID), zap.Time("expiresAt", expiresAt), zap.String("csrfToken", csrfToken))
 	sessionID := uuid.New()
 
 	// Validate expiration time
 	if expiresAt.Before(time.Now()) {
+		s.logger.Error("invalid expiration time", zap.Time("expiresAt", expiresAt))
 		return model.Session{}, fmt.Errorf("invalid expiration time")
 	}
 
@@ -64,25 +66,7 @@ func (s *SessionService) CreateSession(ctx context.Context, userID *uuid.UUID, e
 			zap.Any("userID", userID))
 		return model.Session{}, fmt.Errorf("session creation failed: %w", err)
 	}
-
-	// Initialize the session timestamps
-	now := time.Now()
-	createdSession.CreatedAt = now
-	createdSession.LastActivity = now
-
-	// Persist the updated timestamps in the repository.
-	if err := s.sessionRepository.UpdateSession(ctx, createdSession); err != nil {
-		s.logger.Warn("failed to update session timestamps", zap.Error(err))
-	}
-
-	// Re-fetch the session to verify the update (for debugging purposes).
-	updatedSession, err := s.sessionRepository.GetSessionBySessionID(ctx, createdSession.SessionID)
-	if err != nil {
-		s.logger.Warn("failed to re-fetch updated session", zap.Error(err))
-	} else {
-		s.logger.Debug("Updated session", zap.Time("createdAt", updatedSession.CreatedAt), zap.Time("lastActivity", updatedSession.LastActivity))
-		createdSession = updatedSession
-	}
+	s.logger.Debug("Session created", zap.String("sessionID", createdSession.SessionID.String()), zap.Any("userID", createdSession.UserID))
 
 	// Remove any stale cached value before re-caching the updated session.
 	cacheKey := SessionKey(createdSession.SessionID.String())
@@ -95,7 +79,7 @@ func (s *SessionService) CreateSession(ctx context.Context, userID *uuid.UUID, e
 			zap.String("sessionID", sessionID.String()))
 	}
 
-	s.logger.Debug("Session created", zap.String("sessionID", createdSession.SessionID.String()), zap.Any("userID", createdSession.UserID))
+	s.logger.Debug("Session created", zap.String("sessionID", createdSession.SessionID.String()))
 	return createdSession, nil
 }
 
@@ -251,14 +235,20 @@ func (s *SessionService) LinkSessionToUser(ctx context.Context, sessionID string
 		return fmt.Errorf("session already linked to another user")
 	}
 
-	if time.Since(session.LastActivity) > sessionGracePeriod {
-		s.logger.Warn("session too old to link", zap.String("sessionID", sessionID), zap.Any("lastActivity", session.LastActivity))
-		return fmt.Errorf("session too old to link")
-	}
+	// if time.Since(session.LastActivity) > sessionGracePeriod {
+	// 	s.logger.Debug("session too old to link",
+	// 		zap.String("sessionID", sessionID),
+	// 		zap.Any("lastActivity", session.LastActivity),
+	// 		zap.Duration("sessionGracePeriod", sessionGracePeriod),
+	// 		zap.Duration("timeSinceLastActivity", time.Since(session.LastActivity)),
+	// 	)
+	// 	s.logger.Warn("session too old to link", zap.String("sessionID", sessionID), zap.Any("lastActivity", session.LastActivity))
+	// 	return fmt.Errorf("session too old to link")
+	// }
 
-	if session.ExpiresAt.Before(time.Now().Add(minSessionLifetime)) {
-		return fmt.Errorf("session expiration too short for permanent login")
-	}
+	// if session.ExpiresAt.Before(time.Now().Add(minSessionLifetime)) {
+	// 	return fmt.Errorf("session expiration too short for permanent login")
+	// }
 
 	// Link the session to the user by setting the user id.
 	session.UserID = &userID

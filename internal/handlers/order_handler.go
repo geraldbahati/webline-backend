@@ -23,14 +23,16 @@ type OrderHandler struct {
 	orderService   *services.OrderService
 	paymentService *services.PaymentService
 	userService    *services.UserService
+	sessionService *services.SessionService
 }
 
-func NewOrderHandler(logger *zap.Logger, orderService *services.OrderService, paymentService *services.PaymentService, userService *services.UserService) *OrderHandler {
+func NewOrderHandler(logger *zap.Logger, orderService *services.OrderService, paymentService *services.PaymentService, userService *services.UserService, sessionService *services.SessionService) *OrderHandler {
 	return &OrderHandler{
 		logger:         logger,
 		orderService:   orderService,
 		paymentService: paymentService,
 		userService:    userService,
+		sessionService: sessionService,
 	}
 }
 
@@ -76,11 +78,6 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// Ensure the request body is closed after reading
 	defer r.Body.Close()
 
-	h.logger.Info("Checkout process initiated",
-		zap.String("email", req.Email),
-		zap.String("firstName", req.FirstName),
-		zap.String("lastName", req.LastName))
-
 	// Retrieve and validate session from context
 	session, err := middleware.GetSessionFromContext(r.Context())
 	if err != nil {
@@ -90,16 +87,23 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	h.logger.Debug("Checkout: validated session", zap.String("sessionID", session.SessionID.String()))
 
+	// Update session last activity
+	if err := h.sessionService.UpdateSessionLastActivity(r.Context(), session.SessionID.String()); err != nil {
+		h.logger.Warn("Failed to update session last activity", zap.Error(err))
+	}
+
 	if err := h.validateCreateOrderRequest(&req); err != nil {
 		h.logger.Error("Invalid create order request", zap.Error(err))
 		RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Retrieve user info (existing, new, or guest) using the user service.
-	_, isAuthenticated := middleware.GetUserID(r.Context())
+	userID, isAuthenticated := middleware.GetUserID(r.Context())
 	var userUUID, guestUUID *uuid.UUID
-	if !isAuthenticated {
+	if isAuthenticated {
+		// For authenticated users, set the user UUID from context so that one of the IDs is non-nil.
+		userUUID = &userID
+	} else {
 		// Delegate user resolution (creating a new account vs. guest) to the userService.
 		userUUID, guestUUID, err = h.userService.ResolveUserForOrder(r.Context(), &model.CreateOrderParams{
 			FirstName:   req.FirstName,

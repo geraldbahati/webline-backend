@@ -3,6 +3,7 @@ package sqlc
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"weblineBackend/internal/database"
 
@@ -108,6 +109,10 @@ func (r *companyRepositoryImpl) GetCompanyID(ctx context.Context, name string, k
 		KraPin: kraPIN,
 	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			r.logger.Warn("company not found", zap.String("name", name), zap.String("kraPIN", kraPIN))
+			return nil, nil
+		}
 		r.logger.Error("failed to get company", zap.Error(err))
 		return nil, err
 	}

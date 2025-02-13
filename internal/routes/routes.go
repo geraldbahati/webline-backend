@@ -91,6 +91,7 @@ func SetupRouter(cfg appconfig.Config, logger *zap.Logger, handlers *handlers.Ha
 	registerAdminPromotionRoutes(r, handlers, logger)
 	registerCartPromotionRoutes(r, handlers, logger, sessionService)
 	registerSessionRoutes(r, cfg, handlers, logger, sessionService)
+	registerAdminAnalyticsRoutes(r, handlers, logger)
 
 	// Register order routes
 	registerOrderRoutes(r, handlers, logger, sessionService)
@@ -289,4 +290,18 @@ func registerOrderRoutes(router *mux.Router, handlers *handlers.Handlers, logger
 
 	// Payment status endpoint
 	orderRouter.HandleFunc("/payment/status", handlers.OrderHandler.GetPaymentStatus).Methods(http.MethodGet)
+}
+
+func registerAdminAnalyticsRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+	adminAnalyticsRouter := router.PathPrefix("/api/v2/orders").Subrouter()
+	protectedAdminAnalyticsRouter := adminAnalyticsRouter.PathPrefix("").Subrouter()
+	protectedAdminAnalyticsRouter.Use(middleware.Auth(logger))
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/total-revenue", handlers.OrderHandler.GetTotalRevenue, []string{http.MethodGet}, "GetTotalRevenue")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/monthly-sales", handlers.OrderHandler.GetMonthlySales, []string{http.MethodGet}, "GetMonthlySales")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/monthly-revenue", handlers.OrderHandler.GetMonthlyRevenue, []string{http.MethodGet}, "GetMonthlyRevenue")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/sales-trend", handlers.OrderHandler.GetSalesTrend, []string{http.MethodGet}, "GetSalesTrend")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/recent-sales", handlers.OrderHandler.GetRecentSales, []string{http.MethodGet}, "GetRecentSales")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/total-sales-current-month", handlers.OrderHandler.GetTotalSalesCurrentMonth, []string{http.MethodGet}, "GetTotalSalesCurrentMonth")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/exchange-rate", handlers.OrderHandler.GetExchangeRate, []string{http.MethodGet}, "GetExchangeRate")
+	NamedHandleFunc(protectedAdminAnalyticsRouter, "/exchange-rate", handlers.OrderHandler.UpdateExchangeRate, []string{http.MethodPut}, "UpdateExchangeRate")
 }
