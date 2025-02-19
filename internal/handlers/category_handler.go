@@ -37,21 +37,23 @@ func (h *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 		Slug:            r.FormValue("slug"),
 	}
 
-	// Handle the image file upload
+	// Handle the image file upload (the image is optional and will be automatically optimized if provided)
+	var image *model.ImageFile
 	file, header, err := r.FormFile("image")
 	if err != nil {
 		if errors.Is(err, http.ErrMissingFile) {
-			RespondWithError(w, http.StatusBadRequest, "Image file is required")
+			// No image provided; image remains nil.
+			image = nil
+		} else {
+			RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve image file: %v", err))
 			return
 		}
-		RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve image file: %v", err))
-		return
-	}
-	defer file.Close()
-
-	image := &model.ImageFile{
-		File:       file,
-		FileHeader: header,
+	} else {
+		defer file.Close()
+		image = &model.ImageFile{
+			File:       file,
+			FileHeader: header,
+		}
 	}
 
 	// create category
