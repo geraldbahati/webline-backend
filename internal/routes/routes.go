@@ -87,6 +87,7 @@ func SetupRouter(cfg appconfig.Config, logger *zap.Logger, handlers *handlers.Ha
 	registerAdminCategoryRoutes(r, handlers, logger)
 	registerProductRoutes(r, handlers)
 	registerAdminProductRoutes(r, handlers, logger)
+	registerProductAnalyticRoutes(r, handlers)
 	registerPromotionRoutes(r, handlers)
 	registerAdminPromotionRoutes(r, handlers, logger)
 	registerCartPromotionRoutes(r, handlers, logger, sessionService)
@@ -200,6 +201,39 @@ func registerAdminProductRoutes(router *mux.Router, handlers *handlers.Handlers,
 	NamedHandleFunc(protected, "/draft", handlers.ProductHandler.DraftProductsHandler, []string{http.MethodPut}, "DraftProducts")
 	NamedHandleFunc(protected, "/active", handlers.ProductHandler.ActivateProductsHandler, []string{http.MethodPut}, "ActivateProducts")
 	NamedHandleFunc(protected, "/{slug}/archive", handlers.ProductHandler.ArchiveProductHandler, []string{http.MethodPut}, "ArchiveProduct")
+}
+
+// registerProductAnalyticRoutes registers product analytics related routes.
+func registerProductAnalyticRoutes(router *mux.Router, handlers *handlers.Handlers) {
+	productAnalyticRouter := router.PathPrefix("/api/product-analytics").Subrouter()
+	NamedHandleFunc(
+		productAnalyticRouter,
+		"/best-sellers",
+		handlers.ProductAnalyticHandler.GetBestSellerProducts,
+		[]string{http.MethodGet},
+		"GetBestSellerProducts",
+	)
+	NamedHandleFunc(
+		productAnalyticRouter,
+		"/featured",
+		handlers.ProductAnalyticHandler.GetFeaturedProducts,
+		[]string{http.MethodGet},
+		"GetFeaturedProducts",
+	)
+	NamedHandleFunc(
+		productAnalyticRouter,
+		"/new-arrivals",
+		handlers.ProductAnalyticHandler.GetNewArrivalProducts,
+		[]string{http.MethodGet},
+		"GetNewArrivalProducts",
+	)
+	NamedHandleFunc(
+		productAnalyticRouter,
+		"/daily-deals",
+		handlers.ProductAnalyticHandler.GetDailyDealsProducts,
+		[]string{http.MethodGet},
+		"GetDailyDealsProducts",
+	)
 }
 
 // registerPromotionRoutes registers promotion-related routes.
