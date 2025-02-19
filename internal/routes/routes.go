@@ -96,6 +96,9 @@ func SetupRouter(cfg appconfig.Config, logger *zap.Logger, handlers *handlers.Ha
 	// Register order routes
 	registerOrderRoutes(r, handlers, logger, sessionService)
 
+	// Register email verification routes
+	registerEmailVerificationRoutes(r, handlers, logger)
+
 	// Search routes
 	searchRouter := r.PathPrefix("/api/search").Subrouter()
 	NamedHandleFunc(searchRouter, "", handlers.SearchHandler.SearchProducts, []string{http.MethodGet}, "SearchProducts")
@@ -304,4 +307,9 @@ func registerAdminAnalyticsRoutes(router *mux.Router, handlers *handlers.Handler
 	NamedHandleFunc(protectedAdminAnalyticsRouter, "/total-sales-current-month", handlers.OrderHandler.GetTotalSalesCurrentMonth, []string{http.MethodGet}, "GetTotalSalesCurrentMonth")
 	NamedHandleFunc(protectedAdminAnalyticsRouter, "/exchange-rate", handlers.OrderHandler.GetExchangeRate, []string{http.MethodGet}, "GetExchangeRate")
 	NamedHandleFunc(protectedAdminAnalyticsRouter, "/exchange-rate", handlers.OrderHandler.UpdateExchangeRate, []string{http.MethodPut}, "UpdateExchangeRate")
+}
+
+func registerEmailVerificationRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+	emailVerificationRouter := router.PathPrefix("/auth").Subrouter()
+	NamedHandleFunc(emailVerificationRouter, "/verify-email", handlers.UserHandler.VerifyEmail, []string{http.MethodGet}, "VerifyEmail")
 }

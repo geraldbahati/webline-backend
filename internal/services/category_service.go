@@ -176,9 +176,10 @@ func (s *CategoryService) handleCategoryImage(ctx context.Context, image *model.
 		return existingImageUrl, nil
 	}
 
+	// Upload the image to S3. The image is optimized (resized/re-encoded) automatically by the utility function.
 	filePath, err := utils.UploadCustomFileToS3(ctx, image.File, image.FileHeader, s.s3Client, s.config.AWSBucketName, "promotions")
 	if err != nil {
-		return "", err
+		return "", s.logAndReturnError("failed to handle category image", err)
 	}
 
 	if existingImageUrl != "" {

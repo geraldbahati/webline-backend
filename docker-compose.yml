@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16
     container_name: backend_postgres
+    command: ["postgres", "-c", "statement_timeout=60000"]
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
