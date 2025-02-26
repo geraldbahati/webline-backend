@@ -45,7 +45,7 @@ services:
 
   backend:
     image: ${DOCKER_HUB_USERNAME}/webline-backend:latest
-    container_name: webline_backend
+    container_name: backend
     env_file:
       - .env
     environment:
