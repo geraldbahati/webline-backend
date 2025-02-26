@@ -216,8 +216,8 @@ jobs:
           echo "Deploying..."
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
             cd ~/app &&
-            sudo docker-compose pull &&
-            sudo docker-compose up -d &&
+            sudo docker compose pull &&
+            sudo docker compose up -d &&
             sudo rm -f /etc/sudoers.d/gerald-temp"
 
           echo "Deployment completed successfully."
