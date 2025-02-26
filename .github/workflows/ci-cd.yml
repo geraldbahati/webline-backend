@@ -140,6 +140,9 @@ jobs:
             echo "ERROR: SSH key file is empty!"
             exit 1
           fi
+          # Print first line of key for debugging (without leaking full key)
+          head -n 1 /home/runner/.ssh/id_rsa
+          echo "Key file size in bytes: $(wc -c < /home/runner/.ssh/id_rsa)"
 
       - name: Create Terraform Files
         run: |
@@ -171,39 +174,30 @@ jobs:
               image_tag = var.image_tag
             }
 
-            connection {
-              host        = data.digitalocean_droplet.existing.ipv4_address
-              user        = "gerald-bahati"
-              type        = "ssh"
-              private_key = file("/home/runner/.ssh/id_rsa")
-              timeout     = "2m"
-            }
+            # Use local-exec instead of remote-exec to avoid SSH issues
+            provisioner "local-exec" {
+              command = <<-EOT
+                # Create a temporary script
+                cat > /tmp/deploy.sh << 'SCRIPT'
+                #!/bin/bash
+                set -e
+                echo "Deploying to ${data.digitalocean_droplet.existing.ipv4_address}..."
 
-            provisioner "remote-exec" {
-              inline = [
-                "sudo mkdir -p /root/app",
-                "sudo mkdir -p /root/app/env"
-              ]
-            }
+                # Create the remote directories
+                ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address} "sudo mkdir -p /root/app /root/app/env"
 
-            provisioner "file" {
-              source      = "docker-compose.yml"
-              destination = "/tmp/docker-compose.yml"
-            }
+                # Copy the files using scp
+                scp -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa docker-compose.yml gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address}:/tmp/
+                scp -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa .env gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address}:/tmp/
 
-            provisioner "file" {
-              source      = ".env"
-              destination = "/tmp/.env"
-            }
+                # Move files and run docker commands
+                ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address} "sudo cp /tmp/docker-compose.yml /root/app/ && sudo cp /tmp/.env /root/app/ && cd /root/app && sudo docker-compose pull && sudo docker-compose up -d"
+                SCRIPT
 
-            provisioner "remote-exec" {
-              inline = [
-                "sudo cp /tmp/docker-compose.yml /root/app/docker-compose.yml",
-                "sudo cp /tmp/.env /root/app/.env",
-                "cd /root/app",
-                "sudo docker-compose pull",
-                "sudo docker-compose up -d"
-              ]
+                # Make the script executable and run it
+                chmod +x /tmp/deploy.sh
+                /tmp/deploy.sh
+              EOT
             }
           }
 
