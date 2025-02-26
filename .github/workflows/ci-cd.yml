@@ -186,7 +186,7 @@ jobs:
           scp -o BatchMode=yes .env gerald-bahati@$DROPLET_IP:~/app/ || { echo "Failed to copy .env file"; exit 1; }
 
           echo "Deploying..."
-          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker-compose pull && sudo docker-compose up -d" || { echo "Deployment failed"; exit 1; }
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker compose pull && sudo docker compose up -d" || { echo "Deployment failed"; exit 1; }
 
           echo "Deployment completed successfully."
 
