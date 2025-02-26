@@ -142,26 +142,14 @@ jobs:
             token = var.do_token
           }
 
-          # Get existing blue droplet if it exists
-          data "digitalocean_droplet" "blue" {
-            count = var.switch_traffic ? 1 : 0
-            name = "webline-blue"
-          }
-
-          # Get existing green droplet if it exists
-          data "digitalocean_droplet" "green" {
-            count = var.switch_traffic ? 1 : 0
-            name = "webline-green"
-          }
-
-          # Create a new droplet for deployment (opposite of current active)
+          # Use the existing droplet
           resource "digitalocean_droplet" "app" {
-            count    = var.switch_traffic ? 0 : 1
+            count    = 1
             image    = "docker-20-04"
-            name     = var.current_active == "blue" ? "webline-green" : "webline-blue"
+            name     = "webline-backend"
             region   = "nyc3"
             size     = "s-1vcpu-2gb"
-            ssh_keys = [var.ssh_fingerprint]
+            ssh_keys = [var.ssh_key_id] # Using the numeric ID, not fingerprint
 
             connection {
               host        = self.ipv4_address
@@ -198,20 +186,8 @@ jobs:
             }
           }
 
-          # Configure floating IP for zero-downtime deployment
-          resource "digitalocean_floating_ip" "app_ip" {
-            count  = var.switch_traffic ? 1 : 0
-            region = "nyc3"
-          }
-
-          resource "digitalocean_floating_ip_assignment" "app_ip_assignment" {
-            count = var.switch_traffic ? 1 : 0
-            ip_address = digitalocean_floating_ip.app_ip[0].ip_address
-            droplet_id = var.current_active == "blue" ? data.digitalocean_droplet.green[0].id : data.digitalocean_droplet.blue[0].id
-          }
-
           output "app_url" {
-            value = var.switch_traffic ? digitalocean_floating_ip.app_ip[0].ip_address : digitalocean_droplet.app[0].ipv4_address
+            value = digitalocean_droplet.app[0].ipv4_address
           }
           EOF
 
@@ -222,8 +198,8 @@ jobs:
             sensitive   = true
           }
 
-          variable "ssh_fingerprint" {
-            description = "SSH fingerprint"
+          variable "ssh_key_id" {
+            description = "SSH key ID in Digital Ocean (numeric)"
             type        = string
           }
 
@@ -231,18 +207,6 @@ jobs:
             description = "Path to private key file"
             type        = string
             default     = "~/.ssh/id_rsa"
-          }
-
-          variable "switch_traffic" {
-            description = "Whether to switch traffic to the new deployment"
-            type        = bool
-            default     = false
-          }
-
-          variable "current_active" {
-            description = "Currently active environment (blue or green)"
-            type        = string
-            default     = "blue"
           }
 
           variable "docker_hub_username" {
@@ -272,53 +236,42 @@ jobs:
         working-directory: terraform
         run: terraform init
 
-      - name: Get Current Active Environment
-        id: get_env
-        run: |
-          # This would be replaced with actual logic to determine which environment is active
-          # For now, assume blue is active if we don't know
-          echo "current_env=blue" >> $GITHUB_OUTPUT
-
       - name: Get short SHA
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Terraform Plan (Deploy New Version)
+      - name: Terraform Plan
         working-directory: terraform
         run: |
           terraform plan \
             -var "do_token=${{ secrets.DO_TOKEN }}" \
-            -var "ssh_fingerprint=${{ secrets.DO_SSH_FINGERPRINT }}" \
-            -var "current_active=${{ steps.get_env.outputs.current_env }}" \
+            -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
             -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
-            -var "image_tag=${{ steps.vars.outputs.sha_short }}" \
-            -var "switch_traffic=false"
+            -var "image_tag=${{ steps.vars.outputs.sha_short }}"
 
-      - name: Terraform Apply (Deploy New Version)
+      - name: Terraform Apply
         working-directory: terraform
         run: |
           terraform apply -auto-approve \
             -var "do_token=${{ secrets.DO_TOKEN }}" \
-            -var "ssh_fingerprint=${{ secrets.DO_SSH_FINGERPRINT }}" \
-            -var "current_active=${{ steps.get_env.outputs.current_env }}" \
+            -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
             -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
-            -var "image_tag=${{ steps.vars.outputs.sha_short }}" \
-            -var "switch_traffic=false"
+            -var "image_tag=${{ steps.vars.outputs.sha_short }}"
 
-      - name: Get New Deployment IP
+      - name: Get Deployment IP
         id: get_ip
         working-directory: terraform
         run: |
-          NEW_IP=$(terraform output -raw app_url)
-          echo "new_deployment_ip=$NEW_IP" >> $GITHUB_OUTPUT
+          IP=$(terraform output -raw app_url)
+          echo "deployment_ip=$IP" >> $GITHUB_OUTPUT
 
       - name: Wait for Health Check
         run: |
-          echo "Waiting for the new deployment to stabilize..."
+          echo "Waiting for the deployment to stabilize..."
           sleep 60
           MAX_RETRIES=10
           COUNTER=0
-          until $(curl --output /dev/null --silent --fail http://${{ steps.get_ip.outputs.new_deployment_ip }}:8080/health); do
+          until $(curl --output /dev/null --silent --fail http://${{ steps.get_ip.outputs.deployment_ip }}:8080/health); do
             if [ ${COUNTER} -eq ${MAX_RETRIES} ]; then
               echo "Max retries reached. Health check failed."
               exit 1
@@ -328,14 +281,3 @@ jobs:
             let COUNTER=COUNTER+1
           done
           echo "Health check passed!"
-
-      - name: Switch Traffic via Terraform
-        working-directory: terraform
-        run: |
-          terraform apply -auto-approve \
-            -var "do_token=${{ secrets.DO_TOKEN }}" \
-            -var "ssh_fingerprint=${{ secrets.DO_SSH_FINGERPRINT }}" \
-            -var "current_active=${{ steps.get_env.outputs.current_env }}" \
-            -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
-            -var "image_tag=${{ steps.vars.outputs.sha_short }}" \
-            -var "switch_traffic=true"
