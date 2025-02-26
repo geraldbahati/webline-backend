@@ -31,9 +31,11 @@ type Querier interface {
 	// Remove all items from the cart
 	ClearCart(ctx context.Context, shoppingCartID uuid.UUID) error
 	CountAllProductsByFilters(ctx context.Context, arg CountAllProductsByFiltersParams) (int64, error)
+	CountAllProductsByFilters_Optimized(ctx context.Context, arg CountAllProductsByFilters_OptimizedParams) (int64, error)
 	CountAllUsers(ctx context.Context) (int64, error)
 	CountProducts(ctx context.Context) (int64, error)
 	CountProductsByParentCategoryID(ctx context.Context, id uuid.UUID) (int64, error)
+	CountV2Products(ctx context.Context) (int64, error)
 	CreateAdminRequest(ctx context.Context, arg CreateAdminRequestParams) (uuid.UUID, error)
 	// Create a shopping cart for a guest
 	CreateCartForGuest(ctx context.Context, guestID uuid.NullUUID) (ShoppingCart, error)
@@ -101,11 +103,35 @@ type Querier interface {
 	GetAllExchangeRatesForCurrency(ctx context.Context, currencyCode string) ([]ExchangeRate, error)
 	GetAllPayments(ctx context.Context) ([]GetAllPaymentsRow, error)
 	GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAllProductsByFiltersNameAscParams) ([]GetAllProductsByFiltersNameAscRow, error)
+	// Get candidate category IDs.
+	// If you have a materialized hierarchy (e.g. via ltree) consider replacing this recursion with:
+	//   SELECT id FROM categories WHERE path <@ (SELECT path FROM categories WHERE name = ANY(...));
+	GetAllProductsByFiltersNameAsc_Optimized(ctx context.Context, arg GetAllProductsByFiltersNameAsc_OptimizedParams) ([]GetAllProductsByFiltersNameAsc_OptimizedRow, error)
 	GetAllProductsByFiltersNameDesc(ctx context.Context, arg GetAllProductsByFiltersNameDescParams) ([]GetAllProductsByFiltersNameDescRow, error)
+	// Get candidate category IDs.
+	// If you have a materialized hierarchy (e.g. via ltree) consider replacing this recursion with:
+	//   SELECT id FROM categories WHERE path <@ (SELECT path FROM categories WHERE name = ANY(...));
+	GetAllProductsByFiltersNameDesc_Optimized(ctx context.Context, arg GetAllProductsByFiltersNameDesc_OptimizedParams) ([]GetAllProductsByFiltersNameDesc_OptimizedRow, error)
 	GetAllProductsByFiltersNewest(ctx context.Context, arg GetAllProductsByFiltersNewestParams) ([]GetAllProductsByFiltersNewestRow, error)
+	// Get candidate category IDs.
+	// If you have a materialized hierarchy (e.g. via ltree) consider replacing this recursion with:
+	//   SELECT id FROM categories WHERE path <@ (SELECT path FROM categories WHERE name = ANY(...));
+	GetAllProductsByFiltersNewest_Optimized(ctx context.Context, arg GetAllProductsByFiltersNewest_OptimizedParams) ([]GetAllProductsByFiltersNewest_OptimizedRow, error)
 	GetAllProductsByFiltersOldest(ctx context.Context, arg GetAllProductsByFiltersOldestParams) ([]GetAllProductsByFiltersOldestRow, error)
+	// Get candidate category IDs.
+	// If you have a materialized hierarchy (e.g., via ltree) consider replacing this recursion with:
+	//   SELECT id FROM categories WHERE path <@ (SELECT path FROM categories WHERE name = ANY(...));
+	GetAllProductsByFiltersOldest_Optimized(ctx context.Context, arg GetAllProductsByFiltersOldest_OptimizedParams) ([]GetAllProductsByFiltersOldest_OptimizedRow, error)
 	GetAllProductsByFiltersPriceAsc(ctx context.Context, arg GetAllProductsByFiltersPriceAscParams) ([]GetAllProductsByFiltersPriceAscRow, error)
+	// Get candidate category IDs.
+	// If you have a materialized hierarchy (e.g. via ltree) consider replacing this recursion with:
+	//   SELECT id FROM categories WHERE path <@ (SELECT path FROM categories WHERE name = ANY(...));
+	GetAllProductsByFiltersPriceAsc_Optimized(ctx context.Context, arg GetAllProductsByFiltersPriceAsc_OptimizedParams) ([]GetAllProductsByFiltersPriceAsc_OptimizedRow, error)
 	GetAllProductsByFiltersPriceDesc(ctx context.Context, arg GetAllProductsByFiltersPriceDescParams) ([]GetAllProductsByFiltersPriceDescRow, error)
+	// Get candidate category IDs.
+	// If you have a materialized hierarchy (e.g. via ltree) consider replacing this recursion with:
+	//   SELECT id FROM categories WHERE path <@ (SELECT path FROM categories WHERE name = ANY(...));
+	GetAllProductsByFiltersPriceDesc_Optimized(ctx context.Context, arg GetAllProductsByFiltersPriceDesc_OptimizedParams) ([]GetAllProductsByFiltersPriceDesc_OptimizedRow, error)
 	GetAllRoles(ctx context.Context) ([]Role, error)
 	GetApprovalToken(ctx context.Context, token string) (AdminApprovalToken, error)
 	GetBestSellerProducts(ctx context.Context, limit int32) ([]GetBestSellerProductsRow, error)
@@ -240,7 +266,7 @@ type Querier interface {
 	GetUsersByRole(ctx context.Context, roleID uuid.NullUUID) ([]GetUsersByRoleRow, error)
 	GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHierarchyRow, error)
 	GetV2ProductDetailBySlug(ctx context.Context, slug string) (GetV2ProductDetailBySlugRow, error)
-	GetV2Products(ctx context.Context) ([]GetV2ProductsRow, error)
+	GetV2Products(ctx context.Context, arg GetV2ProductsParams) ([]GetV2ProductsRow, error)
 	GetV2Promotions(ctx context.Context) ([]GetV2PromotionsRow, error)
 	GetVATPercentage(ctx context.Context) (string, error)
 	GetVerificationTokenByEmail(ctx context.Context, email string) (VerificationToken, error)

@@ -356,9 +356,12 @@ func (r *ProductRepository) GetProductSEO(
 	}, nil
 }
 
-// GetV2Products retrieves all products
-func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Product, error) {
-	rows, err := r.Queries.GetV2Products(ctx)
+// GetV2Products retrieves all products with pagination.
+func (r *ProductRepository) GetV2Products(ctx context.Context, page int32, pageSize int32) ([]*model.V2Product, error) {
+	rows, err := r.Queries.GetV2Products(ctx, database.GetV2ProductsParams{
+		Limit:  pageSize,
+		Offset: (page - 1) * pageSize,
+	})
 	if err != nil {
 		r.logger.Error("failed to get products", zap.Error(err))
 		return nil, fmt.Errorf("failed to get products: %w", err)

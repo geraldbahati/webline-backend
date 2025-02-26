@@ -1032,25 +1032,41 @@ func (s *ProductService) GetAllProductSitemap(ctx context.Context) ([]*model.Pro
 	return productSitemap, nil
 }
 
-// GetProducts retrieves all products with caching
-func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, error) {
+// Updated GetProducts retrieves paginated products with caching
+func (s *ProductService) GetProducts(ctx context.Context, page int32, pageSize int32) (*model.PaginationResult[[]*model.V2Product], error) {
 	timer := prometheus.NewTimer(productsRetrievalTime)
 	defer timer.ObserveDuration()
 
-	cacheKey := ProductAllKey()
-	var products []*model.V2Product
+	// Ensure valid pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10 // or use a default from your configuration
+	}
 
-	// Try to get products from cache
-	err := s.cacheService.Get(ctx, cacheKey, &products)
-	if err == nil && len(products) > 0 {
+	// Use a cache key that reflects the pagination parameters
+	cacheKey := ProductAllPaginatedKey(page, pageSize)
+	var paginatedResult model.PaginationResult[[]*model.V2Product]
+
+	// Try to get paginated products from cache
+	err := s.cacheService.Get(ctx, cacheKey, &paginatedResult)
+	if err == nil && paginatedResult.Data != nil && len(paginatedResult.Data) > 0 {
 		productsCacheHits.Inc()
-		s.logger.Debug("Products retrieved from cache")
-		return products, nil
+		s.logger.Debug("Paginated products retrieved from cache")
+		return &paginatedResult, nil
 	}
 	productsCacheMisses.Inc()
 
-	// If not in cache, fetch from database
-	products, err = s.productRepo.GetV2Products(ctx)
+	// Get total count of products for pagination metadata
+	totalCount, err := s.productRepo.CountProducts(ctx)
+	if err != nil {
+		s.logger.Error("Failed to count products", zap.Error(err))
+		return nil, err
+	}
+
+	// Fetch paginated products from the repository (using page and pageSize)
+	products, err := s.productRepo.GetV2Products(ctx, page, pageSize)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.logger.Error("No products found")
@@ -1060,24 +1076,31 @@ func (s *ProductService) GetProducts(ctx context.Context) ([]*model.V2Product, e
 		return nil, fmt.Errorf("failed to get products: %w", err)
 	}
 
+	// Post-process each product (update price and image URL)
 	for _, product := range products {
-		// Update the price
 		product.Price = utils.RoundPriceString(product.Price)
-
-		// Update the product image URL
 		if product.ImageURL != "" {
 			product.ImageURL = s.constructS3URL(product.ImageURL)
 		}
 	}
 
-	// Cache the products
-	if err := s.cacheService.Set(ctx, cacheKey, products); err != nil {
-		s.logger.Warn("Failed to cache products", zap.Error(err))
-		// Continue even if caching fails
+	// Calculate total number of pages
+	totalPages := (totalCount + int64(pageSize) - 1) / int64(pageSize)
+	paginatedResult = model.PaginationResult[[]*model.V2Product]{
+		TotalCount: totalCount,
+		TotalPages: int32(totalPages),
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
+		Data:       products,
 	}
 
-	s.logger.Debug("Products retrieved from database and cached")
-	return products, nil
+	// Cache the paginated result
+	if err := s.cacheService.Set(ctx, cacheKey, paginatedResult); err != nil {
+		s.logger.Warn("Failed to cache paginated products", zap.Error(err))
+	}
+
+	s.logger.Debug("Paginated products retrieved from database and cached")
+	return &paginatedResult, nil
 }
 
 // GetProductDetail retrieves a product by slug, using cache when available
@@ -1176,8 +1199,8 @@ func (s *ProductService) CreateV2Product(ctx context.Context, params *model.Crea
 	cacheKey := ProductDetailKey(params.Slug)
 	var existingProduct *model.ProductSchema
 
-	// Use GetOrSet to handle cache retrieval and population
-	err = s.cacheService.GetOrSet(ctx, cacheKey, existingProduct, func() error {
+	// Use GetOrSet to handle cache retrieval and population, pass pointer to existingProduct
+	err = s.cacheService.GetOrSet(ctx, cacheKey, &existingProduct, func() error {
 		// Fetch from repository if cache miss
 		fetchedProduct, err := s.productRepo.GetProductBySlug(ctx, params.Slug)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -1290,12 +1313,18 @@ func (s *ProductService) prepareCreateProductParams(ctx context.Context, params 
 }
 
 func (s *ProductService) handleProductAssets(ctx context.Context, productID uuid.UUID, params *model.CreateProductRequest, images []*multipart.FileHeader) error {
-	if err := s.updateProductImages(ctx, productID, params.ImageUrls); err != nil {
-		return err
-	}
+	// First upload new images so they are inserted into the database.
 	if err := s.uploadAndCreateProductImages(ctx, productID, images); err != nil {
 		return err
 	}
+
+	// Then update the image positions according to the ordering provided in the request.
+	// Ensure that params.ImageUrls is an ordered array of URLs (or file names) as desired.
+	if err := s.updateProductImages(ctx, productID, params.ImageUrls); err != nil {
+		return err
+	}
+
+	// Finally, upsert product specifications.
 	return s.upsertProductSpecifications(ctx, productID, params.Specifications)
 }
 

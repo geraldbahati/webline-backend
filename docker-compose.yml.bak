@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
 
   backend:
-    build: .
+    image: ${DOCKER_HUB_USERNAME}/webline-backend:${IMAGE_TAG:-latest}
     container_name: backend
     env_file:
       - .env
@@ -113,4 +113,6 @@ volumes:
 
 networks:
   webline-backend-network:
+    external: true
   webline-network:
+    external: true

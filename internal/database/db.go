@@ -72,6 +72,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.countAllProductsByFiltersStmt, err = db.PrepareContext(ctx, countAllProductsByFilters); err != nil {
 		return nil, fmt.Errorf("error preparing query CountAllProductsByFilters: %w", err)
 	}
+	if q.countAllProductsByFilters_OptimizedStmt, err = db.PrepareContext(ctx, countAllProductsByFilters_Optimized); err != nil {
+		return nil, fmt.Errorf("error preparing query CountAllProductsByFilters_Optimized: %w", err)
+	}
 	if q.countAllUsersStmt, err = db.PrepareContext(ctx, countAllUsers); err != nil {
 		return nil, fmt.Errorf("error preparing query CountAllUsers: %w", err)
 	}
@@ -80,6 +83,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.countProductsByParentCategoryIDStmt, err = db.PrepareContext(ctx, countProductsByParentCategoryID); err != nil {
 		return nil, fmt.Errorf("error preparing query CountProductsByParentCategoryID: %w", err)
+	}
+	if q.countV2ProductsStmt, err = db.PrepareContext(ctx, countV2Products); err != nil {
+		return nil, fmt.Errorf("error preparing query CountV2Products: %w", err)
 	}
 	if q.createAdminRequestStmt, err = db.PrepareContext(ctx, createAdminRequest); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAdminRequest: %w", err)
@@ -270,20 +276,38 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAllProductsByFiltersNameAscStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNameAsc); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNameAsc: %w", err)
 	}
+	if q.getAllProductsByFiltersNameAsc_OptimizedStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNameAsc_Optimized); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNameAsc_Optimized: %w", err)
+	}
 	if q.getAllProductsByFiltersNameDescStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNameDesc); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNameDesc: %w", err)
+	}
+	if q.getAllProductsByFiltersNameDesc_OptimizedStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNameDesc_Optimized); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNameDesc_Optimized: %w", err)
 	}
 	if q.getAllProductsByFiltersNewestStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNewest); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNewest: %w", err)
 	}
+	if q.getAllProductsByFiltersNewest_OptimizedStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersNewest_Optimized); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersNewest_Optimized: %w", err)
+	}
 	if q.getAllProductsByFiltersOldestStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersOldest); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersOldest: %w", err)
+	}
+	if q.getAllProductsByFiltersOldest_OptimizedStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersOldest_Optimized); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersOldest_Optimized: %w", err)
 	}
 	if q.getAllProductsByFiltersPriceAscStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersPriceAsc); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersPriceAsc: %w", err)
 	}
+	if q.getAllProductsByFiltersPriceAsc_OptimizedStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersPriceAsc_Optimized); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersPriceAsc_Optimized: %w", err)
+	}
 	if q.getAllProductsByFiltersPriceDescStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersPriceDesc); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersPriceDesc: %w", err)
+	}
+	if q.getAllProductsByFiltersPriceDesc_OptimizedStmt, err = db.PrepareContext(ctx, getAllProductsByFiltersPriceDesc_Optimized); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllProductsByFiltersPriceDesc_Optimized: %w", err)
 	}
 	if q.getAllRolesStmt, err = db.PrepareContext(ctx, getAllRoles); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllRoles: %w", err)
@@ -859,6 +883,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing countAllProductsByFiltersStmt: %w", cerr)
 		}
 	}
+	if q.countAllProductsByFilters_OptimizedStmt != nil {
+		if cerr := q.countAllProductsByFilters_OptimizedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countAllProductsByFilters_OptimizedStmt: %w", cerr)
+		}
+	}
 	if q.countAllUsersStmt != nil {
 		if cerr := q.countAllUsersStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing countAllUsersStmt: %w", cerr)
@@ -872,6 +901,11 @@ func (q *Queries) Close() error {
 	if q.countProductsByParentCategoryIDStmt != nil {
 		if cerr := q.countProductsByParentCategoryIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing countProductsByParentCategoryIDStmt: %w", cerr)
+		}
+	}
+	if q.countV2ProductsStmt != nil {
+		if cerr := q.countV2ProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countV2ProductsStmt: %w", cerr)
 		}
 	}
 	if q.createAdminRequestStmt != nil {
@@ -1189,9 +1223,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAllProductsByFiltersNameAscStmt: %w", cerr)
 		}
 	}
+	if q.getAllProductsByFiltersNameAsc_OptimizedStmt != nil {
+		if cerr := q.getAllProductsByFiltersNameAsc_OptimizedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersNameAsc_OptimizedStmt: %w", cerr)
+		}
+	}
 	if q.getAllProductsByFiltersNameDescStmt != nil {
 		if cerr := q.getAllProductsByFiltersNameDescStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllProductsByFiltersNameDescStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersNameDesc_OptimizedStmt != nil {
+		if cerr := q.getAllProductsByFiltersNameDesc_OptimizedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersNameDesc_OptimizedStmt: %w", cerr)
 		}
 	}
 	if q.getAllProductsByFiltersNewestStmt != nil {
@@ -1199,9 +1243,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAllProductsByFiltersNewestStmt: %w", cerr)
 		}
 	}
+	if q.getAllProductsByFiltersNewest_OptimizedStmt != nil {
+		if cerr := q.getAllProductsByFiltersNewest_OptimizedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersNewest_OptimizedStmt: %w", cerr)
+		}
+	}
 	if q.getAllProductsByFiltersOldestStmt != nil {
 		if cerr := q.getAllProductsByFiltersOldestStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllProductsByFiltersOldestStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersOldest_OptimizedStmt != nil {
+		if cerr := q.getAllProductsByFiltersOldest_OptimizedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersOldest_OptimizedStmt: %w", cerr)
 		}
 	}
 	if q.getAllProductsByFiltersPriceAscStmt != nil {
@@ -1209,9 +1263,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAllProductsByFiltersPriceAscStmt: %w", cerr)
 		}
 	}
+	if q.getAllProductsByFiltersPriceAsc_OptimizedStmt != nil {
+		if cerr := q.getAllProductsByFiltersPriceAsc_OptimizedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersPriceAsc_OptimizedStmt: %w", cerr)
+		}
+	}
 	if q.getAllProductsByFiltersPriceDescStmt != nil {
 		if cerr := q.getAllProductsByFiltersPriceDescStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllProductsByFiltersPriceDescStmt: %w", cerr)
+		}
+	}
+	if q.getAllProductsByFiltersPriceDesc_OptimizedStmt != nil {
+		if cerr := q.getAllProductsByFiltersPriceDesc_OptimizedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllProductsByFiltersPriceDesc_OptimizedStmt: %w", cerr)
 		}
 	}
 	if q.getAllRolesStmt != nil {
@@ -2066,513 +2130,529 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                         DBTX
-	tx                                         *sql.Tx
-	activateProductsBySlugsStmt                *sql.Stmt
-	activatePromotionsStmt                     *sql.Stmt
-	addProductToPromotionStmt                  *sql.Stmt
-	addProductsToPromotionStmt                 *sql.Stmt
-	approveAdminRequestStmt                    *sql.Stmt
-	archiveProductByIDStmt                     *sql.Stmt
-	archiveProductsBySlugsStmt                 *sql.Stmt
-	archivePromotionsStmt                      *sql.Stmt
-	assignRoleToUserStmt                       *sql.Stmt
-	autocompleteSuggestionsStmt                *sql.Stmt
-	calculateCartTotalStmt                     *sql.Stmt
-	cancelOrderStmt                            *sql.Stmt
-	changeOrderPaymentMethodStmt               *sql.Stmt
-	checkCategoryExistenceStmt                 *sql.Stmt
-	clearCartStmt                              *sql.Stmt
-	countAllProductsByFiltersStmt              *sql.Stmt
-	countAllUsersStmt                          *sql.Stmt
-	countProductsStmt                          *sql.Stmt
-	countProductsByParentCategoryIDStmt        *sql.Stmt
-	createAdminRequestStmt                     *sql.Stmt
-	createCartForGuestStmt                     *sql.Stmt
-	createCartForUserStmt                      *sql.Stmt
-	createCategoryStmt                         *sql.Stmt
-	createCompanyStmt                          *sql.Stmt
-	createDiscountStmt                         *sql.Stmt
-	createGuestCheckoutStmt                    *sql.Stmt
-	createOrderStmt                            *sql.Stmt
-	createOrderItemStmt                        *sql.Stmt
-	createOrderItemOptionStmt                  *sql.Stmt
-	createOrderItemsStmt                       *sql.Stmt
-	createPaymentStmt                          *sql.Stmt
-	createProductStmt                          *sql.Stmt
-	createProductAttributeStmt                 *sql.Stmt
-	createProductAttributeValueStmt            *sql.Stmt
-	createProductImageStmt                     *sql.Stmt
-	createProductOptionStmt                    *sql.Stmt
-	createProductOptionValueStmt               *sql.Stmt
-	createProductSpecificationStmt             *sql.Stmt
-	createProductToAttributeValueStmt          *sql.Stmt
-	createProductVariantStmt                   *sql.Stmt
-	createPromotionStmt                        *sql.Stmt
-	createRelatedProductStmt                   *sql.Stmt
-	createRoleStmt                             *sql.Stmt
-	createSessionStmt                          *sql.Stmt
-	createShoppingCartStmt                     *sql.Stmt
-	createUserStmt                             *sql.Stmt
-	createVerificationTokenStmt                *sql.Stmt
-	deactivateUserStmt                         *sql.Stmt
-	deleteApprovalTokenStmt                    *sql.Stmt
-	deleteDiscountStmt                         *sql.Stmt
-	deleteExchangeRateStmt                     *sql.Stmt
-	deleteExpiredTResetsStmt                   *sql.Stmt
-	deleteExpiredTokensStmt                    *sql.Stmt
-	deletePasswordResetTokenStmt               *sql.Stmt
-	deleteProductByIDStmt                      *sql.Stmt
-	deleteProductImageStmt                     *sql.Stmt
-	deleteProductImagesByProductIDStmt         *sql.Stmt
-	deleteProductOptionStmt                    *sql.Stmt
-	deleteProductOptionValueStmt               *sql.Stmt
-	deleteProductSpecificationStmt             *sql.Stmt
-	deleteProductSpecificationsByProductIDStmt *sql.Stmt
-	deleteProductVariantStmt                   *sql.Stmt
-	deleteProductsBySlugsStmt                  *sql.Stmt
-	deletePromotionStmt                        *sql.Stmt
-	deletePromotionsStmt                       *sql.Stmt
-	deleteRelatedProductStmt                   *sql.Stmt
-	deleteRoleStmt                             *sql.Stmt
-	deleteSessionBySessionIDStmt               *sql.Stmt
-	deleteShoppingCartStmt                     *sql.Stmt
-	deleteUserStmt                             *sql.Stmt
-	deleteVerificationTokenByTokenStmt         *sql.Stmt
-	deleteVerificationTokensByEmailStmt        *sql.Stmt
-	draftProductsBySlugsStmt                   *sql.Stmt
-	draftPromotionsStmt                        *sql.Stmt
-	getActiveDiscountsByProductIDsStmt         *sql.Stmt
-	getAdminRequestByIDStmt                    *sql.Stmt
-	getAdminRequestByUserIDStmt                *sql.Stmt
-	getAdminRequestsByUserIDStmt               *sql.Stmt
-	getAllCartItemsStmt                        *sql.Stmt
-	getAllExchangeRatesForCurrencyStmt         *sql.Stmt
-	getAllPaymentsStmt                         *sql.Stmt
-	getAllProductsByFiltersNameAscStmt         *sql.Stmt
-	getAllProductsByFiltersNameDescStmt        *sql.Stmt
-	getAllProductsByFiltersNewestStmt          *sql.Stmt
-	getAllProductsByFiltersOldestStmt          *sql.Stmt
-	getAllProductsByFiltersPriceAscStmt        *sql.Stmt
-	getAllProductsByFiltersPriceDescStmt       *sql.Stmt
-	getAllRolesStmt                            *sql.Stmt
-	getApprovalTokenStmt                       *sql.Stmt
-	getBestSellerProductsStmt                  *sql.Stmt
-	getCartByGuestIDStmt                       *sql.Stmt
-	getCartByOwnerIDStmt                       *sql.Stmt
-	getCartItemStmt                            *sql.Stmt
-	getCategoriesByParentIDStmt                *sql.Stmt
-	getCategoriesWithProductsCountStmt         *sql.Stmt
-	getCategoriesWithSubcategoryCountStmt      *sql.Stmt
-	getCategoryByIDStmt                        *sql.Stmt
-	getCategoryByNameStmt                      *sql.Stmt
-	getCategoryBySlugStmt                      *sql.Stmt
-	getCategoryDetailsBySlugStmt               *sql.Stmt
-	getCategoryProductsByFiltersNameAscStmt    *sql.Stmt
-	getCategoryProductsByFiltersNameDescStmt   *sql.Stmt
-	getCategoryProductsByFiltersNewestStmt     *sql.Stmt
-	getCategoryProductsByFiltersOldestStmt     *sql.Stmt
-	getCategoryProductsByFiltersPriceAscStmt   *sql.Stmt
-	getCategoryProductsByFiltersPriceDescStmt  *sql.Stmt
-	getCategorySEOBySlugStmt                   *sql.Stmt
-	getCategoryTreeStmt                        *sql.Stmt
-	getCompanyStmt                             *sql.Stmt
-	getDailyDealsStmt                          *sql.Stmt
-	getDiscountByIDStmt                        *sql.Stmt
-	getDiscountByProductIDStmt                 *sql.Stmt
-	getFeaturedProductsStmt                    *sql.Stmt
-	getGuestCheckoutByEmailStmt                *sql.Stmt
-	getImageKeysByProductIDStmt                *sql.Stmt
-	getLatestExchangeRateStmt                  *sql.Stmt
-	getMonthlyRevenueStmt                      *sql.Stmt
-	getMonthlySalesStmt                        *sql.Stmt
-	getMonthlySalesForLastTwoMonthsStmt        *sql.Stmt
-	getNewArrivalProductsStmt                  *sql.Stmt
-	getOrderByIdStmt                           *sql.Stmt
-	getOrderIDsByUserIDStmt                    *sql.Stmt
-	getOrderItemsByOrderIdStmt                 *sql.Stmt
-	getOrdersByGuestCheckoutIdStmt             *sql.Stmt
-	getOrdersByUserIdStmt                      *sql.Stmt
-	getParentCategoriesStmt                    *sql.Stmt
-	getPasswordResetTokenStmt                  *sql.Stmt
-	getPaymentByOrderIDStmt                    *sql.Stmt
-	getPaymentStatusIDByStatusStmt             *sql.Stmt
-	getPendingAdminRequestsStmt                *sql.Stmt
-	getProductAttributesStmt                   *sql.Stmt
-	getProductAttributesByCategoryIDStmt       *sql.Stmt
-	getProductAttributesByCategoryNameStmt     *sql.Stmt
-	getProductAttributesWithValuesStmt         *sql.Stmt
-	getProductByIDStmt                         *sql.Stmt
-	getProductByIDsStmt                        *sql.Stmt
-	getProductBySlugStmt                       *sql.Stmt
-	getProductCartByProductSlugStmt            *sql.Stmt
-	getProductIDsByPromotionIDStmt             *sql.Stmt
-	getProductIDsBySlugsStmt                   *sql.Stmt
-	getProductImageByIDStmt                    *sql.Stmt
-	getProductOptionByIDStmt                   *sql.Stmt
-	getProductOptionValueByIDStmt              *sql.Stmt
-	getProductPricingByProductIDStmt           *sql.Stmt
-	getProductSEOStmt                          *sql.Stmt
-	getProductSlugByProductIDStmt              *sql.Stmt
-	getProductSpecificationByIDStmt            *sql.Stmt
-	getProductSpecsByIDStmt                    *sql.Stmt
-	getProductVariantByIDStmt                  *sql.Stmt
-	getProductsByCategoryIDStmt                *sql.Stmt
-	getProductsByParentCategoryIDStmt          *sql.Stmt
-	getPromotionBySlugStmt                     *sql.Stmt
-	getPromotionDetailsStmt                    *sql.Stmt
-	getPromotionsStmt                          *sql.Stmt
-	getRecentSalesStmt                         *sql.Stmt
-	getRelatedProductByProductIDStmt           *sql.Stmt
-	getRoleByIDStmt                            *sql.Stmt
-	getRoleByNameStmt                          *sql.Stmt
-	getSalesTrendStmt                          *sql.Stmt
-	getSessionBySessionIDStmt                  *sql.Stmt
-	getSessionByUserIDStmt                     *sql.Stmt
-	getShoppingCartByIDStmt                    *sql.Stmt
-	getShoppingCartByUserIDStmt                *sql.Stmt
-	getStatusByIDStmt                          *sql.Stmt
-	getTotalCategoryProductsByFiltersStmt      *sql.Stmt
-	getTotalRevenueByPaymentStatusStmt         *sql.Stmt
-	getTotalRevenueForLastTwoMonthsStmt        *sql.Stmt
-	getTotalSalesCurrentMonthStmt              *sql.Stmt
-	getUserByEmailStmt                         *sql.Stmt
-	getUserByIDStmt                            *sql.Stmt
-	getUserByProviderStmt                      *sql.Stmt
-	getUserOrGuestCheckoutNameByOrderIDStmt    *sql.Stmt
-	getUserProfileByIDStmt                     *sql.Stmt
-	getUserRecommendationsStmt                 *sql.Stmt
-	getUserRolesStmt                           *sql.Stmt
-	getUserRolesByUserIDStmt                   *sql.Stmt
-	getUsersByRoleStmt                         *sql.Stmt
-	getV2CategoryHierarchyStmt                 *sql.Stmt
-	getV2ProductDetailBySlugStmt               *sql.Stmt
-	getV2ProductsStmt                          *sql.Stmt
-	getV2PromotionsStmt                        *sql.Stmt
-	getVATPercentageStmt                       *sql.Stmt
-	getVerificationTokenByEmailStmt            *sql.Stmt
-	getVerificationTokenByTokenStmt            *sql.Stmt
-	hardDeleteCategoryStmt                     *sql.Stmt
-	insertExchangeRateStmt                     *sql.Stmt
-	isAdminStmt                                *sql.Stmt
-	linkSessionToUserStmt                      *sql.Stmt
-	listCategoriesStmt                         *sql.Stmt
-	listDiscountsStmt                          *sql.Stmt
-	listDiscountsByProductIDStmt               *sql.Stmt
-	listProductImagesByProductIDStmt           *sql.Stmt
-	listProductOptionValuesByOptionIDStmt      *sql.Stmt
-	listProductOptionsByProductIDStmt          *sql.Stmt
-	listProductSpecificationsByProductIDStmt   *sql.Stmt
-	listProductVariantsByProductIDStmt         *sql.Stmt
-	listProductsStmt                           *sql.Stmt
-	listRelatedProductsByProductIDStmt         *sql.Stmt
-	listUsersStmt                              *sql.Stmt
-	makeAdminStmt                              *sql.Stmt
-	rejectAdminRequestStmt                     *sql.Stmt
-	removeAllRolesFromUserStmt                 *sql.Stmt
-	removeCartItemStmt                         *sql.Stmt
-	removeProductsFromPromotionStmt            *sql.Stmt
-	removeRoleFromUserStmt                     *sql.Stmt
-	searchProductsStmt                         *sql.Stmt
-	softDeleteCategoryStmt                     *sql.Stmt
-	softDeleteProductStmt                      *sql.Stmt
-	storeApprovalTokenStmt                     *sql.Stmt
-	storePasswordResetTokenStmt                *sql.Stmt
-	storeRefreshTokenStmt                      *sql.Stmt
-	updateCartGuestIDStmt                      *sql.Stmt
-	updateCartItemQuantityStmt                 *sql.Stmt
-	updateCartTotalsStmt                       *sql.Stmt
-	updateCartUserIDStmt                       *sql.Stmt
-	updateCategoryStmt                         *sql.Stmt
-	updateCategoryImageStmt                    *sql.Stmt
-	updateCheckoutRequestIDByOrderIDStmt       *sql.Stmt
-	updateDiscountStmt                         *sql.Stmt
-	updateExchangeRateStmt                     *sql.Stmt
-	updateOrderAmountsStmt                     *sql.Stmt
-	updateOrderPaymentStatusStmt               *sql.Stmt
-	updateOrderStatusStmt                      *sql.Stmt
-	updatePaymentStatusStmt                    *sql.Stmt
-	updateProductStmt                          *sql.Stmt
-	updateProductImageStmt                     *sql.Stmt
-	updateProductImagesStmt                    *sql.Stmt
-	updateProductOptionStmt                    *sql.Stmt
-	updateProductOptionValueStmt               *sql.Stmt
-	updateProductSEOStmt                       *sql.Stmt
-	updateProductSpecificationStmt             *sql.Stmt
-	updateProductVariantStmt                   *sql.Stmt
-	updatePromotionStmt                        *sql.Stmt
-	updatePromotionImageStmt                   *sql.Stmt
-	updateRoleStmt                             *sql.Stmt
-	updateSessionStmt                          *sql.Stmt
-	updateSessionLastActivityStmt              *sql.Stmt
-	updateUserStmt                             *sql.Stmt
-	updateUserCompanyStmt                      *sql.Stmt
-	updateUserEmailVerifiedStmt                *sql.Stmt
-	updateUserInfoStmt                         *sql.Stmt
-	updateUserLastLoginStmt                    *sql.Stmt
-	updateUserPasswordStmt                     *sql.Stmt
-	updateUserProfileStmt                      *sql.Stmt
-	updateVATPercentageStmt                    *sql.Stmt
-	upsertCartItemStmt                         *sql.Stmt
-	upsertProductSpecificationStmt             *sql.Stmt
-	v2SearchProductsStmt                       *sql.Stmt
-	v2SearchProductsCountStmt                  *sql.Stmt
-	v2SearchProductsPaginatedStmt              *sql.Stmt
+	db                                             DBTX
+	tx                                             *sql.Tx
+	activateProductsBySlugsStmt                    *sql.Stmt
+	activatePromotionsStmt                         *sql.Stmt
+	addProductToPromotionStmt                      *sql.Stmt
+	addProductsToPromotionStmt                     *sql.Stmt
+	approveAdminRequestStmt                        *sql.Stmt
+	archiveProductByIDStmt                         *sql.Stmt
+	archiveProductsBySlugsStmt                     *sql.Stmt
+	archivePromotionsStmt                          *sql.Stmt
+	assignRoleToUserStmt                           *sql.Stmt
+	autocompleteSuggestionsStmt                    *sql.Stmt
+	calculateCartTotalStmt                         *sql.Stmt
+	cancelOrderStmt                                *sql.Stmt
+	changeOrderPaymentMethodStmt                   *sql.Stmt
+	checkCategoryExistenceStmt                     *sql.Stmt
+	clearCartStmt                                  *sql.Stmt
+	countAllProductsByFiltersStmt                  *sql.Stmt
+	countAllProductsByFilters_OptimizedStmt        *sql.Stmt
+	countAllUsersStmt                              *sql.Stmt
+	countProductsStmt                              *sql.Stmt
+	countProductsByParentCategoryIDStmt            *sql.Stmt
+	countV2ProductsStmt                            *sql.Stmt
+	createAdminRequestStmt                         *sql.Stmt
+	createCartForGuestStmt                         *sql.Stmt
+	createCartForUserStmt                          *sql.Stmt
+	createCategoryStmt                             *sql.Stmt
+	createCompanyStmt                              *sql.Stmt
+	createDiscountStmt                             *sql.Stmt
+	createGuestCheckoutStmt                        *sql.Stmt
+	createOrderStmt                                *sql.Stmt
+	createOrderItemStmt                            *sql.Stmt
+	createOrderItemOptionStmt                      *sql.Stmt
+	createOrderItemsStmt                           *sql.Stmt
+	createPaymentStmt                              *sql.Stmt
+	createProductStmt                              *sql.Stmt
+	createProductAttributeStmt                     *sql.Stmt
+	createProductAttributeValueStmt                *sql.Stmt
+	createProductImageStmt                         *sql.Stmt
+	createProductOptionStmt                        *sql.Stmt
+	createProductOptionValueStmt                   *sql.Stmt
+	createProductSpecificationStmt                 *sql.Stmt
+	createProductToAttributeValueStmt              *sql.Stmt
+	createProductVariantStmt                       *sql.Stmt
+	createPromotionStmt                            *sql.Stmt
+	createRelatedProductStmt                       *sql.Stmt
+	createRoleStmt                                 *sql.Stmt
+	createSessionStmt                              *sql.Stmt
+	createShoppingCartStmt                         *sql.Stmt
+	createUserStmt                                 *sql.Stmt
+	createVerificationTokenStmt                    *sql.Stmt
+	deactivateUserStmt                             *sql.Stmt
+	deleteApprovalTokenStmt                        *sql.Stmt
+	deleteDiscountStmt                             *sql.Stmt
+	deleteExchangeRateStmt                         *sql.Stmt
+	deleteExpiredTResetsStmt                       *sql.Stmt
+	deleteExpiredTokensStmt                        *sql.Stmt
+	deletePasswordResetTokenStmt                   *sql.Stmt
+	deleteProductByIDStmt                          *sql.Stmt
+	deleteProductImageStmt                         *sql.Stmt
+	deleteProductImagesByProductIDStmt             *sql.Stmt
+	deleteProductOptionStmt                        *sql.Stmt
+	deleteProductOptionValueStmt                   *sql.Stmt
+	deleteProductSpecificationStmt                 *sql.Stmt
+	deleteProductSpecificationsByProductIDStmt     *sql.Stmt
+	deleteProductVariantStmt                       *sql.Stmt
+	deleteProductsBySlugsStmt                      *sql.Stmt
+	deletePromotionStmt                            *sql.Stmt
+	deletePromotionsStmt                           *sql.Stmt
+	deleteRelatedProductStmt                       *sql.Stmt
+	deleteRoleStmt                                 *sql.Stmt
+	deleteSessionBySessionIDStmt                   *sql.Stmt
+	deleteShoppingCartStmt                         *sql.Stmt
+	deleteUserStmt                                 *sql.Stmt
+	deleteVerificationTokenByTokenStmt             *sql.Stmt
+	deleteVerificationTokensByEmailStmt            *sql.Stmt
+	draftProductsBySlugsStmt                       *sql.Stmt
+	draftPromotionsStmt                            *sql.Stmt
+	getActiveDiscountsByProductIDsStmt             *sql.Stmt
+	getAdminRequestByIDStmt                        *sql.Stmt
+	getAdminRequestByUserIDStmt                    *sql.Stmt
+	getAdminRequestsByUserIDStmt                   *sql.Stmt
+	getAllCartItemsStmt                            *sql.Stmt
+	getAllExchangeRatesForCurrencyStmt             *sql.Stmt
+	getAllPaymentsStmt                             *sql.Stmt
+	getAllProductsByFiltersNameAscStmt             *sql.Stmt
+	getAllProductsByFiltersNameAsc_OptimizedStmt   *sql.Stmt
+	getAllProductsByFiltersNameDescStmt            *sql.Stmt
+	getAllProductsByFiltersNameDesc_OptimizedStmt  *sql.Stmt
+	getAllProductsByFiltersNewestStmt              *sql.Stmt
+	getAllProductsByFiltersNewest_OptimizedStmt    *sql.Stmt
+	getAllProductsByFiltersOldestStmt              *sql.Stmt
+	getAllProductsByFiltersOldest_OptimizedStmt    *sql.Stmt
+	getAllProductsByFiltersPriceAscStmt            *sql.Stmt
+	getAllProductsByFiltersPriceAsc_OptimizedStmt  *sql.Stmt
+	getAllProductsByFiltersPriceDescStmt           *sql.Stmt
+	getAllProductsByFiltersPriceDesc_OptimizedStmt *sql.Stmt
+	getAllRolesStmt                                *sql.Stmt
+	getApprovalTokenStmt                           *sql.Stmt
+	getBestSellerProductsStmt                      *sql.Stmt
+	getCartByGuestIDStmt                           *sql.Stmt
+	getCartByOwnerIDStmt                           *sql.Stmt
+	getCartItemStmt                                *sql.Stmt
+	getCategoriesByParentIDStmt                    *sql.Stmt
+	getCategoriesWithProductsCountStmt             *sql.Stmt
+	getCategoriesWithSubcategoryCountStmt          *sql.Stmt
+	getCategoryByIDStmt                            *sql.Stmt
+	getCategoryByNameStmt                          *sql.Stmt
+	getCategoryBySlugStmt                          *sql.Stmt
+	getCategoryDetailsBySlugStmt                   *sql.Stmt
+	getCategoryProductsByFiltersNameAscStmt        *sql.Stmt
+	getCategoryProductsByFiltersNameDescStmt       *sql.Stmt
+	getCategoryProductsByFiltersNewestStmt         *sql.Stmt
+	getCategoryProductsByFiltersOldestStmt         *sql.Stmt
+	getCategoryProductsByFiltersPriceAscStmt       *sql.Stmt
+	getCategoryProductsByFiltersPriceDescStmt      *sql.Stmt
+	getCategorySEOBySlugStmt                       *sql.Stmt
+	getCategoryTreeStmt                            *sql.Stmt
+	getCompanyStmt                                 *sql.Stmt
+	getDailyDealsStmt                              *sql.Stmt
+	getDiscountByIDStmt                            *sql.Stmt
+	getDiscountByProductIDStmt                     *sql.Stmt
+	getFeaturedProductsStmt                        *sql.Stmt
+	getGuestCheckoutByEmailStmt                    *sql.Stmt
+	getImageKeysByProductIDStmt                    *sql.Stmt
+	getLatestExchangeRateStmt                      *sql.Stmt
+	getMonthlyRevenueStmt                          *sql.Stmt
+	getMonthlySalesStmt                            *sql.Stmt
+	getMonthlySalesForLastTwoMonthsStmt            *sql.Stmt
+	getNewArrivalProductsStmt                      *sql.Stmt
+	getOrderByIdStmt                               *sql.Stmt
+	getOrderIDsByUserIDStmt                        *sql.Stmt
+	getOrderItemsByOrderIdStmt                     *sql.Stmt
+	getOrdersByGuestCheckoutIdStmt                 *sql.Stmt
+	getOrdersByUserIdStmt                          *sql.Stmt
+	getParentCategoriesStmt                        *sql.Stmt
+	getPasswordResetTokenStmt                      *sql.Stmt
+	getPaymentByOrderIDStmt                        *sql.Stmt
+	getPaymentStatusIDByStatusStmt                 *sql.Stmt
+	getPendingAdminRequestsStmt                    *sql.Stmt
+	getProductAttributesStmt                       *sql.Stmt
+	getProductAttributesByCategoryIDStmt           *sql.Stmt
+	getProductAttributesByCategoryNameStmt         *sql.Stmt
+	getProductAttributesWithValuesStmt             *sql.Stmt
+	getProductByIDStmt                             *sql.Stmt
+	getProductByIDsStmt                            *sql.Stmt
+	getProductBySlugStmt                           *sql.Stmt
+	getProductCartByProductSlugStmt                *sql.Stmt
+	getProductIDsByPromotionIDStmt                 *sql.Stmt
+	getProductIDsBySlugsStmt                       *sql.Stmt
+	getProductImageByIDStmt                        *sql.Stmt
+	getProductOptionByIDStmt                       *sql.Stmt
+	getProductOptionValueByIDStmt                  *sql.Stmt
+	getProductPricingByProductIDStmt               *sql.Stmt
+	getProductSEOStmt                              *sql.Stmt
+	getProductSlugByProductIDStmt                  *sql.Stmt
+	getProductSpecificationByIDStmt                *sql.Stmt
+	getProductSpecsByIDStmt                        *sql.Stmt
+	getProductVariantByIDStmt                      *sql.Stmt
+	getProductsByCategoryIDStmt                    *sql.Stmt
+	getProductsByParentCategoryIDStmt              *sql.Stmt
+	getPromotionBySlugStmt                         *sql.Stmt
+	getPromotionDetailsStmt                        *sql.Stmt
+	getPromotionsStmt                              *sql.Stmt
+	getRecentSalesStmt                             *sql.Stmt
+	getRelatedProductByProductIDStmt               *sql.Stmt
+	getRoleByIDStmt                                *sql.Stmt
+	getRoleByNameStmt                              *sql.Stmt
+	getSalesTrendStmt                              *sql.Stmt
+	getSessionBySessionIDStmt                      *sql.Stmt
+	getSessionByUserIDStmt                         *sql.Stmt
+	getShoppingCartByIDStmt                        *sql.Stmt
+	getShoppingCartByUserIDStmt                    *sql.Stmt
+	getStatusByIDStmt                              *sql.Stmt
+	getTotalCategoryProductsByFiltersStmt          *sql.Stmt
+	getTotalRevenueByPaymentStatusStmt             *sql.Stmt
+	getTotalRevenueForLastTwoMonthsStmt            *sql.Stmt
+	getTotalSalesCurrentMonthStmt                  *sql.Stmt
+	getUserByEmailStmt                             *sql.Stmt
+	getUserByIDStmt                                *sql.Stmt
+	getUserByProviderStmt                          *sql.Stmt
+	getUserOrGuestCheckoutNameByOrderIDStmt        *sql.Stmt
+	getUserProfileByIDStmt                         *sql.Stmt
+	getUserRecommendationsStmt                     *sql.Stmt
+	getUserRolesStmt                               *sql.Stmt
+	getUserRolesByUserIDStmt                       *sql.Stmt
+	getUsersByRoleStmt                             *sql.Stmt
+	getV2CategoryHierarchyStmt                     *sql.Stmt
+	getV2ProductDetailBySlugStmt                   *sql.Stmt
+	getV2ProductsStmt                              *sql.Stmt
+	getV2PromotionsStmt                            *sql.Stmt
+	getVATPercentageStmt                           *sql.Stmt
+	getVerificationTokenByEmailStmt                *sql.Stmt
+	getVerificationTokenByTokenStmt                *sql.Stmt
+	hardDeleteCategoryStmt                         *sql.Stmt
+	insertExchangeRateStmt                         *sql.Stmt
+	isAdminStmt                                    *sql.Stmt
+	linkSessionToUserStmt                          *sql.Stmt
+	listCategoriesStmt                             *sql.Stmt
+	listDiscountsStmt                              *sql.Stmt
+	listDiscountsByProductIDStmt                   *sql.Stmt
+	listProductImagesByProductIDStmt               *sql.Stmt
+	listProductOptionValuesByOptionIDStmt          *sql.Stmt
+	listProductOptionsByProductIDStmt              *sql.Stmt
+	listProductSpecificationsByProductIDStmt       *sql.Stmt
+	listProductVariantsByProductIDStmt             *sql.Stmt
+	listProductsStmt                               *sql.Stmt
+	listRelatedProductsByProductIDStmt             *sql.Stmt
+	listUsersStmt                                  *sql.Stmt
+	makeAdminStmt                                  *sql.Stmt
+	rejectAdminRequestStmt                         *sql.Stmt
+	removeAllRolesFromUserStmt                     *sql.Stmt
+	removeCartItemStmt                             *sql.Stmt
+	removeProductsFromPromotionStmt                *sql.Stmt
+	removeRoleFromUserStmt                         *sql.Stmt
+	searchProductsStmt                             *sql.Stmt
+	softDeleteCategoryStmt                         *sql.Stmt
+	softDeleteProductStmt                          *sql.Stmt
+	storeApprovalTokenStmt                         *sql.Stmt
+	storePasswordResetTokenStmt                    *sql.Stmt
+	storeRefreshTokenStmt                          *sql.Stmt
+	updateCartGuestIDStmt                          *sql.Stmt
+	updateCartItemQuantityStmt                     *sql.Stmt
+	updateCartTotalsStmt                           *sql.Stmt
+	updateCartUserIDStmt                           *sql.Stmt
+	updateCategoryStmt                             *sql.Stmt
+	updateCategoryImageStmt                        *sql.Stmt
+	updateCheckoutRequestIDByOrderIDStmt           *sql.Stmt
+	updateDiscountStmt                             *sql.Stmt
+	updateExchangeRateStmt                         *sql.Stmt
+	updateOrderAmountsStmt                         *sql.Stmt
+	updateOrderPaymentStatusStmt                   *sql.Stmt
+	updateOrderStatusStmt                          *sql.Stmt
+	updatePaymentStatusStmt                        *sql.Stmt
+	updateProductStmt                              *sql.Stmt
+	updateProductImageStmt                         *sql.Stmt
+	updateProductImagesStmt                        *sql.Stmt
+	updateProductOptionStmt                        *sql.Stmt
+	updateProductOptionValueStmt                   *sql.Stmt
+	updateProductSEOStmt                           *sql.Stmt
+	updateProductSpecificationStmt                 *sql.Stmt
+	updateProductVariantStmt                       *sql.Stmt
+	updatePromotionStmt                            *sql.Stmt
+	updatePromotionImageStmt                       *sql.Stmt
+	updateRoleStmt                                 *sql.Stmt
+	updateSessionStmt                              *sql.Stmt
+	updateSessionLastActivityStmt                  *sql.Stmt
+	updateUserStmt                                 *sql.Stmt
+	updateUserCompanyStmt                          *sql.Stmt
+	updateUserEmailVerifiedStmt                    *sql.Stmt
+	updateUserInfoStmt                             *sql.Stmt
+	updateUserLastLoginStmt                        *sql.Stmt
+	updateUserPasswordStmt                         *sql.Stmt
+	updateUserProfileStmt                          *sql.Stmt
+	updateVATPercentageStmt                        *sql.Stmt
+	upsertCartItemStmt                             *sql.Stmt
+	upsertProductSpecificationStmt                 *sql.Stmt
+	v2SearchProductsStmt                           *sql.Stmt
+	v2SearchProductsCountStmt                      *sql.Stmt
+	v2SearchProductsPaginatedStmt                  *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                                         tx,
-		tx:                                         tx,
-		activateProductsBySlugsStmt:                q.activateProductsBySlugsStmt,
-		activatePromotionsStmt:                     q.activatePromotionsStmt,
-		addProductToPromotionStmt:                  q.addProductToPromotionStmt,
-		addProductsToPromotionStmt:                 q.addProductsToPromotionStmt,
-		approveAdminRequestStmt:                    q.approveAdminRequestStmt,
-		archiveProductByIDStmt:                     q.archiveProductByIDStmt,
-		archiveProductsBySlugsStmt:                 q.archiveProductsBySlugsStmt,
-		archivePromotionsStmt:                      q.archivePromotionsStmt,
-		assignRoleToUserStmt:                       q.assignRoleToUserStmt,
-		autocompleteSuggestionsStmt:                q.autocompleteSuggestionsStmt,
-		calculateCartTotalStmt:                     q.calculateCartTotalStmt,
-		cancelOrderStmt:                            q.cancelOrderStmt,
-		changeOrderPaymentMethodStmt:               q.changeOrderPaymentMethodStmt,
-		checkCategoryExistenceStmt:                 q.checkCategoryExistenceStmt,
-		clearCartStmt:                              q.clearCartStmt,
-		countAllProductsByFiltersStmt:              q.countAllProductsByFiltersStmt,
-		countAllUsersStmt:                          q.countAllUsersStmt,
-		countProductsStmt:                          q.countProductsStmt,
-		countProductsByParentCategoryIDStmt:        q.countProductsByParentCategoryIDStmt,
-		createAdminRequestStmt:                     q.createAdminRequestStmt,
-		createCartForGuestStmt:                     q.createCartForGuestStmt,
-		createCartForUserStmt:                      q.createCartForUserStmt,
-		createCategoryStmt:                         q.createCategoryStmt,
-		createCompanyStmt:                          q.createCompanyStmt,
-		createDiscountStmt:                         q.createDiscountStmt,
-		createGuestCheckoutStmt:                    q.createGuestCheckoutStmt,
-		createOrderStmt:                            q.createOrderStmt,
-		createOrderItemStmt:                        q.createOrderItemStmt,
-		createOrderItemOptionStmt:                  q.createOrderItemOptionStmt,
-		createOrderItemsStmt:                       q.createOrderItemsStmt,
-		createPaymentStmt:                          q.createPaymentStmt,
-		createProductStmt:                          q.createProductStmt,
-		createProductAttributeStmt:                 q.createProductAttributeStmt,
-		createProductAttributeValueStmt:            q.createProductAttributeValueStmt,
-		createProductImageStmt:                     q.createProductImageStmt,
-		createProductOptionStmt:                    q.createProductOptionStmt,
-		createProductOptionValueStmt:               q.createProductOptionValueStmt,
-		createProductSpecificationStmt:             q.createProductSpecificationStmt,
-		createProductToAttributeValueStmt:          q.createProductToAttributeValueStmt,
-		createProductVariantStmt:                   q.createProductVariantStmt,
-		createPromotionStmt:                        q.createPromotionStmt,
-		createRelatedProductStmt:                   q.createRelatedProductStmt,
-		createRoleStmt:                             q.createRoleStmt,
-		createSessionStmt:                          q.createSessionStmt,
-		createShoppingCartStmt:                     q.createShoppingCartStmt,
-		createUserStmt:                             q.createUserStmt,
-		createVerificationTokenStmt:                q.createVerificationTokenStmt,
-		deactivateUserStmt:                         q.deactivateUserStmt,
-		deleteApprovalTokenStmt:                    q.deleteApprovalTokenStmt,
-		deleteDiscountStmt:                         q.deleteDiscountStmt,
-		deleteExchangeRateStmt:                     q.deleteExchangeRateStmt,
-		deleteExpiredTResetsStmt:                   q.deleteExpiredTResetsStmt,
-		deleteExpiredTokensStmt:                    q.deleteExpiredTokensStmt,
-		deletePasswordResetTokenStmt:               q.deletePasswordResetTokenStmt,
-		deleteProductByIDStmt:                      q.deleteProductByIDStmt,
-		deleteProductImageStmt:                     q.deleteProductImageStmt,
-		deleteProductImagesByProductIDStmt:         q.deleteProductImagesByProductIDStmt,
-		deleteProductOptionStmt:                    q.deleteProductOptionStmt,
-		deleteProductOptionValueStmt:               q.deleteProductOptionValueStmt,
-		deleteProductSpecificationStmt:             q.deleteProductSpecificationStmt,
-		deleteProductSpecificationsByProductIDStmt: q.deleteProductSpecificationsByProductIDStmt,
-		deleteProductVariantStmt:                   q.deleteProductVariantStmt,
-		deleteProductsBySlugsStmt:                  q.deleteProductsBySlugsStmt,
-		deletePromotionStmt:                        q.deletePromotionStmt,
-		deletePromotionsStmt:                       q.deletePromotionsStmt,
-		deleteRelatedProductStmt:                   q.deleteRelatedProductStmt,
-		deleteRoleStmt:                             q.deleteRoleStmt,
-		deleteSessionBySessionIDStmt:               q.deleteSessionBySessionIDStmt,
-		deleteShoppingCartStmt:                     q.deleteShoppingCartStmt,
-		deleteUserStmt:                             q.deleteUserStmt,
-		deleteVerificationTokenByTokenStmt:         q.deleteVerificationTokenByTokenStmt,
-		deleteVerificationTokensByEmailStmt:        q.deleteVerificationTokensByEmailStmt,
-		draftProductsBySlugsStmt:                   q.draftProductsBySlugsStmt,
-		draftPromotionsStmt:                        q.draftPromotionsStmt,
-		getActiveDiscountsByProductIDsStmt:         q.getActiveDiscountsByProductIDsStmt,
-		getAdminRequestByIDStmt:                    q.getAdminRequestByIDStmt,
-		getAdminRequestByUserIDStmt:                q.getAdminRequestByUserIDStmt,
-		getAdminRequestsByUserIDStmt:               q.getAdminRequestsByUserIDStmt,
-		getAllCartItemsStmt:                        q.getAllCartItemsStmt,
-		getAllExchangeRatesForCurrencyStmt:         q.getAllExchangeRatesForCurrencyStmt,
-		getAllPaymentsStmt:                         q.getAllPaymentsStmt,
-		getAllProductsByFiltersNameAscStmt:         q.getAllProductsByFiltersNameAscStmt,
-		getAllProductsByFiltersNameDescStmt:        q.getAllProductsByFiltersNameDescStmt,
-		getAllProductsByFiltersNewestStmt:          q.getAllProductsByFiltersNewestStmt,
-		getAllProductsByFiltersOldestStmt:          q.getAllProductsByFiltersOldestStmt,
-		getAllProductsByFiltersPriceAscStmt:        q.getAllProductsByFiltersPriceAscStmt,
-		getAllProductsByFiltersPriceDescStmt:       q.getAllProductsByFiltersPriceDescStmt,
-		getAllRolesStmt:                            q.getAllRolesStmt,
-		getApprovalTokenStmt:                       q.getApprovalTokenStmt,
-		getBestSellerProductsStmt:                  q.getBestSellerProductsStmt,
-		getCartByGuestIDStmt:                       q.getCartByGuestIDStmt,
-		getCartByOwnerIDStmt:                       q.getCartByOwnerIDStmt,
-		getCartItemStmt:                            q.getCartItemStmt,
-		getCategoriesByParentIDStmt:                q.getCategoriesByParentIDStmt,
-		getCategoriesWithProductsCountStmt:         q.getCategoriesWithProductsCountStmt,
-		getCategoriesWithSubcategoryCountStmt:      q.getCategoriesWithSubcategoryCountStmt,
-		getCategoryByIDStmt:                        q.getCategoryByIDStmt,
-		getCategoryByNameStmt:                      q.getCategoryByNameStmt,
-		getCategoryBySlugStmt:                      q.getCategoryBySlugStmt,
-		getCategoryDetailsBySlugStmt:               q.getCategoryDetailsBySlugStmt,
-		getCategoryProductsByFiltersNameAscStmt:    q.getCategoryProductsByFiltersNameAscStmt,
-		getCategoryProductsByFiltersNameDescStmt:   q.getCategoryProductsByFiltersNameDescStmt,
-		getCategoryProductsByFiltersNewestStmt:     q.getCategoryProductsByFiltersNewestStmt,
-		getCategoryProductsByFiltersOldestStmt:     q.getCategoryProductsByFiltersOldestStmt,
-		getCategoryProductsByFiltersPriceAscStmt:   q.getCategoryProductsByFiltersPriceAscStmt,
-		getCategoryProductsByFiltersPriceDescStmt:  q.getCategoryProductsByFiltersPriceDescStmt,
-		getCategorySEOBySlugStmt:                   q.getCategorySEOBySlugStmt,
-		getCategoryTreeStmt:                        q.getCategoryTreeStmt,
-		getCompanyStmt:                             q.getCompanyStmt,
-		getDailyDealsStmt:                          q.getDailyDealsStmt,
-		getDiscountByIDStmt:                        q.getDiscountByIDStmt,
-		getDiscountByProductIDStmt:                 q.getDiscountByProductIDStmt,
-		getFeaturedProductsStmt:                    q.getFeaturedProductsStmt,
-		getGuestCheckoutByEmailStmt:                q.getGuestCheckoutByEmailStmt,
-		getImageKeysByProductIDStmt:                q.getImageKeysByProductIDStmt,
-		getLatestExchangeRateStmt:                  q.getLatestExchangeRateStmt,
-		getMonthlyRevenueStmt:                      q.getMonthlyRevenueStmt,
-		getMonthlySalesStmt:                        q.getMonthlySalesStmt,
-		getMonthlySalesForLastTwoMonthsStmt:        q.getMonthlySalesForLastTwoMonthsStmt,
-		getNewArrivalProductsStmt:                  q.getNewArrivalProductsStmt,
-		getOrderByIdStmt:                           q.getOrderByIdStmt,
-		getOrderIDsByUserIDStmt:                    q.getOrderIDsByUserIDStmt,
-		getOrderItemsByOrderIdStmt:                 q.getOrderItemsByOrderIdStmt,
-		getOrdersByGuestCheckoutIdStmt:             q.getOrdersByGuestCheckoutIdStmt,
-		getOrdersByUserIdStmt:                      q.getOrdersByUserIdStmt,
-		getParentCategoriesStmt:                    q.getParentCategoriesStmt,
-		getPasswordResetTokenStmt:                  q.getPasswordResetTokenStmt,
-		getPaymentByOrderIDStmt:                    q.getPaymentByOrderIDStmt,
-		getPaymentStatusIDByStatusStmt:             q.getPaymentStatusIDByStatusStmt,
-		getPendingAdminRequestsStmt:                q.getPendingAdminRequestsStmt,
-		getProductAttributesStmt:                   q.getProductAttributesStmt,
-		getProductAttributesByCategoryIDStmt:       q.getProductAttributesByCategoryIDStmt,
-		getProductAttributesByCategoryNameStmt:     q.getProductAttributesByCategoryNameStmt,
-		getProductAttributesWithValuesStmt:         q.getProductAttributesWithValuesStmt,
-		getProductByIDStmt:                         q.getProductByIDStmt,
-		getProductByIDsStmt:                        q.getProductByIDsStmt,
-		getProductBySlugStmt:                       q.getProductBySlugStmt,
-		getProductCartByProductSlugStmt:            q.getProductCartByProductSlugStmt,
-		getProductIDsByPromotionIDStmt:             q.getProductIDsByPromotionIDStmt,
-		getProductIDsBySlugsStmt:                   q.getProductIDsBySlugsStmt,
-		getProductImageByIDStmt:                    q.getProductImageByIDStmt,
-		getProductOptionByIDStmt:                   q.getProductOptionByIDStmt,
-		getProductOptionValueByIDStmt:              q.getProductOptionValueByIDStmt,
-		getProductPricingByProductIDStmt:           q.getProductPricingByProductIDStmt,
-		getProductSEOStmt:                          q.getProductSEOStmt,
-		getProductSlugByProductIDStmt:              q.getProductSlugByProductIDStmt,
-		getProductSpecificationByIDStmt:            q.getProductSpecificationByIDStmt,
-		getProductSpecsByIDStmt:                    q.getProductSpecsByIDStmt,
-		getProductVariantByIDStmt:                  q.getProductVariantByIDStmt,
-		getProductsByCategoryIDStmt:                q.getProductsByCategoryIDStmt,
-		getProductsByParentCategoryIDStmt:          q.getProductsByParentCategoryIDStmt,
-		getPromotionBySlugStmt:                     q.getPromotionBySlugStmt,
-		getPromotionDetailsStmt:                    q.getPromotionDetailsStmt,
-		getPromotionsStmt:                          q.getPromotionsStmt,
-		getRecentSalesStmt:                         q.getRecentSalesStmt,
-		getRelatedProductByProductIDStmt:           q.getRelatedProductByProductIDStmt,
-		getRoleByIDStmt:                            q.getRoleByIDStmt,
-		getRoleByNameStmt:                          q.getRoleByNameStmt,
-		getSalesTrendStmt:                          q.getSalesTrendStmt,
-		getSessionBySessionIDStmt:                  q.getSessionBySessionIDStmt,
-		getSessionByUserIDStmt:                     q.getSessionByUserIDStmt,
-		getShoppingCartByIDStmt:                    q.getShoppingCartByIDStmt,
-		getShoppingCartByUserIDStmt:                q.getShoppingCartByUserIDStmt,
-		getStatusByIDStmt:                          q.getStatusByIDStmt,
-		getTotalCategoryProductsByFiltersStmt:      q.getTotalCategoryProductsByFiltersStmt,
-		getTotalRevenueByPaymentStatusStmt:         q.getTotalRevenueByPaymentStatusStmt,
-		getTotalRevenueForLastTwoMonthsStmt:        q.getTotalRevenueForLastTwoMonthsStmt,
-		getTotalSalesCurrentMonthStmt:              q.getTotalSalesCurrentMonthStmt,
-		getUserByEmailStmt:                         q.getUserByEmailStmt,
-		getUserByIDStmt:                            q.getUserByIDStmt,
-		getUserByProviderStmt:                      q.getUserByProviderStmt,
-		getUserOrGuestCheckoutNameByOrderIDStmt:    q.getUserOrGuestCheckoutNameByOrderIDStmt,
-		getUserProfileByIDStmt:                     q.getUserProfileByIDStmt,
-		getUserRecommendationsStmt:                 q.getUserRecommendationsStmt,
-		getUserRolesStmt:                           q.getUserRolesStmt,
-		getUserRolesByUserIDStmt:                   q.getUserRolesByUserIDStmt,
-		getUsersByRoleStmt:                         q.getUsersByRoleStmt,
-		getV2CategoryHierarchyStmt:                 q.getV2CategoryHierarchyStmt,
-		getV2ProductDetailBySlugStmt:               q.getV2ProductDetailBySlugStmt,
-		getV2ProductsStmt:                          q.getV2ProductsStmt,
-		getV2PromotionsStmt:                        q.getV2PromotionsStmt,
-		getVATPercentageStmt:                       q.getVATPercentageStmt,
-		getVerificationTokenByEmailStmt:            q.getVerificationTokenByEmailStmt,
-		getVerificationTokenByTokenStmt:            q.getVerificationTokenByTokenStmt,
-		hardDeleteCategoryStmt:                     q.hardDeleteCategoryStmt,
-		insertExchangeRateStmt:                     q.insertExchangeRateStmt,
-		isAdminStmt:                                q.isAdminStmt,
-		linkSessionToUserStmt:                      q.linkSessionToUserStmt,
-		listCategoriesStmt:                         q.listCategoriesStmt,
-		listDiscountsStmt:                          q.listDiscountsStmt,
-		listDiscountsByProductIDStmt:               q.listDiscountsByProductIDStmt,
-		listProductImagesByProductIDStmt:           q.listProductImagesByProductIDStmt,
-		listProductOptionValuesByOptionIDStmt:      q.listProductOptionValuesByOptionIDStmt,
-		listProductOptionsByProductIDStmt:          q.listProductOptionsByProductIDStmt,
-		listProductSpecificationsByProductIDStmt:   q.listProductSpecificationsByProductIDStmt,
-		listProductVariantsByProductIDStmt:         q.listProductVariantsByProductIDStmt,
-		listProductsStmt:                           q.listProductsStmt,
-		listRelatedProductsByProductIDStmt:         q.listRelatedProductsByProductIDStmt,
-		listUsersStmt:                              q.listUsersStmt,
-		makeAdminStmt:                              q.makeAdminStmt,
-		rejectAdminRequestStmt:                     q.rejectAdminRequestStmt,
-		removeAllRolesFromUserStmt:                 q.removeAllRolesFromUserStmt,
-		removeCartItemStmt:                         q.removeCartItemStmt,
-		removeProductsFromPromotionStmt:            q.removeProductsFromPromotionStmt,
-		removeRoleFromUserStmt:                     q.removeRoleFromUserStmt,
-		searchProductsStmt:                         q.searchProductsStmt,
-		softDeleteCategoryStmt:                     q.softDeleteCategoryStmt,
-		softDeleteProductStmt:                      q.softDeleteProductStmt,
-		storeApprovalTokenStmt:                     q.storeApprovalTokenStmt,
-		storePasswordResetTokenStmt:                q.storePasswordResetTokenStmt,
-		storeRefreshTokenStmt:                      q.storeRefreshTokenStmt,
-		updateCartGuestIDStmt:                      q.updateCartGuestIDStmt,
-		updateCartItemQuantityStmt:                 q.updateCartItemQuantityStmt,
-		updateCartTotalsStmt:                       q.updateCartTotalsStmt,
-		updateCartUserIDStmt:                       q.updateCartUserIDStmt,
-		updateCategoryStmt:                         q.updateCategoryStmt,
-		updateCategoryImageStmt:                    q.updateCategoryImageStmt,
-		updateCheckoutRequestIDByOrderIDStmt:       q.updateCheckoutRequestIDByOrderIDStmt,
-		updateDiscountStmt:                         q.updateDiscountStmt,
-		updateExchangeRateStmt:                     q.updateExchangeRateStmt,
-		updateOrderAmountsStmt:                     q.updateOrderAmountsStmt,
-		updateOrderPaymentStatusStmt:               q.updateOrderPaymentStatusStmt,
-		updateOrderStatusStmt:                      q.updateOrderStatusStmt,
-		updatePaymentStatusStmt:                    q.updatePaymentStatusStmt,
-		updateProductStmt:                          q.updateProductStmt,
-		updateProductImageStmt:                     q.updateProductImageStmt,
-		updateProductImagesStmt:                    q.updateProductImagesStmt,
-		updateProductOptionStmt:                    q.updateProductOptionStmt,
-		updateProductOptionValueStmt:               q.updateProductOptionValueStmt,
-		updateProductSEOStmt:                       q.updateProductSEOStmt,
-		updateProductSpecificationStmt:             q.updateProductSpecificationStmt,
-		updateProductVariantStmt:                   q.updateProductVariantStmt,
-		updatePromotionStmt:                        q.updatePromotionStmt,
-		updatePromotionImageStmt:                   q.updatePromotionImageStmt,
-		updateRoleStmt:                             q.updateRoleStmt,
-		updateSessionStmt:                          q.updateSessionStmt,
-		updateSessionLastActivityStmt:              q.updateSessionLastActivityStmt,
-		updateUserStmt:                             q.updateUserStmt,
-		updateUserCompanyStmt:                      q.updateUserCompanyStmt,
-		updateUserEmailVerifiedStmt:                q.updateUserEmailVerifiedStmt,
-		updateUserInfoStmt:                         q.updateUserInfoStmt,
-		updateUserLastLoginStmt:                    q.updateUserLastLoginStmt,
-		updateUserPasswordStmt:                     q.updateUserPasswordStmt,
-		updateUserProfileStmt:                      q.updateUserProfileStmt,
-		updateVATPercentageStmt:                    q.updateVATPercentageStmt,
-		upsertCartItemStmt:                         q.upsertCartItemStmt,
-		upsertProductSpecificationStmt:             q.upsertProductSpecificationStmt,
-		v2SearchProductsStmt:                       q.v2SearchProductsStmt,
-		v2SearchProductsCountStmt:                  q.v2SearchProductsCountStmt,
-		v2SearchProductsPaginatedStmt:              q.v2SearchProductsPaginatedStmt,
+		db:                                             tx,
+		tx:                                             tx,
+		activateProductsBySlugsStmt:                    q.activateProductsBySlugsStmt,
+		activatePromotionsStmt:                         q.activatePromotionsStmt,
+		addProductToPromotionStmt:                      q.addProductToPromotionStmt,
+		addProductsToPromotionStmt:                     q.addProductsToPromotionStmt,
+		approveAdminRequestStmt:                        q.approveAdminRequestStmt,
+		archiveProductByIDStmt:                         q.archiveProductByIDStmt,
+		archiveProductsBySlugsStmt:                     q.archiveProductsBySlugsStmt,
+		archivePromotionsStmt:                          q.archivePromotionsStmt,
+		assignRoleToUserStmt:                           q.assignRoleToUserStmt,
+		autocompleteSuggestionsStmt:                    q.autocompleteSuggestionsStmt,
+		calculateCartTotalStmt:                         q.calculateCartTotalStmt,
+		cancelOrderStmt:                                q.cancelOrderStmt,
+		changeOrderPaymentMethodStmt:                   q.changeOrderPaymentMethodStmt,
+		checkCategoryExistenceStmt:                     q.checkCategoryExistenceStmt,
+		clearCartStmt:                                  q.clearCartStmt,
+		countAllProductsByFiltersStmt:                  q.countAllProductsByFiltersStmt,
+		countAllProductsByFilters_OptimizedStmt:        q.countAllProductsByFilters_OptimizedStmt,
+		countAllUsersStmt:                              q.countAllUsersStmt,
+		countProductsStmt:                              q.countProductsStmt,
+		countProductsByParentCategoryIDStmt:            q.countProductsByParentCategoryIDStmt,
+		countV2ProductsStmt:                            q.countV2ProductsStmt,
+		createAdminRequestStmt:                         q.createAdminRequestStmt,
+		createCartForGuestStmt:                         q.createCartForGuestStmt,
+		createCartForUserStmt:                          q.createCartForUserStmt,
+		createCategoryStmt:                             q.createCategoryStmt,
+		createCompanyStmt:                              q.createCompanyStmt,
+		createDiscountStmt:                             q.createDiscountStmt,
+		createGuestCheckoutStmt:                        q.createGuestCheckoutStmt,
+		createOrderStmt:                                q.createOrderStmt,
+		createOrderItemStmt:                            q.createOrderItemStmt,
+		createOrderItemOptionStmt:                      q.createOrderItemOptionStmt,
+		createOrderItemsStmt:                           q.createOrderItemsStmt,
+		createPaymentStmt:                              q.createPaymentStmt,
+		createProductStmt:                              q.createProductStmt,
+		createProductAttributeStmt:                     q.createProductAttributeStmt,
+		createProductAttributeValueStmt:                q.createProductAttributeValueStmt,
+		createProductImageStmt:                         q.createProductImageStmt,
+		createProductOptionStmt:                        q.createProductOptionStmt,
+		createProductOptionValueStmt:                   q.createProductOptionValueStmt,
+		createProductSpecificationStmt:                 q.createProductSpecificationStmt,
+		createProductToAttributeValueStmt:              q.createProductToAttributeValueStmt,
+		createProductVariantStmt:                       q.createProductVariantStmt,
+		createPromotionStmt:                            q.createPromotionStmt,
+		createRelatedProductStmt:                       q.createRelatedProductStmt,
+		createRoleStmt:                                 q.createRoleStmt,
+		createSessionStmt:                              q.createSessionStmt,
+		createShoppingCartStmt:                         q.createShoppingCartStmt,
+		createUserStmt:                                 q.createUserStmt,
+		createVerificationTokenStmt:                    q.createVerificationTokenStmt,
+		deactivateUserStmt:                             q.deactivateUserStmt,
+		deleteApprovalTokenStmt:                        q.deleteApprovalTokenStmt,
+		deleteDiscountStmt:                             q.deleteDiscountStmt,
+		deleteExchangeRateStmt:                         q.deleteExchangeRateStmt,
+		deleteExpiredTResetsStmt:                       q.deleteExpiredTResetsStmt,
+		deleteExpiredTokensStmt:                        q.deleteExpiredTokensStmt,
+		deletePasswordResetTokenStmt:                   q.deletePasswordResetTokenStmt,
+		deleteProductByIDStmt:                          q.deleteProductByIDStmt,
+		deleteProductImageStmt:                         q.deleteProductImageStmt,
+		deleteProductImagesByProductIDStmt:             q.deleteProductImagesByProductIDStmt,
+		deleteProductOptionStmt:                        q.deleteProductOptionStmt,
+		deleteProductOptionValueStmt:                   q.deleteProductOptionValueStmt,
+		deleteProductSpecificationStmt:                 q.deleteProductSpecificationStmt,
+		deleteProductSpecificationsByProductIDStmt:     q.deleteProductSpecificationsByProductIDStmt,
+		deleteProductVariantStmt:                       q.deleteProductVariantStmt,
+		deleteProductsBySlugsStmt:                      q.deleteProductsBySlugsStmt,
+		deletePromotionStmt:                            q.deletePromotionStmt,
+		deletePromotionsStmt:                           q.deletePromotionsStmt,
+		deleteRelatedProductStmt:                       q.deleteRelatedProductStmt,
+		deleteRoleStmt:                                 q.deleteRoleStmt,
+		deleteSessionBySessionIDStmt:                   q.deleteSessionBySessionIDStmt,
+		deleteShoppingCartStmt:                         q.deleteShoppingCartStmt,
+		deleteUserStmt:                                 q.deleteUserStmt,
+		deleteVerificationTokenByTokenStmt:             q.deleteVerificationTokenByTokenStmt,
+		deleteVerificationTokensByEmailStmt:            q.deleteVerificationTokensByEmailStmt,
+		draftProductsBySlugsStmt:                       q.draftProductsBySlugsStmt,
+		draftPromotionsStmt:                            q.draftPromotionsStmt,
+		getActiveDiscountsByProductIDsStmt:             q.getActiveDiscountsByProductIDsStmt,
+		getAdminRequestByIDStmt:                        q.getAdminRequestByIDStmt,
+		getAdminRequestByUserIDStmt:                    q.getAdminRequestByUserIDStmt,
+		getAdminRequestsByUserIDStmt:                   q.getAdminRequestsByUserIDStmt,
+		getAllCartItemsStmt:                            q.getAllCartItemsStmt,
+		getAllExchangeRatesForCurrencyStmt:             q.getAllExchangeRatesForCurrencyStmt,
+		getAllPaymentsStmt:                             q.getAllPaymentsStmt,
+		getAllProductsByFiltersNameAscStmt:             q.getAllProductsByFiltersNameAscStmt,
+		getAllProductsByFiltersNameAsc_OptimizedStmt:   q.getAllProductsByFiltersNameAsc_OptimizedStmt,
+		getAllProductsByFiltersNameDescStmt:            q.getAllProductsByFiltersNameDescStmt,
+		getAllProductsByFiltersNameDesc_OptimizedStmt:  q.getAllProductsByFiltersNameDesc_OptimizedStmt,
+		getAllProductsByFiltersNewestStmt:              q.getAllProductsByFiltersNewestStmt,
+		getAllProductsByFiltersNewest_OptimizedStmt:    q.getAllProductsByFiltersNewest_OptimizedStmt,
+		getAllProductsByFiltersOldestStmt:              q.getAllProductsByFiltersOldestStmt,
+		getAllProductsByFiltersOldest_OptimizedStmt:    q.getAllProductsByFiltersOldest_OptimizedStmt,
+		getAllProductsByFiltersPriceAscStmt:            q.getAllProductsByFiltersPriceAscStmt,
+		getAllProductsByFiltersPriceAsc_OptimizedStmt:  q.getAllProductsByFiltersPriceAsc_OptimizedStmt,
+		getAllProductsByFiltersPriceDescStmt:           q.getAllProductsByFiltersPriceDescStmt,
+		getAllProductsByFiltersPriceDesc_OptimizedStmt: q.getAllProductsByFiltersPriceDesc_OptimizedStmt,
+		getAllRolesStmt:                                q.getAllRolesStmt,
+		getApprovalTokenStmt:                           q.getApprovalTokenStmt,
+		getBestSellerProductsStmt:                      q.getBestSellerProductsStmt,
+		getCartByGuestIDStmt:                           q.getCartByGuestIDStmt,
+		getCartByOwnerIDStmt:                           q.getCartByOwnerIDStmt,
+		getCartItemStmt:                                q.getCartItemStmt,
+		getCategoriesByParentIDStmt:                    q.getCategoriesByParentIDStmt,
+		getCategoriesWithProductsCountStmt:             q.getCategoriesWithProductsCountStmt,
+		getCategoriesWithSubcategoryCountStmt:          q.getCategoriesWithSubcategoryCountStmt,
+		getCategoryByIDStmt:                            q.getCategoryByIDStmt,
+		getCategoryByNameStmt:                          q.getCategoryByNameStmt,
+		getCategoryBySlugStmt:                          q.getCategoryBySlugStmt,
+		getCategoryDetailsBySlugStmt:                   q.getCategoryDetailsBySlugStmt,
+		getCategoryProductsByFiltersNameAscStmt:        q.getCategoryProductsByFiltersNameAscStmt,
+		getCategoryProductsByFiltersNameDescStmt:       q.getCategoryProductsByFiltersNameDescStmt,
+		getCategoryProductsByFiltersNewestStmt:         q.getCategoryProductsByFiltersNewestStmt,
+		getCategoryProductsByFiltersOldestStmt:         q.getCategoryProductsByFiltersOldestStmt,
+		getCategoryProductsByFiltersPriceAscStmt:       q.getCategoryProductsByFiltersPriceAscStmt,
+		getCategoryProductsByFiltersPriceDescStmt:      q.getCategoryProductsByFiltersPriceDescStmt,
+		getCategorySEOBySlugStmt:                       q.getCategorySEOBySlugStmt,
+		getCategoryTreeStmt:                            q.getCategoryTreeStmt,
+		getCompanyStmt:                                 q.getCompanyStmt,
+		getDailyDealsStmt:                              q.getDailyDealsStmt,
+		getDiscountByIDStmt:                            q.getDiscountByIDStmt,
+		getDiscountByProductIDStmt:                     q.getDiscountByProductIDStmt,
+		getFeaturedProductsStmt:                        q.getFeaturedProductsStmt,
+		getGuestCheckoutByEmailStmt:                    q.getGuestCheckoutByEmailStmt,
+		getImageKeysByProductIDStmt:                    q.getImageKeysByProductIDStmt,
+		getLatestExchangeRateStmt:                      q.getLatestExchangeRateStmt,
+		getMonthlyRevenueStmt:                          q.getMonthlyRevenueStmt,
+		getMonthlySalesStmt:                            q.getMonthlySalesStmt,
+		getMonthlySalesForLastTwoMonthsStmt:            q.getMonthlySalesForLastTwoMonthsStmt,
+		getNewArrivalProductsStmt:                      q.getNewArrivalProductsStmt,
+		getOrderByIdStmt:                               q.getOrderByIdStmt,
+		getOrderIDsByUserIDStmt:                        q.getOrderIDsByUserIDStmt,
+		getOrderItemsByOrderIdStmt:                     q.getOrderItemsByOrderIdStmt,
+		getOrdersByGuestCheckoutIdStmt:                 q.getOrdersByGuestCheckoutIdStmt,
+		getOrdersByUserIdStmt:                          q.getOrdersByUserIdStmt,
+		getParentCategoriesStmt:                        q.getParentCategoriesStmt,
+		getPasswordResetTokenStmt:                      q.getPasswordResetTokenStmt,
+		getPaymentByOrderIDStmt:                        q.getPaymentByOrderIDStmt,
+		getPaymentStatusIDByStatusStmt:                 q.getPaymentStatusIDByStatusStmt,
+		getPendingAdminRequestsStmt:                    q.getPendingAdminRequestsStmt,
+		getProductAttributesStmt:                       q.getProductAttributesStmt,
+		getProductAttributesByCategoryIDStmt:           q.getProductAttributesByCategoryIDStmt,
+		getProductAttributesByCategoryNameStmt:         q.getProductAttributesByCategoryNameStmt,
+		getProductAttributesWithValuesStmt:             q.getProductAttributesWithValuesStmt,
+		getProductByIDStmt:                             q.getProductByIDStmt,
+		getProductByIDsStmt:                            q.getProductByIDsStmt,
+		getProductBySlugStmt:                           q.getProductBySlugStmt,
+		getProductCartByProductSlugStmt:                q.getProductCartByProductSlugStmt,
+		getProductIDsByPromotionIDStmt:                 q.getProductIDsByPromotionIDStmt,
+		getProductIDsBySlugsStmt:                       q.getProductIDsBySlugsStmt,
+		getProductImageByIDStmt:                        q.getProductImageByIDStmt,
+		getProductOptionByIDStmt:                       q.getProductOptionByIDStmt,
+		getProductOptionValueByIDStmt:                  q.getProductOptionValueByIDStmt,
+		getProductPricingByProductIDStmt:               q.getProductPricingByProductIDStmt,
+		getProductSEOStmt:                              q.getProductSEOStmt,
+		getProductSlugByProductIDStmt:                  q.getProductSlugByProductIDStmt,
+		getProductSpecificationByIDStmt:                q.getProductSpecificationByIDStmt,
+		getProductSpecsByIDStmt:                        q.getProductSpecsByIDStmt,
+		getProductVariantByIDStmt:                      q.getProductVariantByIDStmt,
+		getProductsByCategoryIDStmt:                    q.getProductsByCategoryIDStmt,
+		getProductsByParentCategoryIDStmt:              q.getProductsByParentCategoryIDStmt,
+		getPromotionBySlugStmt:                         q.getPromotionBySlugStmt,
+		getPromotionDetailsStmt:                        q.getPromotionDetailsStmt,
+		getPromotionsStmt:                              q.getPromotionsStmt,
+		getRecentSalesStmt:                             q.getRecentSalesStmt,
+		getRelatedProductByProductIDStmt:               q.getRelatedProductByProductIDStmt,
+		getRoleByIDStmt:                                q.getRoleByIDStmt,
+		getRoleByNameStmt:                              q.getRoleByNameStmt,
+		getSalesTrendStmt:                              q.getSalesTrendStmt,
+		getSessionBySessionIDStmt:                      q.getSessionBySessionIDStmt,
+		getSessionByUserIDStmt:                         q.getSessionByUserIDStmt,
+		getShoppingCartByIDStmt:                        q.getShoppingCartByIDStmt,
+		getShoppingCartByUserIDStmt:                    q.getShoppingCartByUserIDStmt,
+		getStatusByIDStmt:                              q.getStatusByIDStmt,
+		getTotalCategoryProductsByFiltersStmt:          q.getTotalCategoryProductsByFiltersStmt,
+		getTotalRevenueByPaymentStatusStmt:             q.getTotalRevenueByPaymentStatusStmt,
+		getTotalRevenueForLastTwoMonthsStmt:            q.getTotalRevenueForLastTwoMonthsStmt,
+		getTotalSalesCurrentMonthStmt:                  q.getTotalSalesCurrentMonthStmt,
+		getUserByEmailStmt:                             q.getUserByEmailStmt,
+		getUserByIDStmt:                                q.getUserByIDStmt,
+		getUserByProviderStmt:                          q.getUserByProviderStmt,
+		getUserOrGuestCheckoutNameByOrderIDStmt:        q.getUserOrGuestCheckoutNameByOrderIDStmt,
+		getUserProfileByIDStmt:                         q.getUserProfileByIDStmt,
+		getUserRecommendationsStmt:                     q.getUserRecommendationsStmt,
+		getUserRolesStmt:                               q.getUserRolesStmt,
+		getUserRolesByUserIDStmt:                       q.getUserRolesByUserIDStmt,
+		getUsersByRoleStmt:                             q.getUsersByRoleStmt,
+		getV2CategoryHierarchyStmt:                     q.getV2CategoryHierarchyStmt,
+		getV2ProductDetailBySlugStmt:                   q.getV2ProductDetailBySlugStmt,
+		getV2ProductsStmt:                              q.getV2ProductsStmt,
+		getV2PromotionsStmt:                            q.getV2PromotionsStmt,
+		getVATPercentageStmt:                           q.getVATPercentageStmt,
+		getVerificationTokenByEmailStmt:                q.getVerificationTokenByEmailStmt,
+		getVerificationTokenByTokenStmt:                q.getVerificationTokenByTokenStmt,
+		hardDeleteCategoryStmt:                         q.hardDeleteCategoryStmt,
+		insertExchangeRateStmt:                         q.insertExchangeRateStmt,
+		isAdminStmt:                                    q.isAdminStmt,
+		linkSessionToUserStmt:                          q.linkSessionToUserStmt,
+		listCategoriesStmt:                             q.listCategoriesStmt,
+		listDiscountsStmt:                              q.listDiscountsStmt,
+		listDiscountsByProductIDStmt:                   q.listDiscountsByProductIDStmt,
+		listProductImagesByProductIDStmt:               q.listProductImagesByProductIDStmt,
+		listProductOptionValuesByOptionIDStmt:          q.listProductOptionValuesByOptionIDStmt,
+		listProductOptionsByProductIDStmt:              q.listProductOptionsByProductIDStmt,
+		listProductSpecificationsByProductIDStmt:       q.listProductSpecificationsByProductIDStmt,
+		listProductVariantsByProductIDStmt:             q.listProductVariantsByProductIDStmt,
+		listProductsStmt:                               q.listProductsStmt,
+		listRelatedProductsByProductIDStmt:             q.listRelatedProductsByProductIDStmt,
+		listUsersStmt:                                  q.listUsersStmt,
+		makeAdminStmt:                                  q.makeAdminStmt,
+		rejectAdminRequestStmt:                         q.rejectAdminRequestStmt,
+		removeAllRolesFromUserStmt:                     q.removeAllRolesFromUserStmt,
+		removeCartItemStmt:                             q.removeCartItemStmt,
+		removeProductsFromPromotionStmt:                q.removeProductsFromPromotionStmt,
+		removeRoleFromUserStmt:                         q.removeRoleFromUserStmt,
+		searchProductsStmt:                             q.searchProductsStmt,
+		softDeleteCategoryStmt:                         q.softDeleteCategoryStmt,
+		softDeleteProductStmt:                          q.softDeleteProductStmt,
+		storeApprovalTokenStmt:                         q.storeApprovalTokenStmt,
+		storePasswordResetTokenStmt:                    q.storePasswordResetTokenStmt,
+		storeRefreshTokenStmt:                          q.storeRefreshTokenStmt,
+		updateCartGuestIDStmt:                          q.updateCartGuestIDStmt,
+		updateCartItemQuantityStmt:                     q.updateCartItemQuantityStmt,
+		updateCartTotalsStmt:                           q.updateCartTotalsStmt,
+		updateCartUserIDStmt:                           q.updateCartUserIDStmt,
+		updateCategoryStmt:                             q.updateCategoryStmt,
+		updateCategoryImageStmt:                        q.updateCategoryImageStmt,
+		updateCheckoutRequestIDByOrderIDStmt:           q.updateCheckoutRequestIDByOrderIDStmt,
+		updateDiscountStmt:                             q.updateDiscountStmt,
+		updateExchangeRateStmt:                         q.updateExchangeRateStmt,
+		updateOrderAmountsStmt:                         q.updateOrderAmountsStmt,
+		updateOrderPaymentStatusStmt:                   q.updateOrderPaymentStatusStmt,
+		updateOrderStatusStmt:                          q.updateOrderStatusStmt,
+		updatePaymentStatusStmt:                        q.updatePaymentStatusStmt,
+		updateProductStmt:                              q.updateProductStmt,
+		updateProductImageStmt:                         q.updateProductImageStmt,
+		updateProductImagesStmt:                        q.updateProductImagesStmt,
+		updateProductOptionStmt:                        q.updateProductOptionStmt,
+		updateProductOptionValueStmt:                   q.updateProductOptionValueStmt,
+		updateProductSEOStmt:                           q.updateProductSEOStmt,
+		updateProductSpecificationStmt:                 q.updateProductSpecificationStmt,
+		updateProductVariantStmt:                       q.updateProductVariantStmt,
+		updatePromotionStmt:                            q.updatePromotionStmt,
+		updatePromotionImageStmt:                       q.updatePromotionImageStmt,
+		updateRoleStmt:                                 q.updateRoleStmt,
+		updateSessionStmt:                              q.updateSessionStmt,
+		updateSessionLastActivityStmt:                  q.updateSessionLastActivityStmt,
+		updateUserStmt:                                 q.updateUserStmt,
+		updateUserCompanyStmt:                          q.updateUserCompanyStmt,
+		updateUserEmailVerifiedStmt:                    q.updateUserEmailVerifiedStmt,
+		updateUserInfoStmt:                             q.updateUserInfoStmt,
+		updateUserLastLoginStmt:                        q.updateUserLastLoginStmt,
+		updateUserPasswordStmt:                         q.updateUserPasswordStmt,
+		updateUserProfileStmt:                          q.updateUserProfileStmt,
+		updateVATPercentageStmt:                        q.updateVATPercentageStmt,
+		upsertCartItemStmt:                             q.upsertCartItemStmt,
+		upsertProductSpecificationStmt:                 q.upsertProductSpecificationStmt,
+		v2SearchProductsStmt:                           q.v2SearchProductsStmt,
+		v2SearchProductsCountStmt:                      q.v2SearchProductsCountStmt,
+		v2SearchProductsPaginatedStmt:                  q.v2SearchProductsPaginatedStmt,
 	}
 }
