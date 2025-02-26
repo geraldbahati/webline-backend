@@ -78,15 +78,6 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     ports:
       - "8080:8080"
-    volumes:
-      - ./backup.sh:/app/backup.sh:ro
-      - ./backups:/app/backups
-      - ./sql/schema:/app/sql/schema:ro
-      - ./wait-for-it.sh:/app/wait-for-it.sh:ro
-      - ./entrypoint.sh:/app/entrypoint.sh:ro
-      - ./crontab-appuser:/etc/crontabs/appuser:ro
-      - ./.env:/app/.env:ro  # Mount the .env file
-    entrypoint: ["/app/entrypoint.sh"] # Use entrypoint.sh
     depends_on:
       db:
         condition: service_healthy
