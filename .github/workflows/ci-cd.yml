@@ -168,6 +168,8 @@ jobs:
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Deploy directly using SSH
+        id: deploy_ssh_key
+        continue-on-error: true
         run: |
           export DROPLET_IP="209.97.128.72"
 
@@ -189,6 +191,34 @@ jobs:
             cd /root/app && \
             sudo docker-compose pull && \
             sudo docker-compose up -d" || { echo "Deployment failed"; exit 1; }
+
+          echo "Deployment completed successfully."
+
+      - name: Deploy using password authentication
+        if: ${{ steps.deploy_ssh_key.outcome == 'failure' }}
+        env:
+          SSH_PASSWORD: ${{ secrets.DO_SSH_PASSWORD }}
+        run: |
+          export DROPLET_IP="209.97.128.72"
+
+          # Install sshpass for password authentication
+          sudo apt-get update && sudo apt-get install -y sshpass
+
+          echo "Creating remote directories..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "sudo mkdir -p /root/app"
+
+          echo "Copying docker-compose.yml..."
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no docker-compose.yml gerald-bahati@$DROPLET_IP:/tmp/
+
+          echo "Copying .env file..."
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no .env gerald-bahati@$DROPLET_IP:/tmp/
+
+          echo "Moving files and deploying..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "sudo cp /tmp/docker-compose.yml /root/app/ && \
+            sudo cp /tmp/.env /root/app/ && \
+            cd /root/app && \
+            sudo docker-compose pull && \
+            sudo docker-compose up -d"
 
           echo "Deployment completed successfully."
 
