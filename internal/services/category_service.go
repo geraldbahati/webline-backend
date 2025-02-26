@@ -182,11 +182,11 @@ func (s *CategoryService) handleCategoryImage(ctx context.Context, image *model.
 		return "", s.logAndReturnError("failed to handle category image", err)
 	}
 
-	if existingImageUrl != "" {
-		if err := utils.DeleteFileFromS3(ctx, s.s3Client, s.config.AWSBucketName, existingImageUrl); err != nil {
-			return "", err
-		}
-	}
+	// if existingImageUrl != "" {
+	// 	if err := utils.DeleteFileFromS3(ctx, s.s3Client, s.config.AWSBucketName, existingImageUrl); err != nil {
+	// 		return "", err
+	// 	}
+	// }
 
 	return filePath, nil
 }
