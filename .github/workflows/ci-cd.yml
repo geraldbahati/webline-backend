@@ -186,7 +186,17 @@ jobs:
           scp -o BatchMode=yes .env gerald-bahati@$DROPLET_IP:~/app/ || { echo "Failed to copy .env file"; exit 1; }
 
           echo "Deploying..."
-          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker compose pull && sudo docker compose up -d" || { echo "Deployment failed"; exit 1; }
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker compose pull && sudo docker compose up -d" || {
+            echo "Deployment failed. Checking container logs..."
+            ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && echo 'PostgreSQL Logs:' && sudo docker logs backend_postgres"
+            exit 1;
+          }
+
+          echo "Checking container status..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker ps -a"
+
+          echo "Checking PostgreSQL logs..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker logs backend_postgres"
 
           echo "Deployment completed successfully."
 
@@ -217,7 +227,27 @@ jobs:
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
             cd ~/app &&
             sudo docker compose pull &&
-            sudo docker compose up -d &&
+            sudo docker compose up -d" || {
+              echo "Deployment failed. Checking container logs..."
+              sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+                cd ~/app &&
+                echo 'PostgreSQL Logs:' &&
+                sudo docker logs backend_postgres"
+              exit 1;
+            }
+
+          echo "Checking container status..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+            cd ~/app &&
+            sudo docker ps -a"
+
+          echo "Checking PostgreSQL logs..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+            cd ~/app &&
+            sudo docker logs backend_postgres"
+
+          echo "Removing temporary sudo privileges..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
             sudo rm -f /etc/sudoers.d/gerald-temp"
 
           echo "Deployment completed successfully."
