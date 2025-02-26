@@ -40,26 +40,26 @@ WITH rate AS (
         135
     ) AS rate_to_kes
 )
-SELECT 
-    p.id, 
-    p.name, 
-    p.description, 
-    p.usd_price, 
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    p.usd_price,
     (p.usd_price * r.rate_to_kes)::numeric AS price_in_kes,
-    p.stock, 
-    p.category_id, 
-    p.created_at, 
-    p.updated_at, 
-    p.status, 
-    p.created_by, 
-    p.updated_by, 
-    p.featured, 
-    p.search_keyword, 
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.status,
+    p.created_by,
+    p.updated_by,
+    p.featured,
+    p.search_keyword,
     p.slug
-FROM 
+FROM
     products p,
     rate r
-WHERE 
+WHERE
     p.id = $1;
 
 -- name: GetProductByIDs :many
@@ -288,7 +288,12 @@ FROM products p
          LEFT JOIN discounts d ON d.product_id = p.id AND d.start_date <= NOW() AND d.end_date >= NOW()
          LEFT JOIN categories c ON p.category_id = c.id
          LEFT JOIN categories pc ON c.parent_id = pc.id
-ORDER BY p.created_at DESC;
+ORDER BY p.created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountV2Products :one
+SELECT COUNT(*) AS count
+FROM products;
 
 -- name: GetV2ProductDetailBySlug :one
 WITH rate AS (

@@ -100,6 +100,18 @@ func (q *Queries) CountProductsByParentCategoryID(ctx context.Context, id uuid.U
 	return count, err
 }
 
+const countV2Products = `-- name: CountV2Products :one
+SELECT COUNT(*) AS count
+FROM products
+`
+
+func (q *Queries) CountV2Products(ctx context.Context) (int64, error) {
+	row := q.queryRow(ctx, q.countV2ProductsStmt, countV2Products)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createProduct = `-- name: CreateProduct :one
 WITH rate AS (
     SELECT COALESCE(
@@ -253,26 +265,26 @@ WITH rate AS (
         135
     ) AS rate_to_kes
 )
-SELECT 
-    p.id, 
-    p.name, 
-    p.description, 
-    p.usd_price, 
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    p.usd_price,
     (p.usd_price * r.rate_to_kes)::numeric AS price_in_kes,
-    p.stock, 
-    p.category_id, 
-    p.created_at, 
-    p.updated_at, 
-    p.status, 
-    p.created_by, 
-    p.updated_by, 
-    p.featured, 
-    p.search_keyword, 
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.status,
+    p.created_by,
+    p.updated_by,
+    p.featured,
+    p.search_keyword,
     p.slug
-FROM 
+FROM
     products p,
     rate r
-WHERE 
+WHERE
     p.id = $1
 `
 
@@ -965,7 +977,13 @@ FROM products p
          LEFT JOIN categories c ON p.category_id = c.id
          LEFT JOIN categories pc ON c.parent_id = pc.id
 ORDER BY p.created_at DESC
+LIMIT $1 OFFSET $2
 `
+
+type GetV2ProductsParams struct {
+	Limit  int32
+	Offset int32
+}
 
 type GetV2ProductsRow struct {
 	Name         string
@@ -981,8 +999,8 @@ type GetV2ProductsRow struct {
 	Categoryname sql.NullString
 }
 
-func (q *Queries) GetV2Products(ctx context.Context) ([]GetV2ProductsRow, error) {
-	rows, err := q.query(ctx, q.getV2ProductsStmt, getV2Products)
+func (q *Queries) GetV2Products(ctx context.Context, arg GetV2ProductsParams) ([]GetV2ProductsRow, error) {
+	rows, err := q.query(ctx, q.getV2ProductsStmt, getV2Products, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/handlers"
 	"weblineBackend/internal/middleware"
@@ -111,7 +113,14 @@ func SetupRouter(cfg appconfig.Config, logger *zap.Logger, handlers *handlers.Ha
 
 // healthCheckHandler handles the health check endpoint.
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	response := map[string]interface{}{
+		"status": "ok",
+		"time":   time.Now().Format(time.RFC3339),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 // registerUserRoutes registers user-related routes.

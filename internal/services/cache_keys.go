@@ -191,3 +191,8 @@ func SearchProductsKey(searchTerm string, page int, limit int) string {
 func AutocompleteSuggestionsKey(searchTerm string, limit int) string {
 	return GenerateCacheKey(NamespaceSearch, "autocomplete", searchTerm, strconv.Itoa(limit))
 }
+
+// ProductAllPaginatedKey generates a Redis key for paginated products.
+func ProductAllPaginatedKey(page int32, pageSize int32) string {
+	return GenerateCacheKey(NamespaceProduct, SubNamespaceAll, "page", strconv.Itoa(int(page)), "size", strconv.Itoa(int(pageSize)))
+}

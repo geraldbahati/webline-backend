@@ -108,15 +108,19 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 
 	var orderAmounts model.OrderAmounts
 	var orderID uuid.UUID
+	var orderNumber string
+	var orderDate time.Time
 	var notificationItems []utils.OrderItem
 
 	err := s.orderRepository.ExecTx(ctx, func(q *database.Queries) error {
-		// Create the order record and log the order ID.
+		// Create the order record and capture additional order details
 		order, err := s.createOrderRecord(ctx, q, orderParams)
 		if err != nil {
 			return fmt.Errorf("createOrderRecord failed: %w", err)
 		}
 		orderID = order.ID
+		orderNumber = order.OrderNumber
+		orderDate = order.CreatedAt
 		s.logger.Info("Order record created", zap.String("orderID", order.ID.String()))
 
 		// Process the order items
@@ -157,6 +161,11 @@ func (s *OrderService) CreateOrder(ctx context.Context, orderParams *model.Creat
 		s.logger.Error("failed to create order", zap.Error(err))
 		return nil, err
 	}
+
+	// Update orderParams with the order details returned inside the transaction so
+	// that SendOrderNotification will have a valid OrderDate and OrderNumber.
+	orderParams.OrderNumber = orderNumber
+	orderParams.OrderDate = orderDate
 
 	// Update the order parameters with the calculated amounts
 	updateOrderParams(orderParams, &orderAmounts)

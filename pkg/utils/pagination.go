@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"errors"
 	"weblineBackend/internal/appconfig"
 	"weblineBackend/internal/model"
 )
@@ -19,14 +18,12 @@ func Paginate[T any](
 		page = cfg.DefaultPage
 	}
 
+	// Use default for pageSize if less than 1
 	if pageSize < 1 {
 		pageSize = cfg.DefaultPageSize
 	}
 
-	if pageSize < 1 {
-		return nil, errors.New("page size must be greater than zero")
-	}
-
+	// Adjust offset so that page 1 returns offset 0
 	offset := (page - 1) * pageSize
 	data, err := fetchData(offset, pageSize)
 	if err != nil {
