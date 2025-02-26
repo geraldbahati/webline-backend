@@ -158,7 +158,7 @@ jobs:
             name     = "webline-backend"
             region   = "nyc3"
             size     = "s-1vcpu-2gb"
-            ssh_keys = [var.ssh_key_id] # Using the numeric ID, not fingerprint
+            ssh_keys = "45677797"
 
             connection {
               host        = self.ipv4_address
