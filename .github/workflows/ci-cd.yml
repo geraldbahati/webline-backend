@@ -205,7 +205,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y sshpass
 
           echo "Creating remote directories..."
-          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "sudo mkdir -p /root/app"
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "echo '$SSH_PASSWORD' | sudo -S mkdir -p /root/app"
 
           echo "Copying docker-compose.yml..."
           sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no docker-compose.yml gerald-bahati@$DROPLET_IP:/tmp/
@@ -214,11 +214,11 @@ jobs:
           sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no .env gerald-bahati@$DROPLET_IP:/tmp/
 
           echo "Moving files and deploying..."
-          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "sudo cp /tmp/docker-compose.yml /root/app/ && \
-            sudo cp /tmp/.env /root/app/ && \
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "echo '$SSH_PASSWORD' | sudo -S cp /tmp/docker-compose.yml /root/app/ && \
+            echo '$SSH_PASSWORD' | sudo -S cp /tmp/.env /root/app/ && \
             cd /root/app && \
-            sudo docker-compose pull && \
-            sudo docker-compose up -d"
+            echo '$SSH_PASSWORD' | sudo -S docker-compose pull && \
+            echo '$SSH_PASSWORD' | sudo -S docker-compose up -d"
 
           echo "Deployment completed successfully."
 

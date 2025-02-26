@@ -180,6 +180,41 @@ Before you can use the CI/CD pipeline, you need to set up the following:
    - Set up all required GitHub secrets if GitHub CLI is installed
    - Provide instructions for manual setup if GitHub CLI is not available
 
+### SSH Authentication Setup
+
+For the CI/CD pipeline to work correctly, you need to set up SSH authentication:
+
+#### Option 1: Key-based Authentication (Recommended)
+
+To set up SSH key-based authentication:
+
+1. Make sure your SSH private key is added as a GitHub secret named `DO_SSH_PRIVATE_KEY`
+2. Run one of the helper scripts to add your public key to the server:
+
+   ```bash
+   # If you have the private key file locally:
+   ./scripts/add-ssh-key-to-server.sh ~/.ssh/id_rsa gerald-bahati 209.97.128.72
+
+   # Or if you want to use the key from GitHub secrets (requires GitHub CLI):
+   ./scripts/add-github-ssh-key-to-server.sh gerald-bahati 209.97.128.72
+   ```
+
+#### Option 2: Password Authentication (Fallback)
+
+If key-based authentication fails, the CI/CD pipeline will fall back to password authentication:
+
+1. Add your server password as a GitHub secret named `DO_SSH_PASSWORD`
+2. The password will be used with sudo commands during deployment
+
+### Troubleshooting
+
+If you encounter SSH authentication issues:
+
+1. Check that your SSH key is correctly formatted
+2. Verify the public key is in `~/.ssh/authorized_keys` on the server
+3. Ensure the permissions are correct: `chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`
+4. Test the connection manually: `ssh -i /path/to/private_key gerald-bahati@209.97.128.72`
+
 ### How It Works
 
 Our CI/CD pipeline follows these steps:

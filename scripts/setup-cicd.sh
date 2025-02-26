@@ -342,3 +342,20 @@ echo -e "${BLUE}Next steps:${NC}"
 echo -e "1. Push your code to GitHub to trigger the CI/CD pipeline."
 echo -e "2. Monitor the GitHub Actions workflow to ensure successful deployment."
 echo -e "3. Check your Digital Ocean dashboard for the updated droplet."
+
+echo "Checking if we need to add the public key to the server..."
+if [ -n "$DO_SSH_PRIVATE_KEY" ]; then
+  # Extract public key from private key
+  TMPKEY=$(mktemp)
+  echo "$DO_SSH_PRIVATE_KEY" > $TMPKEY
+  chmod 600 $TMPKEY
+  SSH_PUBLIC_KEY=$(ssh-keygen -y -f $TMPKEY)
+  rm $TMPKEY
+
+  echo ""
+  echo "IMPORTANT: To enable key-based authentication, add this public key to your server's authorized_keys file:"
+  echo "$SSH_PUBLIC_KEY"
+  echo ""
+  echo "Run this command on your server:"
+  echo "mkdir -p ~/.ssh && echo \"$SSH_PUBLIC_KEY\" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+fi
