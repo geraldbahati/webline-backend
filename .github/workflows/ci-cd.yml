@@ -131,9 +131,15 @@ jobs:
 
       - name: Create SSH Key File
         run: |
+          mkdir -p /home/runner/.ssh
           echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > /home/runner/.ssh/id_rsa
           chmod 600 /home/runner/.ssh/id_rsa
           ls -la /home/runner/.ssh/
+          # Verify the key is not empty
+          if [ ! -s /home/runner/.ssh/id_rsa ]; then
+            echo "ERROR: SSH key file is empty!"
+            exit 1
+          fi
 
       - name: Create Terraform Files
         run: |
@@ -164,7 +170,7 @@ jobs:
               host        = self.ipv4_address
               user        = "gerald-bahati"
               type        = "ssh"
-              private_key = var.ssh_private_key_content
+              private_key = file("/home/runner/.ssh/id_rsa")
               timeout     = "2m"
             }
 
@@ -214,12 +220,6 @@ jobs:
             type        = string
           }
 
-          variable "ssh_private_key_content" {
-            description = "SSH private key content"
-            type        = string
-            sensitive   = true
-          }
-
           variable "docker_hub_username" {
             description = "Docker Hub username"
             type        = string
@@ -251,7 +251,6 @@ jobs:
           terraform plan \
             -var "do_token=${{ secrets.DO_TOKEN }}" \
             -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
-            -var "ssh_private_key_content=${{ secrets.DO_SSH_PRIVATE_KEY }}" \
             -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
             -var "image_tag=${{ steps.vars.outputs.sha_short }}"
 
@@ -261,7 +260,6 @@ jobs:
           terraform apply -auto-approve \
             -var "do_token=${{ secrets.DO_TOKEN }}" \
             -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
-            -var "ssh_private_key_content=${{ secrets.DO_SSH_PRIVATE_KEY }}" \
             -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
             -var "image_tag=${{ steps.vars.outputs.sha_short }}"
 
