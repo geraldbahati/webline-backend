@@ -123,158 +123,83 @@ jobs:
           IMAGE_TAG=${{ github.sha }}
           EOF
 
-      - name: Create Terraform Directory
-        run: mkdir -p terraform
-
       - name: Create SSH Key Directory
         run: mkdir -p /home/runner/.ssh
 
       - name: Create SSH Key File
         run: |
           mkdir -p /home/runner/.ssh
-          echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > /home/runner/.ssh/id_rsa
+
+          # Ensure the key is properly formatted with correct begin/end markers
+          cat > /home/runner/.ssh/id_rsa << EOF
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          -----END OPENSSH PRIVATE KEY-----
+          EOF
+
           chmod 600 /home/runner/.ssh/id_rsa
-          ls -la /home/runner/.ssh/
-          # Verify the key is not empty
-          if [ ! -s /home/runner/.ssh/id_rsa ]; then
-            echo "ERROR: SSH key file is empty!"
+
+          # Verify key format and convert if needed
+          echo "Checking SSH key format..."
+          if ! ssh-keygen -l -f /home/runner/.ssh/id_rsa &> /dev/null; then
+            echo "Key appears to be in wrong format, trying to fix..."
+            # Create a backup
+            cp /home/runner/.ssh/id_rsa /home/runner/.ssh/id_rsa.bak
+
+            # Try to detect format and convert
+            if grep -q "BEGIN RSA PRIVATE KEY" /home/runner/.ssh/id_rsa; then
+              echo "Converting from PEM to OpenSSH format..."
+              ssh-keygen -p -N "" -m pem -f /home/runner/.ssh/id_rsa
+            fi
+          fi
+
+          # Final check
+          if ! ssh-keygen -l -f /home/runner/.ssh/id_rsa; then
+            echo "ERROR: SSH key still invalid after attempted fixes"
             exit 1
           fi
-          # Print first line of key for debugging (without leaking full key)
-          head -n 1 /home/runner/.ssh/id_rsa
-          echo "Key file size in bytes: $(wc -c < /home/runner/.ssh/id_rsa)"
 
-      - name: Create Terraform Files
-        run: |
-          cat > terraform/main.tf << 'EOF'
-          terraform {
-            required_providers {
-              digitalocean = {
-                source = "digitalocean/digitalocean"
-                version = "~> 2.0"
-              }
-            }
-          }
-
-          provider "digitalocean" {
-            token = var.do_token
-          }
-
-          # Use the existing droplet instead of creating a new one
-          data "digitalocean_droplet" "existing" {
-            name = "webline-backend"
-          }
-
-          # No resource block since we're using existing droplet
-
-          # Configuration for the provisioning on the existing droplet
-          resource "null_resource" "app_provisioner" {
-            # Trigger provisioning when the image tag changes
-            triggers = {
-              image_tag = var.image_tag
-            }
-
-            # Use local-exec instead of remote-exec to avoid SSH issues
-            provisioner "local-exec" {
-              command = <<-EOT
-                # Create a temporary script
-                cat > /tmp/deploy.sh << 'SCRIPT'
-                #!/bin/bash
-                set -e
-                echo "Deploying to ${data.digitalocean_droplet.existing.ipv4_address}..."
-
-                # Create the remote directories
-                ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address} "sudo mkdir -p /root/app /root/app/env"
-
-                # Copy the files using scp
-                scp -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa docker-compose.yml gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address}:/tmp/
-                scp -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa .env gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address}:/tmp/
-
-                # Move files and run docker commands
-                ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa gerald-bahati@${data.digitalocean_droplet.existing.ipv4_address} "sudo cp /tmp/docker-compose.yml /root/app/ && sudo cp /tmp/.env /root/app/ && cd /root/app && sudo docker-compose pull && sudo docker-compose up -d"
-                SCRIPT
-
-                # Make the script executable and run it
-                chmod +x /tmp/deploy.sh
-                /tmp/deploy.sh
-              EOT
-            }
-          }
-
-          output "app_url" {
-            value = data.digitalocean_droplet.existing.ipv4_address
-          }
-          EOF
-
-          cat > terraform/variables.tf << 'EOF'
-          variable "do_token" {
-            description = "DigitalOcean API token"
-            type        = string
-            sensitive   = true
-          }
-
-          variable "ssh_key_id" {
-            description = "SSH key ID in Digital Ocean (numeric)"
-            type        = string
-          }
-
-          variable "docker_hub_username" {
-            description = "Docker Hub username"
-            type        = string
-          }
-
-          variable "image_tag" {
-            description = "Docker image tag to deploy"
-            type        = string
-            default     = "latest"
-          }
-          EOF
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: "1.5.0"
-
-      - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
+          # Testing SSH connection directly
+          echo "Testing SSH connection..."
+          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 -v gerald-bahati@209.97.128.72 "echo SSH connection successful" || echo "SSH connection failed, but continuing workflow"
 
       - name: Get short SHA
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Terraform Plan
-        working-directory: terraform
+      - name: Deploy directly using SSH
         run: |
-          terraform plan \
-            -var "do_token=${{ secrets.DO_TOKEN }}" \
-            -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
-            -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
-            -var "image_tag=${{ steps.vars.outputs.sha_short }}"
+          export DROPLET_IP="209.97.128.72"
 
-      - name: Terraform Apply
-        working-directory: terraform
-        run: |
-          terraform apply -auto-approve \
-            -var "do_token=${{ secrets.DO_TOKEN }}" \
-            -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
-            -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
-            -var "image_tag=${{ steps.vars.outputs.sha_short }}"
+          # Add IP to known hosts to avoid warnings
+          ssh-keyscan -H $DROPLET_IP >> /home/runner/.ssh/known_hosts
 
-      - name: Get Deployment IP
-        id: get_ip
-        working-directory: terraform
-        run: |
-          IP=$(terraform output -raw app_url)
-          echo "deployment_ip=$IP" >> $GITHUB_OUTPUT
+          echo "Creating remote directories..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "sudo mkdir -p /root/app" || { echo "Failed to create app directory"; exit 1; }
+
+          echo "Copying docker-compose.yml..."
+          scp -o BatchMode=yes docker-compose.yml gerald-bahati@$DROPLET_IP:/tmp/ || { echo "Failed to copy docker-compose.yml"; exit 1; }
+
+          echo "Copying .env file..."
+          scp -o BatchMode=yes .env gerald-bahati@$DROPLET_IP:/tmp/ || { echo "Failed to copy .env file"; exit 1; }
+
+          echo "Moving files and deploying..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "sudo cp /tmp/docker-compose.yml /root/app/ && \
+            sudo cp /tmp/.env /root/app/ && \
+            cd /root/app && \
+            sudo docker-compose pull && \
+            sudo docker-compose up -d" || { echo "Deployment failed"; exit 1; }
+
+          echo "Deployment completed successfully."
 
       - name: Wait for Health Check
         run: |
+          export DROPLET_IP="209.97.128.72"
           echo "Waiting for the deployment to stabilize..."
           sleep 60
           MAX_RETRIES=10
           COUNTER=0
-          until $(curl --output /dev/null --silent --fail http://${{ steps.get_ip.outputs.deployment_ip }}:8080/health); do
+          until $(curl --output /dev/null --silent --fail http://$DROPLET_IP:8080/health); do
             if [ ${COUNTER} -eq ${MAX_RETRIES} ]; then
               echo "Max retries reached. Health check failed."
               exit 1
