@@ -157,17 +157,22 @@ jobs:
             token = var.do_token
           }
 
-          # Use the existing droplet
-          resource "digitalocean_droplet" "app" {
-            count    = 1
-            image    = "docker-20-04"
-            name     = "webline-backend"
-            region   = "nyc3"
-            size     = "s-1vcpu-2gb"
-            ssh_keys = [var.ssh_key_id]
+          # Use the existing droplet instead of creating a new one
+          data "digitalocean_droplet" "existing" {
+            name = "webline-backend"
+          }
+
+          # No resource block since we're using existing droplet
+
+          # Configuration for the provisioning on the existing droplet
+          resource "null_resource" "app_provisioner" {
+            # Trigger provisioning when the image tag changes
+            triggers = {
+              image_tag = var.image_tag
+            }
 
             connection {
-              host        = self.ipv4_address
+              host        = data.digitalocean_droplet.existing.ipv4_address
               user        = "gerald-bahati"
               type        = "ssh"
               private_key = file("/home/runner/.ssh/id_rsa")
@@ -176,7 +181,7 @@ jobs:
 
             provisioner "remote-exec" {
               inline = [
-                "export PATH=\$PATH:/usr/bin",
+                "export PATH=\\$PATH:/usr/bin",
                 "sudo mkdir -p /root/app",
                 "sudo mkdir -p /root/app/env"
               ]
@@ -204,7 +209,7 @@ jobs:
           }
 
           output "app_url" {
-            value = digitalocean_droplet.app[0].ipv4_address
+            value = data.digitalocean_droplet.existing.ipv4_address
           }
           EOF
 
