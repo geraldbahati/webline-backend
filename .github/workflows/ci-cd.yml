@@ -137,7 +137,7 @@ jobs:
 
       - name: Create Terraform Files
         run: |
-          cat > terraform/main.tf << 'EOF'
+          cat > terraform/main.tf << EOF
           terraform {
             required_providers {
               digitalocean = {
@@ -162,35 +162,37 @@ jobs:
 
             connection {
               host        = self.ipv4_address
-              user        = "root"
+              user        = "gerald-bahati"
               type        = "ssh"
-              private_key = file(var.pvt_key)
+              private_key = var.ssh_private_key_content
               timeout     = "2m"
             }
 
             provisioner "remote-exec" {
               inline = [
-                "export PATH=$PATH:/usr/bin",
-                "mkdir -p /root/app",
-                "mkdir -p /root/app/env"
+                "export PATH=\$PATH:/usr/bin",
+                "sudo mkdir -p /root/app",
+                "sudo mkdir -p /root/app/env"
               ]
             }
 
             provisioner "file" {
               source      = "docker-compose.yml"
-              destination = "/root/app/docker-compose.yml"
+              destination = "/tmp/docker-compose.yml"
             }
 
             provisioner "file" {
               source      = ".env"
-              destination = "/root/app/.env"
+              destination = "/tmp/.env"
             }
 
             provisioner "remote-exec" {
               inline = [
+                "sudo cp /tmp/docker-compose.yml /root/app/docker-compose.yml",
+                "sudo cp /tmp/.env /root/app/.env",
                 "cd /root/app",
-                "docker-compose pull",
-                "docker-compose up -d"
+                "sudo docker-compose pull",
+                "sudo docker-compose up -d"
               ]
             }
           }
@@ -200,7 +202,7 @@ jobs:
           }
           EOF
 
-          cat > terraform/variables.tf << 'EOF'
+          cat > terraform/variables.tf << EOF
           variable "do_token" {
             description = "DigitalOcean API token"
             type        = string
@@ -212,10 +214,10 @@ jobs:
             type        = string
           }
 
-          variable "pvt_key" {
-            description = "Path to private key file"
+          variable "ssh_private_key_content" {
+            description = "SSH private key content"
             type        = string
-            default     = "/home/runner/.ssh/id_rsa"
+            sensitive   = true
           }
 
           variable "docker_hub_username" {
@@ -249,6 +251,7 @@ jobs:
           terraform plan \
             -var "do_token=${{ secrets.DO_TOKEN }}" \
             -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
+            -var "ssh_private_key_content=${{ secrets.DO_SSH_PRIVATE_KEY }}" \
             -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
             -var "image_tag=${{ steps.vars.outputs.sha_short }}"
 
@@ -258,6 +261,7 @@ jobs:
           terraform apply -auto-approve \
             -var "do_token=${{ secrets.DO_TOKEN }}" \
             -var "ssh_key_id=${{ secrets.DO_SSH_KEY_ID }}" \
+            -var "ssh_private_key_content=${{ secrets.DO_SSH_PRIVATE_KEY }}" \
             -var "docker_hub_username=${{ secrets.DOCKER_HUB_USERNAME }}" \
             -var "image_tag=${{ steps.vars.outputs.sha_short }}"
 
