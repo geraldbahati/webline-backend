@@ -143,7 +143,7 @@ jobs:
 
       - name: Create Terraform Files
         run: |
-          cat > terraform/main.tf << EOF
+          cat > terraform/main.tf << 'EOF'
           terraform {
             required_providers {
               digitalocean = {
@@ -181,7 +181,6 @@ jobs:
 
             provisioner "remote-exec" {
               inline = [
-                "export PATH=\\$PATH:/usr/bin",
                 "sudo mkdir -p /root/app",
                 "sudo mkdir -p /root/app/env"
               ]
@@ -213,7 +212,7 @@ jobs:
           }
           EOF
 
-          cat > terraform/variables.tf << EOF
+          cat > terraform/variables.tf << 'EOF'
           variable "do_token" {
             description = "DigitalOcean API token"
             type        = string
