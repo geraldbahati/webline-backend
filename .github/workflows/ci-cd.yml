@@ -126,6 +126,15 @@ jobs:
       - name: Create Terraform Directory
         run: mkdir -p terraform
 
+      - name: Create SSH Key Directory
+        run: mkdir -p /home/runner/.ssh
+
+      - name: Create SSH Key File
+        run: |
+          echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > /home/runner/.ssh/id_rsa
+          chmod 600 /home/runner/.ssh/id_rsa
+          ls -la /home/runner/.ssh/
+
       - name: Create Terraform Files
         run: |
           cat > terraform/main.tf << 'EOF'
@@ -206,7 +215,7 @@ jobs:
           variable "pvt_key" {
             description = "Path to private key file"
             type        = string
-            default     = "~/.ssh/id_rsa"
+            default     = "/home/runner/.ssh/id_rsa"
           }
 
           variable "docker_hub_username" {
@@ -225,12 +234,6 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: "1.5.0"
-
-      - name: Create SSH Key File
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
 
       - name: Terraform Init
         working-directory: terraform
