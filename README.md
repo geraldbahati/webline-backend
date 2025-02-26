@@ -103,7 +103,7 @@ The Webline Backend project is licensed under the MIT License. See the LICENSE f
 
 ## CI/CD Setup
 
-This project uses GitHub Actions for Continuous Integration and Continuous Deployment (CI/CD) to automatically build, test, and deploy the application to Digital Ocean using a blue-green deployment strategy.
+This project uses GitHub Actions for Continuous Integration and Continuous Deployment (CI/CD) to automatically build, test, and deploy the application to Digital Ocean.
 
 ### Prerequisites
 
@@ -121,7 +121,7 @@ Before you can use the CI/CD pipeline, you need to set up the following:
 
    - **Digital Ocean Access:**
      - `DO_TOKEN`: Digital Ocean API token with write access
-     - `DO_SSH_FINGERPRINT`: SSH key fingerprint for accessing Digital Ocean droplets
+     - `DO_SSH_KEY_ID`: The numeric ID of your SSH key in Digital Ocean (not the fingerprint)
      - `DO_SSH_PRIVATE_KEY`: Private SSH key for accessing Digital Ocean droplets
 
    - **Database Configuration:**
@@ -182,19 +182,33 @@ Before you can use the CI/CD pipeline, you need to set up the following:
 
 ### How It Works
 
-Our CI/CD pipeline implements blue-green deployment for zero-downtime deployments:
+Our CI/CD pipeline follows these steps:
 
 1. **Build Stage**:
    - Builds the Docker image for the application
    - Tags the image with both `latest` and the short Git commit SHA
    - Pushes the image to Docker Hub
 
-2. **Terraform Infrastructure Setup**:
+2. **Deployment Stage**:
    - Creates or updates infrastructure on Digital Ocean using Terraform
-   - Provisions a new droplet for deployment (blue or green, opposite of current active)
-   - Deploys the application to the new droplet
-   - Performs health checks to ensure the new deployment is working correctly
-   - Switches traffic to the new deployment if health checks pass
+   - Provisions and configures the `webline-backend` droplet
+   - Copies the Docker Compose file and environment variables to the droplet
+   - Pulls the latest image and starts the containers
+   - Performs health checks to ensure the deployment is working correctly
+
+### Finding Your SSH Key ID in Digital Ocean
+
+To get your SSH key ID from Digital Ocean:
+
+1. Log in to your Digital Ocean dashboard
+2. Go to Settings → Security → SSH Keys
+3. Find your SSH key in the list
+4. The SSH key ID is the numeric identifier associated with your key
+
+Alternatively, you can use the Digital Ocean CLI:
+```bash
+doctl compute ssh-key list
+```
 
 ### Customizing the Deployment
 
@@ -228,6 +242,6 @@ If you encounter issues with the deployment:
 
 - **Docker Image Not Found**: If you're getting an error like `manifest for username/webline-backend:latest not found` when running locally, use the local development script: `./scripts/local-build.sh`. This script will build the image locally instead of pulling from Docker Hub.
 
-- **SSH Key Issues**: Ensure your SSH key is correctly added to Digital Ocean and the fingerprint matches the one in your GitHub secrets.
+- **SSH Key Issues**: Make sure you're using the numeric SSH key ID from Digital Ocean, not the fingerprint. You can find this ID in the Digital Ocean dashboard or by running `doctl compute ssh-key list`.
 
 - **Environment Variables**: Make sure all required environment variables are set in your GitHub secrets for production deployment, and in your local `.env` file for development.

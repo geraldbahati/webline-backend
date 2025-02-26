@@ -34,6 +34,22 @@ echo ""
 # Digital Ocean Configuration
 echo -e "${BLUE}Setting up Digital Ocean configuration...${NC}"
 read -p "Digital Ocean API Token: " do_token
+
+# Check for SSH keys in Digital Ocean
+if command -v doctl >/dev/null 2>&1; then
+    echo -e "${BLUE}Checking for SSH keys in Digital Ocean...${NC}"
+    # Configure doctl with token
+    doctl auth init -t "$do_token"
+
+    # List SSH keys
+    echo -e "${YELLOW}Available SSH keys in Digital Ocean:${NC}"
+    doctl compute ssh-key list
+
+    read -p "Enter your SSH key ID (numeric ID from the list above): " ssh_key_id
+else
+    read -p "Enter your SSH key ID (numeric ID from Digital Ocean): " ssh_key_id
+fi
+
 read -p "Path to SSH Private Key for Digital Ocean (default: ~/.ssh/id_rsa): " ssh_key_path
 ssh_key_path=${ssh_key_path:-~/.ssh/id_rsa}
 
@@ -42,7 +58,6 @@ if [ ! -f "$ssh_key_path" ]; then
     exit 1
 fi
 
-ssh_key_fingerprint=$(ssh-keygen -l -E md5 -f "$ssh_key_path" | awk '{print $2}' | cut -d':' -f2-)
 ssh_private_key=$(cat "$ssh_key_path")
 
 echo -e "${GREEN}Digital Ocean configuration saved.${NC}"
@@ -184,8 +199,8 @@ if command -v gh >/dev/null 2>&1; then
     echo -e "${BLUE}Setting DO_TOKEN secret...${NC}"
     gh secret set DO_TOKEN -b"$do_token"
 
-    echo -e "${BLUE}Setting DO_SSH_FINGERPRINT secret...${NC}"
-    gh secret set DO_SSH_FINGERPRINT -b"$ssh_key_fingerprint"
+    echo -e "${BLUE}Setting DO_SSH_KEY_ID secret...${NC}"
+    gh secret set DO_SSH_KEY_ID -b"$ssh_key_id"
 
     echo -e "${BLUE}Setting DO_SSH_PRIVATE_KEY secret...${NC}"
     gh secret set DO_SSH_PRIVATE_KEY -b"$ssh_private_key"
@@ -289,7 +304,7 @@ else
     echo -e "${BLUE}DOCKER_HUB_USERNAME${NC}"
     echo -e "${BLUE}DOCKER_HUB_PASSWORD${NC}"
     echo -e "${BLUE}DO_TOKEN${NC}"
-    echo -e "${BLUE}DO_SSH_FINGERPRINT${NC}"
+    echo -e "${BLUE}DO_SSH_KEY_ID${NC}"
     echo -e "${BLUE}DO_SSH_PRIVATE_KEY${NC}"
     echo -e "${BLUE}DB_USER${NC}"
     echo -e "${BLUE}DB_PASSWORD${NC}"
@@ -326,4 +341,4 @@ echo -e "${GREEN}CI/CD setup completed successfully!${NC}"
 echo -e "${BLUE}Next steps:${NC}"
 echo -e "1. Push your code to GitHub to trigger the CI/CD pipeline."
 echo -e "2. Monitor the GitHub Actions workflow to ensure successful deployment."
-echo -e "3. Check your Digital Ocean dashboard for new droplets created by the pipeline."
+echo -e "3. Check your Digital Ocean dashboard for the updated droplet."
