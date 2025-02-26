@@ -1,12 +1,13 @@
 services:
   db:
     image: postgres:16
-    container_name: backend_postgres
+    container_name: webline_postgres
     command: ["postgres", "-c", "statement_timeout=60000"]
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5433:5432"  # Consider removing or restricting in production
     volumes:
@@ -15,15 +16,16 @@ services:
       - webline-backend-network
       - webline-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready", "-d", "${DB_NAME}", "-U", "${DB_USER}", "-h", "localhost", "-p", "5432"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   redis:
     image: redis:7.0-alpine
-    container_name: backend_redis
+    container_name: webline_redis
     ports:
       - "6379:6379"  # Remove in production to restrict access
     volumes:
@@ -43,7 +45,7 @@ services:
 
   backend:
     image: ${DOCKER_HUB_USERNAME}/webline-backend:latest
-    container_name: backend
+    container_name: webline_backend
     env_file:
       - .env
     environment:
@@ -83,13 +85,15 @@ services:
       - ./wait-for-it.sh:/app/wait-for-it.sh:ro
       - ./entrypoint.sh:/app/entrypoint.sh:ro
       - ./crontab-appuser:/etc/crontabs/appuser:ro
-      - ./backend.env:/app/.env:ro  # Mount the .env file
+      - ./.env:/app/.env:ro  # Mount the .env file
     entrypoint: ["/app/entrypoint.sh"] # Use entrypoint.sh
     depends_on:
       db:
         condition: service_healthy
+        restart: true
       redis:
         condition: service_healthy
+        restart: true
     networks:
       - webline-backend-network
       - webline-network
@@ -113,4 +117,6 @@ volumes:
 
 networks:
   webline-backend-network:
+    driver: bridge
   webline-network:
+    driver: bridge
