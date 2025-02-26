@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
 
   backend:
-    build: .
+    image: ${DOCKER_HUB_USERNAME}/webline-backend:latest
     container_name: backend
     env_file:
       - .env
