@@ -177,20 +177,16 @@ jobs:
           ssh-keyscan -H $DROPLET_IP >> /home/runner/.ssh/known_hosts
 
           echo "Creating remote directories..."
-          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "sudo mkdir -p /root/app" || { echo "Failed to create app directory"; exit 1; }
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "mkdir -p ~/app" || { echo "Failed to create app directory"; exit 1; }
 
           echo "Copying docker-compose.yml..."
-          scp -o BatchMode=yes docker-compose.yml gerald-bahati@$DROPLET_IP:/tmp/ || { echo "Failed to copy docker-compose.yml"; exit 1; }
+          scp -o BatchMode=yes docker-compose.yml gerald-bahati@$DROPLET_IP:~/app/ || { echo "Failed to copy docker-compose.yml"; exit 1; }
 
           echo "Copying .env file..."
-          scp -o BatchMode=yes .env gerald-bahati@$DROPLET_IP:/tmp/ || { echo "Failed to copy .env file"; exit 1; }
+          scp -o BatchMode=yes .env gerald-bahati@$DROPLET_IP:~/app/ || { echo "Failed to copy .env file"; exit 1; }
 
-          echo "Moving files and deploying..."
-          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "sudo cp /tmp/docker-compose.yml /root/app/ && \
-            sudo cp /tmp/.env /root/app/ && \
-            cd /root/app && \
-            sudo docker-compose pull && \
-            sudo docker-compose up -d" || { echo "Deployment failed"; exit 1; }
+          echo "Deploying..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker-compose pull && sudo docker-compose up -d" || { echo "Deployment failed"; exit 1; }
 
           echo "Deployment completed successfully."
 
@@ -208,18 +204,18 @@ jobs:
           # First connect and set up sudo with NOPASSWD for this session only
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "echo '$SSH_PASSWORD' | sudo -S bash -c 'echo \"gerald-bahati ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/gerald-temp && chmod 440 /etc/sudoers.d/gerald-temp'"
 
+          echo "Creating app directory..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "mkdir -p ~/app"
+
           echo "Copying docker-compose.yml..."
-          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no docker-compose.yml gerald-bahati@$DROPLET_IP:/tmp/
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no docker-compose.yml gerald-bahati@$DROPLET_IP:~/app/
 
           echo "Copying .env file..."
-          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no .env gerald-bahati@$DROPLET_IP:/tmp/
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no .env gerald-bahati@$DROPLET_IP:~/app/
 
-          echo "Moving files and deploying..."
+          echo "Deploying..."
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
-            sudo mkdir -p /root/app &&
-            sudo cp /tmp/docker-compose.yml /root/app/ &&
-            sudo cp /tmp/.env /root/app/ &&
-            cd /root/app &&
+            cd ~/app &&
             sudo docker-compose pull &&
             sudo docker-compose up -d &&
             sudo rm -f /etc/sudoers.d/gerald-temp"
