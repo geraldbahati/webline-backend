@@ -1,14 +1,24 @@
 -- name: GetAllProductsByFiltersPriceAsc :many
-WITH RECURSIVE category_ids AS (
-    SELECT id
-    FROM categories
-    WHERE ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
-       OR name = ANY (SELECT jsonb_object_keys($3::jsonb))
-    UNION ALL
-    -- Recursively add descendants.
+WITH category_ids AS (
+    -- Use materialized path pattern instead of recursive CTE
     SELECT c.id
     FROM categories c
-    JOIN category_ids ci ON c.parent_id = ci.id
+    WHERE
+        -- Find categories that match the filter names directly
+        ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
+        OR c.name = ANY (
+            COALESCE(ARRAY(SELECT jsonb_object_keys($3::jsonb)), ARRAY[]::text[])
+        )
+    UNION
+    -- Find all descendant categories using ltree path
+    SELECT c.id
+    FROM categories root
+    JOIN categories c ON c.path <@ root.path
+    WHERE
+        ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
+        OR root.name = ANY (
+            COALESCE(ARRAY(SELECT jsonb_object_keys($3::jsonb)), ARRAY[]::text[])
+        )
 ),
 rate AS (
     SELECT COALESCE(
@@ -58,11 +68,17 @@ filtered_products AS (
       AND p.valid_from <= NOW()
       AND (p.valid_to IS NULL OR p.valid_to >= NOW())
 ),
+has_attributes AS (
+    SELECT
+        EXISTS (SELECT 1 FROM product_attributes LIMIT 1) AS has_product_attributes,
+        ($3::jsonb IS NULL OR $3 = '{}'::jsonb) AS is_empty_filter
+),
 final_products AS (
     SELECT fp.*
-    FROM filtered_products fp
+    FROM filtered_products fp, has_attributes ha
     WHERE
-        ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
+        ha.is_empty_filter
+        OR NOT ha.has_product_attributes
         OR EXISTS (
             SELECT 1
             FROM jsonb_each_text($3::jsonb) AS filter(attr_name, attr_value)
@@ -72,7 +88,6 @@ final_products AS (
             WHERE pa.name = filter.attr_name
               AND pav.value = filter.attr_value
         )
-        OR NOT EXISTS (SELECT 1 FROM product_attributes)
 )
 SELECT
     fp.id,
@@ -538,15 +553,26 @@ LIMIT $4 OFFSET $5;
 
 
 -- name: CountAllProductsByFilters :one
-WITH RECURSIVE category_ids AS (
-    SELECT id
-    FROM categories
-    WHERE ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
-       OR name = ANY (SELECT jsonb_object_keys($3::jsonb))
-    UNION ALL
+WITH category_ids AS (
+    -- Use materialized path pattern instead of recursive CTE
     SELECT c.id
     FROM categories c
-    JOIN category_ids ci ON c.parent_id = ci.id
+    WHERE
+        -- Find categories that match the filter names directly
+        ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
+        OR c.name = ANY (
+            COALESCE(ARRAY(SELECT jsonb_object_keys($3::jsonb)), ARRAY[]::text[])
+        )
+    UNION
+    -- Find all descendant categories using ltree path
+    SELECT c.id
+    FROM categories root
+    JOIN categories c ON c.path <@ root.path
+    WHERE
+        ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
+        OR root.name = ANY (
+            COALESCE(ARRAY(SELECT jsonb_object_keys($3::jsonb)), ARRAY[]::text[])
+        )
 ),
 rate AS (
     SELECT COALESCE(
@@ -562,21 +588,29 @@ rate AS (
         135
     ) AS rate_to_kes
 ),
+-- Filter to only active products in the price range
 filtered_products AS (
     SELECT p.id
-    FROM products p
-    CROSS JOIN rate
+    FROM products p, rate
     WHERE p.category_id IN (SELECT id FROM category_ids)
       AND (p.usd_price * rate.rate_to_kes)::numeric BETWEEN $1 AND $2
       AND p.status = 'active'
       AND p.valid_from <= NOW()
       AND (p.valid_to IS NULL OR p.valid_to >= NOW())
 ),
-final_products AS (
-    SELECT DISTINCT fp.id
-    FROM filtered_products fp
+-- Optimize attribute filtering - avoid expensive checks when not needed
+has_attributes AS (
+    SELECT
+        EXISTS (SELECT 1 FROM product_attributes LIMIT 1) AS has_product_attributes,
+        ($3::jsonb IS NULL OR $3 = '{}'::jsonb) AS is_empty_filter
+),
+-- Do attribute filtering when needed
+final_filtered AS (
+    SELECT fp.id
+    FROM filtered_products fp, has_attributes ha
     WHERE
-        ($3::jsonb IS NULL OR $3 = '{}'::jsonb)
+        ha.is_empty_filter
+        OR NOT ha.has_product_attributes
         OR EXISTS (
             SELECT 1
             FROM jsonb_each_text($3::jsonb) AS filter(attr_name, attr_value)
@@ -586,11 +620,9 @@ final_products AS (
             WHERE pa.name = filter.attr_name
               AND pav.value = filter.attr_value
         )
-        OR NOT EXISTS (SELECT 1 FROM product_attributes)
 )
-SELECT
-    COUNT(DISTINCT fp.id) AS total_products
-FROM final_products fp;
+SELECT COUNT(*) AS total_products
+FROM final_filtered;
 
 
 

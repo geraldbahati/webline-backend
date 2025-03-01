@@ -32,6 +32,9 @@ type Querier interface {
 	CheckCategoryExistence(ctx context.Context, id uuid.UUID) (bool, error)
 	// Remove all items from the cart
 	ClearCart(ctx context.Context, shoppingCartID uuid.UUID) error
+	// Filter to only active products in the price range
+	// Optimize attribute filtering - avoid expensive checks when not needed
+	// Do attribute filtering when needed
 	CountAllProductsByFilters(ctx context.Context, arg CountAllProductsByFiltersParams) (int64, error)
 	CountAllProductsByFilters_Optimized(ctx context.Context, arg CountAllProductsByFilters_OptimizedParams) (int64, error)
 	CountAllUsers(ctx context.Context) (int64, error)
