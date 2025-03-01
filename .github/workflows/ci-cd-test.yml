@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline (Test Version)
 
 on:
   push:
@@ -26,14 +26,24 @@ jobs:
           fetch-depth: 0  # Fetch all history for better versioning
 
       - name: Set up QEMU
+        if: github.event_name != 'local-test'
         uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
+        if: github.event_name != 'local-test'
         uses: docker/setup-buildx-action@v2
         with:
           install: true
 
+      # Local test mock steps
+      - name: Mock QEMU and Buildx setup (for local testing)
+        if: github.event_name == 'local-test'
+        run: |
+          echo "Mocking QEMU and Docker Buildx setup for local testing"
+          echo "These steps would set up cross-platform building capabilities in the real workflow"
+
       - name: Login to Docker Hub
+        if: github.event_name != 'local-test'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -48,22 +58,32 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
+      # For local testing, mock the build step
+      - name: Mock Docker build (for local testing)
+        if: github.event_name == 'local-test'
+        run: |
+          echo "Mocking Docker build and push step for local testing"
+          echo "Would build image: ${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend"
+          echo "With tags: ${{ steps.meta.outputs.tags }}"
+          echo "For platforms: linux/amd64,linux/arm64"
+
       - name: Build and Push Docker Image
+        if: github.event_name != 'local-test'
         uses: docker/build-push-action@v4
         with:
           context: .
-          push: true
-          platforms: linux/amd64
+          push: ${{ github.event_name != 'local-test' }}
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend:buildcache,mode=max
+          cache-to: ${{ github.event_name != 'local-test' && 'type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend:buildcache,mode=max' || '' }}
           build-args: |
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
             VERSION=${{ github.sha }}
 
   deploy:
-    name: Deploy to Server
+    name: Deploy to Server (Test)
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -138,18 +158,32 @@ jobs:
           IMAGE_TAG=${{ github.sha }}
           EOF
 
+      # For local testing, we'll use a mock SSH setup
+      - name: Mock SSH deployment (for local testing)
+        if: github.event_name == 'local-test'
+        run: |
+          echo "Simulating SSH deployment for local testing..."
+          mkdir -p ~/app_mock_deploy
+          cp docker-compose.yml ~/app_mock_deploy/
+          cp .env ~/app_mock_deploy/
+          echo "Mock deployment completed successfully."
+
+      # For actual deployment, use the real SSH setup
       - name: Set up SSH key
+        if: github.event_name != 'local-test'
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
 
       - name: Add host key to known hosts
+        if: github.event_name != 'local-test'
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H 209.97.128.72 >> ~/.ssh/known_hosts
 
       - name: Deploy via SSH
         id: deploy
+        if: github.event_name != 'local-test'
         run: |
           export DROPLET_IP="209.97.128.72"
           export SSH_USER="gerald-bahati"
@@ -195,7 +229,14 @@ jobs:
 
           echo "Deployment completed successfully."
 
+      - name: Mock Health Check (for local testing)
+        if: github.event_name == 'local-test'
+        run: |
+          echo "Simulating health check for local testing..."
+          echo "Health check passed! Application is up and running."
+
       - name: Wait for Health Check
+        if: github.event_name != 'local-test'
         run: |
           export DROPLET_IP="209.97.128.72"
           echo "Waiting for the deployment to stabilize..."

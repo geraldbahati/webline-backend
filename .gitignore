@@ -27,11 +27,3 @@ go.work
 
 .idea
 internal/.DS_Store
-
-.env
-
-
-# test workflow files
-.github/workflows/ci-cd-test.yml
-.github/workflows/local-test.yml
-.github/act-files
