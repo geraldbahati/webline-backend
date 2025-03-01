@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache --update \
@@ -24,11 +24,17 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 # Copy the source code to the Working Directory
 COPY . .
 
-# Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
+# Build the Go app with platform-specific settings
+ARG TARGETPLATFORM
+RUN case "${TARGETPLATFORM}" in \
+      "linux/amd64") GOARCH=amd64 ;; \
+      "linux/arm64") GOARCH=arm64 ;; \
+      *) GOARCH=amd64 ;; \
+    esac && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH} go build -a -installsuffix cgo -o main ./cmd
 
 # Stage 2: Run the binary
-FROM alpine:latest
+FROM --platform=$TARGETPLATFORM alpine:latest
 
 # Install necessary runtime dependencies, including redis-cli and dcron
 RUN apk add --no-cache --update \

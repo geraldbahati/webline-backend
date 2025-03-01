@@ -63,19 +63,37 @@ EOF
   echo ""
 fi
 
-# Modify docker-compose.yml to use local build for backend
-echo -e "${BLUE}Building and starting containers...${NC}"
-sed -i.bak 's|image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}|build: .|g' docker-compose.yml || {
-  # If sed fails (macOS compatibility)
-  sed -i '' 's|image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}|build: .|g' docker-compose.yml || {
-    echo -e "${YELLOW}Could not automatically modify docker-compose.yml. Please manually change:${NC}"
-    echo -e "${YELLOW}  image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}${NC}"
-    echo -e "${YELLOW}to:${NC}"
-    echo -e "${YELLOW}  build: .${NC}"
-    echo ""
-    read -p "Press Enter to continue after making the change or Ctrl+C to abort..."
+# Detect system architecture
+ARCH=$(uname -m)
+if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+  echo -e "${YELLOW}Detected ARM64 architecture (Apple Silicon).${NC}"
+  # Ensure our docker-compose uses build with platform specification
+  sed -i.bak -e 's|image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}|build:\n      context: .\n      dockerfile: Dockerfile|g' docker-compose.yml 2>/dev/null || {
+    # If sed fails (macOS compatibility)
+    sed -i '' -e 's|image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}|build:\n      context: .\n      dockerfile: Dockerfile|g' docker-compose.yml 2>/dev/null || {
+      echo -e "${YELLOW}Could not automatically modify docker-compose.yml. Please manually update:${NC}"
+      echo -e "${YELLOW}  image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}${NC}"
+      echo -e "${YELLOW}to:${NC}"
+      echo -e "${YELLOW}  build:\n    context: .\n    dockerfile: Dockerfile${NC}"
+      echo ""
+      read -p "Press Enter to continue after making the change or Ctrl+C to abort..."
+    }
   }
-}
+else
+  # For x86/amd64, we can still use the same build approach for consistency
+  echo -e "${YELLOW}Detected x86/AMD64 architecture.${NC}"
+  sed -i.bak -e 's|image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}|build:\n      context: .\n      dockerfile: Dockerfile|g' docker-compose.yml 2>/dev/null || {
+    # If sed fails (macOS compatibility)
+    sed -i '' -e 's|image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}|build:\n      context: .\n      dockerfile: Dockerfile|g' docker-compose.yml 2>/dev/null || {
+      echo -e "${YELLOW}Could not automatically modify docker-compose.yml. Please manually update:${NC}"
+      echo -e "${YELLOW}  image: \${DOCKER_HUB_USERNAME}/webline-backend:\${IMAGE_TAG:-latest}${NC}"
+      echo -e "${YELLOW}to:${NC}"
+      echo -e "${YELLOW}  build:\n    context: .\n    dockerfile: Dockerfile${NC}"
+      echo ""
+      read -p "Press Enter to continue after making the change or Ctrl+C to abort..."
+    }
+  }
+fi
 
 # Build and start containers
 echo -e "${BLUE}Starting the application...${NC}"

@@ -54,6 +54,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.autocompleteSuggestionsStmt, err = db.PrepareContext(ctx, autocompleteSuggestions); err != nil {
 		return nil, fmt.Errorf("error preparing query AutocompleteSuggestions: %w", err)
 	}
+	if q.bulkUpdateCategoryPositionsStmt, err = db.PrepareContext(ctx, bulkUpdateCategoryPositions); err != nil {
+		return nil, fmt.Errorf("error preparing query BulkUpdateCategoryPositions: %w", err)
+	}
 	if q.calculateCartTotalStmt, err = db.PrepareContext(ctx, calculateCartTotal); err != nil {
 		return nil, fmt.Errorf("error preparing query CalculateCartTotal: %w", err)
 	}
@@ -267,6 +270,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAllCartItemsStmt, err = db.PrepareContext(ctx, getAllCartItems); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllCartItems: %w", err)
 	}
+	if q.getAllChildrenCategoriesStmt, err = db.PrepareContext(ctx, getAllChildrenCategories); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllChildrenCategories: %w", err)
+	}
+	if q.getAllChildrenCategoriesWithProductCountStmt, err = db.PrepareContext(ctx, getAllChildrenCategoriesWithProductCount); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllChildrenCategoriesWithProductCount: %w", err)
+	}
 	if q.getAllExchangeRatesForCurrencyStmt, err = db.PrepareContext(ctx, getAllExchangeRatesForCurrency); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllExchangeRatesForCurrency: %w", err)
 	}
@@ -336,6 +345,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCategoriesWithSubcategoryCountStmt, err = db.PrepareContext(ctx, getCategoriesWithSubcategoryCount); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoriesWithSubcategoryCount: %w", err)
 	}
+	if q.getCategoryAncestorsStmt, err = db.PrepareContext(ctx, getCategoryAncestors); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryAncestors: %w", err)
+	}
 	if q.getCategoryByIDStmt, err = db.PrepareContext(ctx, getCategoryByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoryByID: %w", err)
 	}
@@ -369,14 +381,23 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCategorySEOBySlugStmt, err = db.PrepareContext(ctx, getCategorySEOBySlug); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategorySEOBySlug: %w", err)
 	}
+	if q.getCategoryStatsStmt, err = db.PrepareContext(ctx, getCategoryStats); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCategoryStats: %w", err)
+	}
 	if q.getCategoryTreeStmt, err = db.PrepareContext(ctx, getCategoryTree); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCategoryTree: %w", err)
+	}
+	if q.getChildrenCategoriesByDepthStmt, err = db.PrepareContext(ctx, getChildrenCategoriesByDepth); err != nil {
+		return nil, fmt.Errorf("error preparing query GetChildrenCategoriesByDepth: %w", err)
 	}
 	if q.getCompanyStmt, err = db.PrepareContext(ctx, getCompany); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCompany: %w", err)
 	}
 	if q.getDailyDealsStmt, err = db.PrepareContext(ctx, getDailyDeals); err != nil {
 		return nil, fmt.Errorf("error preparing query GetDailyDeals: %w", err)
+	}
+	if q.getDirectChildrenCategoriesStmt, err = db.PrepareContext(ctx, getDirectChildrenCategories); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDirectChildrenCategories: %w", err)
 	}
 	if q.getDiscountByIDStmt, err = db.PrepareContext(ctx, getDiscountByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetDiscountByID: %w", err)
@@ -437,6 +458,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getPendingAdminRequestsStmt, err = db.PrepareContext(ctx, getPendingAdminRequests); err != nil {
 		return nil, fmt.Errorf("error preparing query GetPendingAdminRequests: %w", err)
+	}
+	if q.getPopularCategoriesStmt, err = db.PrepareContext(ctx, getPopularCategories); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPopularCategories: %w", err)
 	}
 	if q.getProductAttributesStmt, err = db.PrepareContext(ctx, getProductAttributes); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductAttributes: %w", err)
@@ -663,6 +687,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.removeRoleFromUserStmt, err = db.PrepareContext(ctx, removeRoleFromUser); err != nil {
 		return nil, fmt.Errorf("error preparing query RemoveRoleFromUser: %w", err)
 	}
+	if q.searchCategoriesStmt, err = db.PrepareContext(ctx, searchCategories); err != nil {
+		return nil, fmt.Errorf("error preparing query SearchCategories: %w", err)
+	}
 	if q.searchProductsStmt, err = db.PrepareContext(ctx, searchProducts); err != nil {
 		return nil, fmt.Errorf("error preparing query SearchProducts: %w", err)
 	}
@@ -851,6 +878,11 @@ func (q *Queries) Close() error {
 	if q.autocompleteSuggestionsStmt != nil {
 		if cerr := q.autocompleteSuggestionsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing autocompleteSuggestionsStmt: %w", cerr)
+		}
+	}
+	if q.bulkUpdateCategoryPositionsStmt != nil {
+		if cerr := q.bulkUpdateCategoryPositionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing bulkUpdateCategoryPositionsStmt: %w", cerr)
 		}
 	}
 	if q.calculateCartTotalStmt != nil {
@@ -1208,6 +1240,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAllCartItemsStmt: %w", cerr)
 		}
 	}
+	if q.getAllChildrenCategoriesStmt != nil {
+		if cerr := q.getAllChildrenCategoriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllChildrenCategoriesStmt: %w", cerr)
+		}
+	}
+	if q.getAllChildrenCategoriesWithProductCountStmt != nil {
+		if cerr := q.getAllChildrenCategoriesWithProductCountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllChildrenCategoriesWithProductCountStmt: %w", cerr)
+		}
+	}
 	if q.getAllExchangeRatesForCurrencyStmt != nil {
 		if cerr := q.getAllExchangeRatesForCurrencyStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllExchangeRatesForCurrencyStmt: %w", cerr)
@@ -1323,6 +1365,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCategoriesWithSubcategoryCountStmt: %w", cerr)
 		}
 	}
+	if q.getCategoryAncestorsStmt != nil {
+		if cerr := q.getCategoryAncestorsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryAncestorsStmt: %w", cerr)
+		}
+	}
 	if q.getCategoryByIDStmt != nil {
 		if cerr := q.getCategoryByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCategoryByIDStmt: %w", cerr)
@@ -1378,9 +1425,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCategorySEOBySlugStmt: %w", cerr)
 		}
 	}
+	if q.getCategoryStatsStmt != nil {
+		if cerr := q.getCategoryStatsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCategoryStatsStmt: %w", cerr)
+		}
+	}
 	if q.getCategoryTreeStmt != nil {
 		if cerr := q.getCategoryTreeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCategoryTreeStmt: %w", cerr)
+		}
+	}
+	if q.getChildrenCategoriesByDepthStmt != nil {
+		if cerr := q.getChildrenCategoriesByDepthStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getChildrenCategoriesByDepthStmt: %w", cerr)
 		}
 	}
 	if q.getCompanyStmt != nil {
@@ -1391,6 +1448,11 @@ func (q *Queries) Close() error {
 	if q.getDailyDealsStmt != nil {
 		if cerr := q.getDailyDealsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getDailyDealsStmt: %w", cerr)
+		}
+	}
+	if q.getDirectChildrenCategoriesStmt != nil {
+		if cerr := q.getDirectChildrenCategoriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDirectChildrenCategoriesStmt: %w", cerr)
 		}
 	}
 	if q.getDiscountByIDStmt != nil {
@@ -1491,6 +1553,11 @@ func (q *Queries) Close() error {
 	if q.getPendingAdminRequestsStmt != nil {
 		if cerr := q.getPendingAdminRequestsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getPendingAdminRequestsStmt: %w", cerr)
+		}
+	}
+	if q.getPopularCategoriesStmt != nil {
+		if cerr := q.getPopularCategoriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPopularCategoriesStmt: %w", cerr)
 		}
 	}
 	if q.getProductAttributesStmt != nil {
@@ -1868,6 +1935,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing removeRoleFromUserStmt: %w", cerr)
 		}
 	}
+	if q.searchCategoriesStmt != nil {
+		if cerr := q.searchCategoriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing searchCategoriesStmt: %w", cerr)
+		}
+	}
 	if q.searchProductsStmt != nil {
 		if cerr := q.searchProductsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing searchProductsStmt: %w", cerr)
@@ -2142,6 +2214,7 @@ type Queries struct {
 	archivePromotionsStmt                          *sql.Stmt
 	assignRoleToUserStmt                           *sql.Stmt
 	autocompleteSuggestionsStmt                    *sql.Stmt
+	bulkUpdateCategoryPositionsStmt                *sql.Stmt
 	calculateCartTotalStmt                         *sql.Stmt
 	cancelOrderStmt                                *sql.Stmt
 	changeOrderPaymentMethodStmt                   *sql.Stmt
@@ -2213,6 +2286,8 @@ type Queries struct {
 	getAdminRequestByUserIDStmt                    *sql.Stmt
 	getAdminRequestsByUserIDStmt                   *sql.Stmt
 	getAllCartItemsStmt                            *sql.Stmt
+	getAllChildrenCategoriesStmt                   *sql.Stmt
+	getAllChildrenCategoriesWithProductCountStmt   *sql.Stmt
 	getAllExchangeRatesForCurrencyStmt             *sql.Stmt
 	getAllPaymentsStmt                             *sql.Stmt
 	getAllProductsByFiltersNameAscStmt             *sql.Stmt
@@ -2236,6 +2311,7 @@ type Queries struct {
 	getCategoriesByParentIDStmt                    *sql.Stmt
 	getCategoriesWithProductsCountStmt             *sql.Stmt
 	getCategoriesWithSubcategoryCountStmt          *sql.Stmt
+	getCategoryAncestorsStmt                       *sql.Stmt
 	getCategoryByIDStmt                            *sql.Stmt
 	getCategoryByNameStmt                          *sql.Stmt
 	getCategoryBySlugStmt                          *sql.Stmt
@@ -2247,9 +2323,12 @@ type Queries struct {
 	getCategoryProductsByFiltersPriceAscStmt       *sql.Stmt
 	getCategoryProductsByFiltersPriceDescStmt      *sql.Stmt
 	getCategorySEOBySlugStmt                       *sql.Stmt
+	getCategoryStatsStmt                           *sql.Stmt
 	getCategoryTreeStmt                            *sql.Stmt
+	getChildrenCategoriesByDepthStmt               *sql.Stmt
 	getCompanyStmt                                 *sql.Stmt
 	getDailyDealsStmt                              *sql.Stmt
+	getDirectChildrenCategoriesStmt                *sql.Stmt
 	getDiscountByIDStmt                            *sql.Stmt
 	getDiscountByProductIDStmt                     *sql.Stmt
 	getFeaturedProductsStmt                        *sql.Stmt
@@ -2270,6 +2349,7 @@ type Queries struct {
 	getPaymentByOrderIDStmt                        *sql.Stmt
 	getPaymentStatusIDByStatusStmt                 *sql.Stmt
 	getPendingAdminRequestsStmt                    *sql.Stmt
+	getPopularCategoriesStmt                       *sql.Stmt
 	getProductAttributesStmt                       *sql.Stmt
 	getProductAttributesByCategoryIDStmt           *sql.Stmt
 	getProductAttributesByCategoryNameStmt         *sql.Stmt
@@ -2345,6 +2425,7 @@ type Queries struct {
 	removeCartItemStmt                             *sql.Stmt
 	removeProductsFromPromotionStmt                *sql.Stmt
 	removeRoleFromUserStmt                         *sql.Stmt
+	searchCategoriesStmt                           *sql.Stmt
 	searchProductsStmt                             *sql.Stmt
 	softDeleteCategoryStmt                         *sql.Stmt
 	softDeleteProductStmt                          *sql.Stmt
@@ -2406,6 +2487,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		archivePromotionsStmt:                          q.archivePromotionsStmt,
 		assignRoleToUserStmt:                           q.assignRoleToUserStmt,
 		autocompleteSuggestionsStmt:                    q.autocompleteSuggestionsStmt,
+		bulkUpdateCategoryPositionsStmt:                q.bulkUpdateCategoryPositionsStmt,
 		calculateCartTotalStmt:                         q.calculateCartTotalStmt,
 		cancelOrderStmt:                                q.cancelOrderStmt,
 		changeOrderPaymentMethodStmt:                   q.changeOrderPaymentMethodStmt,
@@ -2477,6 +2559,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAdminRequestByUserIDStmt:                    q.getAdminRequestByUserIDStmt,
 		getAdminRequestsByUserIDStmt:                   q.getAdminRequestsByUserIDStmt,
 		getAllCartItemsStmt:                            q.getAllCartItemsStmt,
+		getAllChildrenCategoriesStmt:                   q.getAllChildrenCategoriesStmt,
+		getAllChildrenCategoriesWithProductCountStmt:   q.getAllChildrenCategoriesWithProductCountStmt,
 		getAllExchangeRatesForCurrencyStmt:             q.getAllExchangeRatesForCurrencyStmt,
 		getAllPaymentsStmt:                             q.getAllPaymentsStmt,
 		getAllProductsByFiltersNameAscStmt:             q.getAllProductsByFiltersNameAscStmt,
@@ -2500,6 +2584,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCategoriesByParentIDStmt:                    q.getCategoriesByParentIDStmt,
 		getCategoriesWithProductsCountStmt:             q.getCategoriesWithProductsCountStmt,
 		getCategoriesWithSubcategoryCountStmt:          q.getCategoriesWithSubcategoryCountStmt,
+		getCategoryAncestorsStmt:                       q.getCategoryAncestorsStmt,
 		getCategoryByIDStmt:                            q.getCategoryByIDStmt,
 		getCategoryByNameStmt:                          q.getCategoryByNameStmt,
 		getCategoryBySlugStmt:                          q.getCategoryBySlugStmt,
@@ -2511,9 +2596,12 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCategoryProductsByFiltersPriceAscStmt:       q.getCategoryProductsByFiltersPriceAscStmt,
 		getCategoryProductsByFiltersPriceDescStmt:      q.getCategoryProductsByFiltersPriceDescStmt,
 		getCategorySEOBySlugStmt:                       q.getCategorySEOBySlugStmt,
+		getCategoryStatsStmt:                           q.getCategoryStatsStmt,
 		getCategoryTreeStmt:                            q.getCategoryTreeStmt,
+		getChildrenCategoriesByDepthStmt:               q.getChildrenCategoriesByDepthStmt,
 		getCompanyStmt:                                 q.getCompanyStmt,
 		getDailyDealsStmt:                              q.getDailyDealsStmt,
+		getDirectChildrenCategoriesStmt:                q.getDirectChildrenCategoriesStmt,
 		getDiscountByIDStmt:                            q.getDiscountByIDStmt,
 		getDiscountByProductIDStmt:                     q.getDiscountByProductIDStmt,
 		getFeaturedProductsStmt:                        q.getFeaturedProductsStmt,
@@ -2534,6 +2622,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getPaymentByOrderIDStmt:                        q.getPaymentByOrderIDStmt,
 		getPaymentStatusIDByStatusStmt:                 q.getPaymentStatusIDByStatusStmt,
 		getPendingAdminRequestsStmt:                    q.getPendingAdminRequestsStmt,
+		getPopularCategoriesStmt:                       q.getPopularCategoriesStmt,
 		getProductAttributesStmt:                       q.getProductAttributesStmt,
 		getProductAttributesByCategoryIDStmt:           q.getProductAttributesByCategoryIDStmt,
 		getProductAttributesByCategoryNameStmt:         q.getProductAttributesByCategoryNameStmt,
@@ -2609,6 +2698,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		removeCartItemStmt:                             q.removeCartItemStmt,
 		removeProductsFromPromotionStmt:                q.removeProductsFromPromotionStmt,
 		removeRoleFromUserStmt:                         q.removeRoleFromUserStmt,
+		searchCategoriesStmt:                           q.searchCategoriesStmt,
 		searchProductsStmt:                             q.searchProductsStmt,
 		softDeleteCategoryStmt:                         q.softDeleteCategoryStmt,
 		softDeleteProductStmt:                          q.softDeleteProductStmt,

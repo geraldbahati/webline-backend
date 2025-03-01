@@ -108,11 +108,11 @@ func LoadConfig() (*Config, error) {
 	// Construct the database URL.
 	dbUrl := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		getEnv("POSTGRES_USER", "postgres"),
-		getEnv("POSTGRES_PASSWORD", "password"),
+		getEnv("DB_USER", "postgres"),
+		getEnv("DB_PASSWORD", "password"),
 		getEnv("DB_HOST", "localhost"),
 		getEnv("DB_PORT", "5432"),
-		getEnv("POSTGRES_DB", "webline"),
+		getEnv("DB_NAME", "webline_db"),
 	)
 
 	// Parse Server Port.
