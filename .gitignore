@@ -7,7 +7,6 @@
 *.dll
 *.so
 *.dylib
-*.sql
 
 # Environment file
 *.env
@@ -28,3 +27,5 @@ go.work
 
 .idea
 internal/.DS_Store
+
+.env
