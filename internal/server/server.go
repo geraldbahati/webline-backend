@@ -199,7 +199,7 @@ func initializeServices(repos *repository.Repositories, cfg appconfig.Config, lo
 func initializeHandlers(svc *services.Services, cfg appconfig.Config, logger *zap.Logger) *handlers.Handlers {
 	return &handlers.Handlers{
 		UserHandler:                 handlers.NewUserHandler(svc.UserService, svc.AdminRequestService, &cfg),
-		CategoryHandler:             handlers.NewCategoryHandler(svc.CategoryService),
+		CategoryHandler:             handlers.NewCategoryHandler(svc.CategoryService, logger),
 		ProductHandler:              handlers.NewProductHandler(svc.ProductService, svc.ProductSEOService, svc.FilterService, svc.ProductAttributeService),
 		ProductVariantHandler:       handlers.NewProductVariantHandler(svc.ProductService),
 		ProductImageHandler:         handlers.NewProductImageHandler(svc.ProductService),

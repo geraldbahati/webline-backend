@@ -85,7 +85,7 @@ func SetupRouter(cfg appconfig.Config, logger *zap.Logger, handlers *handlers.Ha
 
 	// Register routes
 	registerUserRoutes(r, handlers, logger)
-	registerCategoryRoutes(r, handlers)
+	registerCategoryRoutes(r, handlers, logger)
 	registerAdminCategoryRoutes(r, handlers, logger)
 	registerProductRoutes(r, handlers)
 	registerAdminProductRoutes(r, handlers, logger)
@@ -145,35 +145,80 @@ func registerUserRoutes(router *mux.Router, handlers *handlers.Handlers, logger 
 }
 
 // registerCategoryRoutes registers category-related routes.
-func registerCategoryRoutes(router *mux.Router, handlers *handlers.Handlers) {
+func registerCategoryRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+	// Create a subrouter for category endpoints
 	categoryRouter := router.PathPrefix("/api/categories").Subrouter()
-	NamedHandleFunc(categoryRouter, "/{id}/", handlers.CategoryHandler.GetCategoryByIDHandler, []string{http.MethodGet}, "GetCategoryByID")
+
+	// Register read-only public endpoints - fixed order with specific routes first
 	NamedHandleFunc(categoryRouter, "", handlers.CategoryHandler.GetCategoriesHandler, []string{http.MethodGet}, "GetCategories")
-	NamedHandleFunc(categoryRouter, "/{id}/", handlers.CategoryHandler.SoftDeleteCategoryHandler, []string{http.MethodDelete}, "SoftDeleteCategory")
-	NamedHandleFunc(categoryRouter, "/collections", handlers.CategoryHandler.GetCollectionCategoriesHandler, []string{http.MethodGet}, "GetCollectionCategories")
-	NamedHandleFunc(categoryRouter, "/name/{name}", handlers.CategoryHandler.GetCategoryByNameHandler, []string{http.MethodOptions, http.MethodGet}, "GetCategoryByName")
-	NamedHandleFunc(categoryRouter, "/parent/{parentId}", handlers.CategoryHandler.GetCategoriesByParentIDHandler, []string{http.MethodGet}, "GetCategoriesByParentID")
-	NamedHandleFunc(categoryRouter, "/products/count", handlers.CategoryHandler.GetCategoriesWithProductsCountHandler, []string{http.MethodGet}, "GetCategoriesWithProductsCount")
 	NamedHandleFunc(categoryRouter, "/tree", handlers.CategoryHandler.GetCategoryTreeHandler, []string{http.MethodGet}, "GetCategoryTree")
-	NamedHandleFunc(categoryRouter, "/hierarchy", handlers.CategoryHandler.GetV2CategoryHierarchyHandler, []string{http.MethodGet}, "GetV2CategoryHierarchy")
-	NamedHandleFunc(categoryRouter, "/parent", handlers.CategoryHandler.GetParentCategoriesHandler, []string{http.MethodGet}, "GetParentCategories")
-	NamedHandleFunc(categoryRouter, "/{id}/", handlers.CategoryHandler.CheckCategoryExistenceHandler, []string{http.MethodHead}, "CheckCategoryExistence")
+	NamedHandleFunc(categoryRouter, "/popular", handlers.CategoryHandler.GetPopularCategoriesHandler, []string{http.MethodGet}, "GetPopularCategories")
+	NamedHandleFunc(categoryRouter, "/products/count", handlers.CategoryHandler.GetCategoriesWithProductsCountHandler, []string{http.MethodGet}, "GetCategoriesWithProductsCount")
 	NamedHandleFunc(categoryRouter, "/subcategories/count", handlers.CategoryHandler.GetCategoriesWithSubcategoryCountHandler, []string{http.MethodGet}, "GetCategoriesWithSubcategoryCount")
-	NamedHandleFunc(categoryRouter, "/upload-image", handlers.CategoryHandler.UploadCategoryImageHandler, []string{http.MethodPost}, "UploadCategoryImage")
+	NamedHandleFunc(categoryRouter, "/parent", handlers.CategoryHandler.GetParentCategoriesHandler, []string{http.MethodGet}, "GetParentCategories")
+	NamedHandleFunc(categoryRouter, "/parents", handlers.CategoryHandler.GetParentCategoriesHandler, []string{http.MethodGet}, "GetParentCategoriesPlural")
+	NamedHandleFunc(categoryRouter, "/collections", handlers.CategoryHandler.GetCollectionCategoriesHandler, []string{http.MethodGet}, "GetCollectionCategories")
+	NamedHandleFunc(categoryRouter, "/v2/hierarchy", handlers.CategoryHandler.GetV2CategoryHierarchyHandler, []string{http.MethodGet}, "GetV2CategoryHierarchy")
+
+	// Slug-based routes
+	NamedHandleFunc(categoryRouter, "/slug/{slug}/details", handlers.CategoryHandler.GetCategoryDetailsHandler, []string{http.MethodGet}, "GetCategoryDetailsHandler")
+	NamedHandleFunc(categoryRouter, "/slug/{slug}/seo", handlers.CategoryHandler.GetCategorySEOHandler, []string{http.MethodGet}, "GetCategorySEOHandler")
+	NamedHandleFunc(categoryRouter, "/children/{slug}", handlers.CategoryHandler.GetDirectChildrenWithStatsHandler, []string{http.MethodGet}, "GetDirectChildrenWithStats")
+	NamedHandleFunc(categoryRouter, "/name/{name}", handlers.CategoryHandler.GetCategoryByNameHandler, []string{http.MethodGet}, "GetCategoryByName")
+	NamedHandleFunc(categoryRouter, "/parent/{parentId}", handlers.CategoryHandler.GetCategoriesByParentIDHandler, []string{http.MethodGet}, "GetCategoriesByParentID")
+
+	// Put wildcard ID routes last to avoid catching other routes
+	NamedHandleFunc(categoryRouter, "/{id}/check", handlers.CategoryHandler.CheckCategoryExistenceHandler, []string{http.MethodHead}, "CheckCategoryExistence")
+	NamedHandleFunc(categoryRouter, "/{id}", handlers.CategoryHandler.GetCategoryByIDHandler, []string{http.MethodGet}, "GetCategoryByID")
+
+	// Admin routes that require authentication
+	protectedRouter := router.PathPrefix("/api/admin/categories").Subrouter()
+
+	// Apply authentication middleware to all admin routes
+	protectedRouter.Use(middleware.Auth(logger))
+
+	// Configure rate limiting for admin routes
+	rateLimitMiddleware := middleware.RateLimitMiddleware(
+		5,             // rps: 5 requests per second
+		10,            // burst: 10 requests
+		5*time.Minute, // cleanupInterval: 5 minutes
+		logger,        // logger: your zap.Logger instance
+	)
+	protectedRouter.Use(rateLimitMiddleware)
+
+	// Admin routes
+	NamedHandleFunc(protectedRouter, "", handlers.CategoryHandler.CreateCategoryHandler, []string{http.MethodPost}, "CreateCategory")
+	NamedHandleFunc(protectedRouter, "/{id}", handlers.CategoryHandler.SoftDeleteCategoryHandler, []string{http.MethodDelete}, "SoftDeleteCategory")
+	NamedHandleFunc(protectedRouter, "/{id}/image", handlers.CategoryHandler.UploadCategoryImageHandler, []string{http.MethodPost}, "UploadCategoryImage")
+	NamedHandleFunc(protectedRouter, "/batch-positions", handlers.CategoryHandler.BatchUpdateCategoryPositionsHandler, []string{http.MethodPut}, "BatchUpdateCategoryPositions")
+	NamedHandleFunc(protectedRouter, "/{id}/hard", handlers.CategoryHandler.DeleteCategoryHandler, []string{http.MethodDelete}, "HardDeleteCategory")
 }
 
 // registerAdminCategoryRoutes registers admin category-related routes.
 func registerAdminCategoryRoutes(router *mux.Router, handlers *handlers.Handlers, logger *zap.Logger) {
+	// Create a subrouter for v2 API category endpoints
 	categoryRouter := router.PathPrefix("/api/v2/categories").Subrouter()
-	NamedHandleFunc(categoryRouter, "/{slug}/details", handlers.CategoryHandler.GetCategoryDetailsHandler, []string{http.MethodGet}, "GetCategoryDetails")
-	NamedHandleFunc(categoryRouter, "/hierarchy", handlers.CategoryHandler.GetV2CategoryHierarchyHandler, []string{http.MethodGet}, "GetV2CategoryHierarchy")
-	NamedHandleFunc(categoryRouter, "/{slug}/seo", handlers.CategoryHandler.GetCategorySEOHandler, []string{http.MethodGet}, "GetCategorySEO")
 
-	protected := categoryRouter.PathPrefix("").Subrouter()
-	protected.Use(middleware.Auth(logger))
-	NamedHandleFunc(protected, "", handlers.CategoryHandler.CreateCategoryHandler, []string{http.MethodPost}, "CreateCategory")
-	NamedHandleFunc(protected, "/{id}", handlers.CategoryHandler.DeleteCategoryHandler, []string{http.MethodDelete}, "DeleteCategory")
-	NamedHandleFunc(protected, "/{id}", handlers.CategoryHandler.SoftDeleteCategoryHandler, []string{http.MethodPut}, "SoftDeleteCategory")
+	// Public endpoints for v2
+	NamedHandleFunc(categoryRouter, "/hierarchy", handlers.CategoryHandler.GetCategoryHierarchyStatsHandler, []string{http.MethodGet}, "GetCategoryHierarchyStats")
+
+	// Admin routes for v2 API
+	adminRouter := router.PathPrefix("/api/v2/admin/categories").Subrouter()
+
+	// Apply authentication middleware to all admin routes
+	adminRouter.Use(middleware.Auth(logger))
+
+	// Configure rate limiting for admin routes
+	rateLimitMiddleware := middleware.RateLimitMiddleware(
+		5,             // rps: 5 requests per second
+		10,            // burst: 10 requests
+		5*time.Minute, // cleanupInterval: 5 minutes
+		logger,        // logger: your zap.Logger instance
+	)
+	adminRouter.Use(rateLimitMiddleware)
+
+	// V2 Admin endpoints
+	NamedHandleFunc(adminRouter, "/batch", handlers.CategoryHandler.BatchUpdateCategoryPositionsHandler, []string{http.MethodPut}, "BatchUpdateCategoryPositionsV2")
 }
 
 // registerProductRoutes registers product-related routes.

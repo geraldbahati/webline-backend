@@ -23,6 +23,8 @@ type Querier interface {
 	AssignRoleToUser(ctx context.Context, arg AssignRoleToUserParams) (AssignRoleToUserRow, error)
 	// Returns distinct suggestions for auto-completion based on product and category names.
 	AutocompleteSuggestions(ctx context.Context, arg AutocompleteSuggestionsParams) ([]string, error)
+	// Update positions of multiple categories in a single statement
+	BulkUpdateCategoryPositions(ctx context.Context, arg BulkUpdateCategoryPositionsParams) error
 	// Calculate the total price of items in the cart
 	CalculateCartTotal(ctx context.Context, shoppingCartID uuid.UUID) (string, error)
 	CancelOrder(ctx context.Context, id uuid.UUID) (sql.NullString, error)
@@ -100,6 +102,11 @@ type Querier interface {
 	GetAdminRequestsByUserID(ctx context.Context, userID uuid.UUID) ([]GetAdminRequestsByUserIDRow, error)
 	// Get all items in the cart
 	GetAllCartItems(ctx context.Context, shoppingCartID uuid.UUID) ([]GetAllCartItemsRow, error)
+	// Gets all descendants of a category using ltree path
+	// Added parameter to include or exclude inactive categories
+	GetAllChildrenCategories(ctx context.Context, arg GetAllChildrenCategoriesParams) ([]GetAllChildrenCategoriesRow, error)
+	// Optimized for better performance
+	GetAllChildrenCategoriesWithProductCount(ctx context.Context, arg GetAllChildrenCategoriesWithProductCountParams) ([]GetAllChildrenCategoriesWithProductCountRow, error)
 	GetAllExchangeRatesForCurrency(ctx context.Context, currencyCode string) ([]ExchangeRate, error)
 	GetAllPayments(ctx context.Context) ([]GetAllPaymentsRow, error)
 	GetAllProductsByFiltersNameAsc(ctx context.Context, arg GetAllProductsByFiltersNameAscParams) ([]GetAllProductsByFiltersNameAscRow, error)
@@ -144,6 +151,9 @@ type Querier interface {
 	GetCategoriesByParentID(ctx context.Context, parentID uuid.NullUUID) ([]GetCategoriesByParentIDRow, error)
 	GetCategoriesWithProductsCount(ctx context.Context) ([]GetCategoriesWithProductsCountRow, error)
 	GetCategoriesWithSubcategoryCount(ctx context.Context) ([]GetCategoriesWithSubcategoryCountRow, error)
+	// Get all ancestors of a category in order from root to parent
+	GetCategoryAncestors(ctx context.Context, arg GetCategoryAncestorsParams) ([]GetCategoryAncestorsRow, error)
+	// Optimized to include more fields and better comments
 	GetCategoryByID(ctx context.Context, id uuid.UUID) (GetCategoryByIDRow, error)
 	GetCategoryByName(ctx context.Context, name string) (GetCategoryByNameRow, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (uuid.UUID, error)
@@ -185,9 +195,16 @@ type Querier interface {
 	// $6: offset (INTEGER)
 	GetCategoryProductsByFiltersPriceDesc(ctx context.Context, arg GetCategoryProductsByFiltersPriceDescParams) ([]GetCategoryProductsByFiltersPriceDescRow, error)
 	GetCategorySEOBySlug(ctx context.Context, slug string) (GetCategorySEOBySlugRow, error)
+	// Get useful stats for a category including counts
+	GetCategoryStats(ctx context.Context, parentID uuid.NullUUID) (GetCategoryStatsRow, error)
 	GetCategoryTree(ctx context.Context) ([]GetCategoryTreeRow, error)
+	// Get categories at a specific depth level from the parent
+	// Useful for navigation menus with specific levels
+	GetChildrenCategoriesByDepth(ctx context.Context, arg GetChildrenCategoriesByDepthParams) ([]GetChildrenCategoriesByDepthRow, error)
 	GetCompany(ctx context.Context, arg GetCompanyParams) (uuid.UUID, error)
 	GetDailyDeals(ctx context.Context) ([]GetDailyDealsRow, error)
+	// Gets only direct children of a category (one level down)
+	GetDirectChildrenCategories(ctx context.Context, arg GetDirectChildrenCategoriesParams) ([]GetDirectChildrenCategoriesRow, error)
 	GetDiscountByID(ctx context.Context, id uuid.UUID) (Discount, error)
 	GetDiscountByProductID(ctx context.Context, productID uuid.NullUUID) (Discount, error)
 	GetFeaturedProducts(ctx context.Context, limit int32) ([]GetFeaturedProductsRow, error)
@@ -209,6 +226,8 @@ type Querier interface {
 	GetPaymentByOrderID(ctx context.Context, orderID uuid.UUID) (GetPaymentByOrderIDRow, error)
 	GetPaymentStatusIDByStatus(ctx context.Context, status string) (int32, error)
 	GetPendingAdminRequests(ctx context.Context) ([]GetPendingAdminRequestsRow, error)
+	// Get categories with the most products
+	GetPopularCategories(ctx context.Context, limit int32) ([]GetPopularCategoriesRow, error)
 	GetProductAttributes(ctx context.Context) (GetProductAttributesRow, error)
 	GetProductAttributesByCategoryID(ctx context.Context, id uuid.UUID) (GetProductAttributesByCategoryIDRow, error)
 	GetProductAttributesByCategoryName(ctx context.Context, name string) (GetProductAttributesByCategoryNameRow, error)
@@ -264,7 +283,8 @@ type Querier interface {
 	GetUserRoles(ctx context.Context, userID uuid.NullUUID) ([]GetUserRolesRow, error)
 	GetUserRolesByUserID(ctx context.Context, userID uuid.NullUUID) ([]string, error)
 	GetUsersByRole(ctx context.Context, roleID uuid.NullUUID) ([]GetUsersByRoleRow, error)
-	GetV2CategoryHierarchy(ctx context.Context) ([]GetV2CategoryHierarchyRow, error)
+	// Optimized to use proper CTEs and more efficient joins
+	GetV2CategoryHierarchy(ctx context.Context, dollar_1 bool) ([]GetV2CategoryHierarchyRow, error)
 	GetV2ProductDetailBySlug(ctx context.Context, slug string) (GetV2ProductDetailBySlugRow, error)
 	GetV2Products(ctx context.Context, arg GetV2ProductsParams) ([]GetV2ProductsRow, error)
 	GetV2Promotions(ctx context.Context) ([]GetV2PromotionsRow, error)
@@ -275,7 +295,8 @@ type Querier interface {
 	InsertExchangeRate(ctx context.Context, arg InsertExchangeRateParams) error
 	IsAdmin(ctx context.Context, userID uuid.NullUUID) (bool, error)
 	LinkSessionToUser(ctx context.Context, arg LinkSessionToUserParams) error
-	ListCategories(ctx context.Context) ([]ListCategoriesRow, error)
+	// Optimized to include slug and path, with option to filter active only
+	ListCategories(ctx context.Context, dollar_1 bool) ([]ListCategoriesRow, error)
 	ListDiscounts(ctx context.Context) ([]Discount, error)
 	ListDiscountsByProductID(ctx context.Context, productID uuid.NullUUID) ([]Discount, error)
 	ListProductImagesByProductID(ctx context.Context, productID uuid.NullUUID) ([]ProductImage, error)
@@ -293,6 +314,8 @@ type Querier interface {
 	RemoveCartItem(ctx context.Context, arg RemoveCartItemParams) error
 	RemoveProductsFromPromotion(ctx context.Context, arg RemoveProductsFromPromotionParams) error
 	RemoveRoleFromUser(ctx context.Context, arg RemoveRoleFromUserParams) error
+	// Search categories by name with wildcard support
+	SearchCategories(ctx context.Context, arg SearchCategoriesParams) ([]SearchCategoriesRow, error)
 	SearchProducts(ctx context.Context, dollar_1 sql.NullString) ([]SearchProductsRow, error)
 	SoftDeleteCategory(ctx context.Context, id uuid.UUID) error
 	SoftDeleteProduct(ctx context.Context, id uuid.UUID) error
