@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
+	"log"
 	"strings"
 	"time"
 	"weblineBackend/internal/appconfig"
@@ -11,212 +14,233 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
+// OrderItem represents a single item in the order.
 type OrderItem struct {
 	ProductName string
-	Quantity    int32
+	Quantity    int
 	Price       float64
 }
 
 // SendOrderNotification sends an email notification for a new order.
 func SendOrderNotification(emailConfig *appconfig.Config, orderID uuid.UUID, orderParams *model.CreateOrderParams, orderItems []OrderItem) error {
-    // Create a new email message
-    m := gomail.NewMessage()
-    m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
-    m.SetHeader("To", emailConfig.ToEmail)
-    m.SetHeader("Subject", "New Order Notification")
+	if emailConfig == nil {
+		return fmt.Errorf("email configuration is required")
+	}
 
-    // Generate order items details
-    orderItemsDetails := generateOrderItemsDetails(orderItems)
+	// Generate order items details
+	orderItemsDetails := generateOrderItemsDetails(orderItems)
 
-    // Format the order date
-    orderDate := formatOrderDate(orderParams.OrderDate.Format(time.RFC3339))
+	// Format the order date
+	orderDate, err := formatOrderDate(orderParams.OrderDate)
+	if err != nil {
+		return fmt.Errorf("failed to format order date: %w", err)
+	}
 
-    // Set email body
-    plainTextBody := fmt.Sprintf("A new order has been placed. Order ID: %s, User Email: %s", orderID, orderParams.Email)
-    htmlBody := fmt.Sprintf(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>New Order Notification</title>
-        </head>
-        <body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
-            <table width="100%%" cellpadding="0" cellspacing="0">
-                <tr>
-                    <td align="center" style="padding: 20px 0;">
-                        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 0 10px rgba(0,0,0,0.1);">
-                            <!-- Header -->
-                            <tr>
-                                <td style="background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%); color:#ffffff; padding: 20px; text-align:center;">
-                                    <h1 style="margin:0; font-size:24px;">New Order Received</h1>
-                                    <p style="margin:5px 0 0 0; font-size:14px;">Order ID: %s</p>
-                                </td>
-                            </tr>
-                            <!-- Content -->
-                            <tr>
-                                <td style="padding: 20px;">
-                                    <!-- Customer Details -->
-                                    <table width="100%%" cellpadding="0" cellspacing="0">
-                                        <tr>
-                                            <td width="50%%" style="vertical-align: top;">
-                                                <h2 style="font-size:18px; color:#333333;">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#6a11cb" viewBox="0 0 16 16" style="vertical-align: middle; margin-right:5px;">
-                                                        <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
-                                                        <path fill-rule="evenodd" d="M14 14s-1-4-6-4-6 4-6 4V12a6 6 0 1 1 12 0v2z"/>
-                                                    </svg>
-                                                    Customer Details
-                                                </h2>
-                                                <p><strong>Name:</strong> %s %s</p>
-                                                <p><strong>Email:</strong> %s</p>
-                                                <p><strong>Phone:</strong> %s</p>
-                                            </td>
-                                            <td width="50%%" style="vertical-align: top;">
-                                                <h2 style="font-size:18px; color:#333333;">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#6a11cb" viewBox="0 0 16 16" style="vertical-align: middle; margin-right:5px;">
-                                                        <path d="M3 0a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3H3zm10 1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h10z"/>
-                                                        <path d="M4 6h8v2H4V6z"/>
-                                                    </svg>
-                                                    Shipping Address
-                                                </h2>
-                                                <p>%s</p>
-                                                <p>%s, %s</p>
-                                                <p>%s</p>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <!-- Order Details -->
-                                    <h2 style="font-size:18px; color:#333333; margin-top:20px;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#6a11cb" viewBox="0 0 16 16" style="vertical-align: middle; margin-right:5px;">
-                                            <path d="M1 2a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm1 1v9h12V3H2z"/>
-                                            <path d="M4 6h8v2H4V6z"/>
-                                        </svg>
-                                        Order Details
-                                    </h2>
-                                    <table width="100%%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
-                                        <thead>
-                                            <tr>
-                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:left;">Product</th>
-                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:center;">Quantity</th>
-                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:right;">Price (KES)</th>
-                                                <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:right;">Total (KES)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            %s
-                                            <tr>
-                                                <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Subtotal</td>
-                                                <td style="padding:10px; text-align:right;">KES %s</td>
-                                            </tr>
-                                            <tr>
-                                                <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Discount</td>
-                                                <td style="padding:10px; text-align:right;">KES %s</td>
-                                            </tr>
-                                            <tr>
-                                                <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Total</td>
-                                                <td style="padding:10px; text-align:right; font-weight:bold;">KES %s</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                            </tr>
-                            <!-- Footer -->
-                            <tr>
-                                <td style="background-color:#f4f4f4; padding:20px; text-align:center;">
-                                    <p style="margin:0; font-size:12px; color:#777777;">Order placed on %s</p>
-                                    <a href="%s" style="display:inline-block; margin-top:10px; padding:10px 20px; background-color:#6a11cb; color:#ffffff; text-decoration:none; border-radius:5px; font-weight:bold;">Process Order</a>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>`,
-        orderID,
-        orderParams.FirstName, orderParams.LastName,
-        orderParams.Email,
-        orderParams.Phone,
-        formatShippingAddress(orderParams.City, orderParams.County, orderParams.Country),
-        orderItemsDetails,
-        formatPrice(orderParams.SubTotal),
-        formatPrice(orderParams.DiscountAmount),
-        formatPrice(orderParams.GrandTotal),
-        orderDate,
-        fmt.Sprintf("%s/orders/%s", emailConfig.BackendURL, orderID.String()), // Link to process the order
-    )
+	// Prepare email data
+	data := EmailData{
+		OrderNumber:      orderParams.OrderNumber,
+		OrderID:          orderID.String(),
+		FirstName:        orderParams.FirstName,
+		LastName:         orderParams.LastName,
+		Email:            orderParams.Email,
+		Phone:            orderParams.Phone,
+		CompanyName:      orderParams.CompanyName,
+		KraPIN:           orderParams.KraPIN,
+		ShippingAddress:  formatShippingAddress(orderParams.City, orderParams.County, orderParams.Country),
+		OrderItems:       orderItemsDetails,
+		SubTotal:         formatPrice(orderParams.SubTotal),
+		DiscountAmount:   formatPrice(orderParams.DiscountAmount),
+		GrandTotal:       formatPrice(orderParams.GrandTotal),
+		OrderDate:        orderDate,
+		ProcessOrderLink: fmt.Sprintf("%s/orders/%s", emailConfig.BackendURL, orderID.String()),
+		VAT:              formatPrice(orderParams.VatAmount),
+	}
 
-    m.SetBody("text/plain", plainTextBody)
-    m.AddAlternative("text/html", htmlBody)
+	// Define the email template
+	tpl := template.Must(template.New("email").Parse(emailTemplate))
 
-    // Configure the SMTP dialer
-    dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+	var tplBuffer bytes.Buffer
+	if err := tpl.Execute(&tplBuffer, data); err != nil {
+		return fmt.Errorf("failed to execute email template: %w", err)
+	}
 
-    // Send the email
-    if err := dialer.DialAndSend(m); err != nil {
-        return fmt.Errorf("failed to send email: %w", err)
-    }
-    return nil
+	// Prepare plain text body
+	plainTextBody := fmt.Sprintf(
+		"A new order has been placed.\nOrder Number: %s\nUser Email: %s",
+		data.OrderNumber,
+		data.Email,
+	)
+
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(emailConfig.FromEmail, emailConfig.FromName))
+	m.SetHeader("To", emailConfig.ToEmail)
+	m.SetHeader("Subject", fmt.Sprintf("New Order Notification - Order Number: %s", data.OrderNumber))
+	m.SetBody("text/plain", plainTextBody)
+	m.AddAlternative("text/html", tplBuffer.String())
+
+	// Optional: Log the email contents for debugging
+	log.Println("Plain Text Body:", plainTextBody)
+	log.Println("HTML Body:", tplBuffer.String())
+
+	// Configure the SMTP dialer
+	dialer := gomail.NewDialer(emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.SMTPUsername, emailConfig.SMTPPassword)
+
+	// Send the email
+	if err := dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+
+	return nil
 }
 
+// EmailData represents the data structure used in the email template.
+type EmailData struct {
+	OrderNumber      string
+	OrderID          string
+	FirstName        string
+	LastName         string
+	Email            string
+	Phone            string
+	CompanyName      *string
+	KraPIN           *string
+	ShippingAddress  string
+	OrderItems       template.HTML
+	SubTotal         string
+	DiscountAmount   string
+	GrandTotal       string
+	OrderDate        string
+	ProcessOrderLink string
+	VAT              string
+}
+
+// emailTemplate is the HTML template for the order notification email.
+const emailTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Order Notification</title>
+</head>
+<body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 0 10px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%); color:#ffffff; padding: 20px; text-align:center;">
+                            <h1 style="margin:0; font-size:24px;">New Order Received</h1>
+                            <p style="margin:5px 0 0 0; font-size:14px;">Order Number: {{.OrderNumber}}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px;">
+                            <h2 style="font-size:18px; color:#333333;">Customer Details</h2>
+                            <p><strong>Name:</strong> {{.FirstName}} {{.LastName}}</p>
+                            <p><strong>Email:</strong> {{.Email}}</p>
+                            <p><strong>Phone:</strong> {{.Phone}}</p>
+							<p><strong>Company:</strong> {{.CompanyName}}</p>
+							<p><strong>KRAPIN:</strong> {{.KraPIN}}</p>
+                            <h2 style="font-size:18px; color:#333333;">Shipping Address</h2>
+                            <p>{{.ShippingAddress}}</p>
+                            <h2 style="font-size:18px; color:#333333; margin-top:20px;">Order Details</h2>
+                            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+                                <thead>
+                                    <tr>
+                                        <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:left;">Product</th>
+                                        <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:center;">Quantity</th>
+                                        <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:right;">Price (KES)</th>
+                                        <th style="background-color:#6a11cb; color:#ffffff; padding:10px; text-align:right;">Total (KES)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{.OrderItems}}
+                                    <tr>
+                                        <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Subtotal</td>
+                                        <td style="padding:10px; text-align:right;">KES {{.SubTotal}}</td>
+                                    </tr>
+									<tr>
+                                        <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">VAT</td>
+                                        <td style="padding:10px; text-align:right;">KES {{.VAT}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Discount</td>
+                                        <td style="padding:10px; text-align:right;">KES {{.DiscountAmount}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" style="padding:10px; text-align:right; font-weight:bold;">Total</td>
+                                        <td style="padding:10px; text-align:right; font-weight:bold;">KES {{.GrandTotal}}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f4f4f4; padding:20px; text-align:center;">
+                            <p style="margin:0; font-size:12px; color:#777777;">Order placed on {{.OrderDate}}</p>
+                            <a href="{{.ProcessOrderLink}}" style="display:inline-block; margin-top:10px; padding:10px 20px; background-color:#6a11cb; color:#ffffff; text-decoration:none; border-radius:5px; font-weight:bold;">Process Order</a>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+`
+
 // generateOrderItemsDetails creates the HTML rows for the order items table.
-func generateOrderItemsDetails(orderItems []OrderItem) string {
-    var sb strings.Builder
-    for _, item := range orderItems {
-        total := item.Price * float64(item.Quantity)
-        sb.WriteString(fmt.Sprintf(`
+func generateOrderItemsDetails(orderItems []OrderItem) template.HTML {
+	var sb strings.Builder
+	for _, item := range orderItems {
+		total := item.Price * float64(item.Quantity)
+		sb.WriteString(fmt.Sprintf(`
             <tr>
                 <td style="padding:10px; border-bottom:1px solid #dddddd;">%s</td>
                 <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:center;">%d</td>
                 <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:right;">KES %s</td>
                 <td style="padding:10px; border-bottom:1px solid #dddddd; text-align:right;">KES %s</td>
             </tr>`,
-            item.ProductName,
-            item.Quantity,
-            formatPrice(item.Price),
-            formatPrice(total)))
-    }
-    return sb.String()
+			item.ProductName,
+			item.Quantity,
+			formatPrice(item.Price),
+			formatPrice(total)))
+	}
+	return template.HTML(sb.String()) // Use template.HTML to prevent escaping
 }
 
 // formatPrice formats a float64 price with commas for better readability.
 func formatPrice(price float64) string {
-    priceStr := fmt.Sprintf("%.2f", price)
-    n := len(priceStr)
-    if n <= 6 {
-        return priceStr
-    }
-    var sb strings.Builder
-    mod := (n - 3) % 3
-    if mod > 0 {
-        sb.WriteString(priceStr[:mod])
-        if n > mod {
-            sb.WriteString(",")
-        }
-    }
-    for i := mod; i < n-3; i += 3 {
-        sb.WriteString(priceStr[i : i+3])
-        sb.WriteString(",")
-    }
-    sb.WriteString(priceStr[n-3:])
-    return sb.String()
+	priceStr := fmt.Sprintf("%.2f", price)
+	parts := strings.Split(priceStr, ".")
+	integerPart := parts[0]
+	decimalPart := parts[1]
+
+	var sb strings.Builder
+	n := len(integerPart)
+	for i, digit := range integerPart {
+		sb.WriteByte(byte(digit))
+		if (n-i-1)%3 == 0 && i != n-1 {
+			sb.WriteByte(',')
+		}
+	}
+
+	return fmt.Sprintf("%s.%s", sb.String(), decimalPart)
 }
 
 // formatShippingAddress formats the shipping address without AddressLine1, AddressLine2, and ZipCode.
 func formatShippingAddress(city, state, country string) string {
-    return fmt.Sprintf("%s, %s, %s", city, state, country)
+	return fmt.Sprintf("%s, %s, %s", city, state, country)
 }
 
 // formatOrderDate formats the order date string.
-func formatOrderDate(orderDate string) string {
-    // Assuming orderDate is in RFC3339 format, e.g., "2023-06-15T14:30:00Z"
-    t, err := time.Parse(time.RFC3339, orderDate)
-    if err != nil {
-        return orderDate // Return as is if parsing fails
-    }
-    return t.Format("January 2, 2006 at 15:04 PM MST")
+func formatOrderDate(orderDate time.Time) (string, error) {
+	if orderDate.IsZero() {
+		return "", fmt.Errorf("invalid order date")
+	}
+	return orderDate.Format("January 2, 2006 at 15:04 PM MST"), nil
 }
-
 
 // SendInquiryEmail sends an email with the user's product inquiry.
 func SendInquiryEmail(emailConfig *appconfig.Config, productName, userEmail, userMessage string) error {

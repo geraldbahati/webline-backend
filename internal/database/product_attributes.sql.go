@@ -24,7 +24,7 @@ type CreateProductAttributeParams struct {
 }
 
 func (q *Queries) CreateProductAttribute(ctx context.Context, arg CreateProductAttributeParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createProductAttribute, arg.Name, arg.Name_2)
+	row := q.queryRow(ctx, q.createProductAttributeStmt, createProductAttribute, arg.Name, arg.Name_2)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -44,7 +44,7 @@ type CreateProductAttributeValueParams struct {
 }
 
 func (q *Queries) CreateProductAttributeValue(ctx context.Context, arg CreateProductAttributeValueParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createProductAttributeValue,
+	row := q.queryRow(ctx, q.createProductAttributeValueStmt, createProductAttributeValue,
 		arg.AttributeID,
 		arg.Value,
 		arg.HexValue,
@@ -69,7 +69,7 @@ type CreateProductToAttributeValueParams struct {
 }
 
 func (q *Queries) CreateProductToAttributeValue(ctx context.Context, arg CreateProductToAttributeValueParams) error {
-	_, err := q.db.ExecContext(ctx, createProductToAttributeValue, arg.ProductID, arg.AttributeValueID)
+	_, err := q.exec(ctx, q.createProductToAttributeValueStmt, createProductToAttributeValue, arg.ProductID, arg.AttributeValueID)
 	return err
 }
 
@@ -97,12 +97,12 @@ type GetProductAttributesWithValuesRow struct {
 }
 
 func (q *Queries) GetProductAttributesWithValues(ctx context.Context, categoryID uuid.NullUUID) ([]GetProductAttributesWithValuesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductAttributesWithValues, categoryID)
+	rows, err := q.query(ctx, q.getProductAttributesWithValuesStmt, getProductAttributesWithValues, categoryID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetProductAttributesWithValuesRow
+	items := []GetProductAttributesWithValuesRow{}
 	for rows.Next() {
 		var i GetProductAttributesWithValuesRow
 		if err := rows.Scan(

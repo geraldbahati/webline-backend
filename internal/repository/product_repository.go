@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"weblineBackend/internal/database"
 	"weblineBackend/internal/model"
+	"weblineBackend/pkg/utils"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -112,6 +113,7 @@ func (r *ProductRepository) GetProductByID(
 		Status:      product.Status,
 		Featured:    product.Featured.Bool,
 		Slug:        product.Slug,
+		PriceInKes:  utils.RoundPriceString(product.PriceInKes),
 	}, nil
 }
 
@@ -348,15 +350,18 @@ func (r *ProductRepository) GetProductSEO(
 		Title:       metaTitle,
 		Description: metaDescription,
 		Keywords:    metaKeywords,
-		Price:       seo.UsdPrice,
+		Price:       utils.RoundPriceString(seo.PriceInKes),
 		Brand:       seo.BrandName,
 		ImageUrl:    seo.ImageUrl,
 	}, nil
 }
 
-// GetV2Products retrieves all products
-func (r *ProductRepository) GetV2Products(ctx context.Context) ([]*model.V2Product, error) {
-	rows, err := r.Queries.GetV2Products(ctx)
+// GetV2Products retrieves all products with pagination.
+func (r *ProductRepository) GetV2Products(ctx context.Context, page int32, pageSize int32) ([]*model.V2Product, error) {
+	rows, err := r.Queries.GetV2Products(ctx, database.GetV2ProductsParams{
+		Limit:  pageSize,
+		Offset: (page - 1) * pageSize,
+	})
 	if err != nil {
 		r.logger.Error("failed to get products", zap.Error(err))
 		return nil, fmt.Errorf("failed to get products: %w", err)
@@ -593,9 +598,10 @@ func (r *ProductRepository) GetProductPricingByProductID(
 		ID:              pricing.ID,
 		Name:            pricing.Name,
 		Description:     pricing.Description.String,
-		Price:           pricing.PriceInKes,
+		Price:           utils.RoundPriceString(pricing.PriceInKes),
 		DiscountPercent: discount,
 		ImageUrl:        pricing.Imageurl,
+		Slug:            pricing.Slug,
 	}, nil
 }
 
@@ -658,4 +664,45 @@ func (r *ProductRepository) GetProductsByIDs(ctx context.Context, ids []uuid.UUI
 	}
 
 	return productList, nil
+}
+
+// GetProductSlugByProductID retrieves the slug of a product by its ID
+func (r *ProductRepository) GetProductSlugByProductID(ctx context.Context, id uuid.UUID) (string, error) {
+	slug, err := r.Queries.GetProductSlugByProductID(ctx, id)
+	if err != nil {
+		r.logger.Error("failed to get product slug by ID", zap.Error(err))
+		return "", fmt.Errorf("failed to get product slug by ID: %w", err)
+	}
+
+	return slug, nil
+}
+
+// GetProductCartByProductSlug retrieves the product cart by product slug
+func (r *ProductRepository) GetProductCartByProductSlug(
+	ctx context.Context,
+	slug string,
+) (*model.ProductCart, error) {
+	product, err := r.Queries.GetProductCartByProductSlug(ctx, slug)
+	if err != nil {
+		r.logger.Error("failed to get product by slug", zap.Error(err))
+		return nil, fmt.Errorf("failed to get product by slug: %w", err)
+	}
+
+	discountPercent, err := strconv.ParseFloat(product.DiscountPercent, 64)
+	if err != nil {
+		r.logger.Error("failed to parse discount percent", zap.Error(err))
+		discountPercent = 0
+	}
+
+	return &model.ProductCart{
+		ID:              product.ID,
+		Name:            product.Name,
+		Description:     product.Description.String,
+		Price:           utils.RoundPriceString(product.Price),
+		Stock:           product.Stock.Int32,
+		CategoryID:      product.CategoryID,
+		Featured:        product.Featured.Bool,
+		DiscountPercent: discountPercent,
+		Slug:            product.Slug,
+	}, nil
 }

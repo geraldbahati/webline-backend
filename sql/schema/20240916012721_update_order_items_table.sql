@@ -33,8 +33,7 @@ DROP CONSTRAINT IF EXISTS check_grand_total;
 ALTER TABLE public.orders
 ADD CONSTRAINT check_status CHECK (status IN ('pending', 'processing', 'shipped', 'delivered', 'cancelled')),
 ADD CONSTRAINT check_payment_status CHECK (payment_status IN ('pending', 'paid', 'failed', 'refunded')),
-ADD CONSTRAINT check_grand_total CHECK (grand_total = subtotal + tax_amount + shipping_amount - discount_amount),
-ADD CONSTRAINT check_user_or_guest CHECK (user_id IS NOT NULL OR guest_checkout_id IS NOT NULL);
+ADD CONSTRAINT check_grand_total CHECK (grand_total = subtotal + tax_amount + shipping_amount - discount_amount);
 
 -- Update foreign key constraints on orders table
 ALTER TABLE public.orders

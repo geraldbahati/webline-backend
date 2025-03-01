@@ -46,3 +46,8 @@ func NewValidationError(message string) *AppError {
 func NewAdminRequestPendingError() *AppError {
 	return NewAppError(400, "Admin request is still pending", nil)
 }
+
+// NewSessionNotFoundError creates a new AppError for a session not found error.
+func NewSessionNotFoundError() *AppError {
+	return NewAppError(404, "Session not found", nil)
+}

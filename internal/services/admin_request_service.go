@@ -2,13 +2,15 @@ package services
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"time"
 	"weblineBackend/internal/app_errors"
 	"weblineBackend/internal/appconfig"
+	"weblineBackend/internal/middleware"
 	"weblineBackend/internal/repository"
 	"weblineBackend/pkg/utils"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type AdminRequestService struct {
@@ -81,7 +83,7 @@ func (s *AdminRequestService) RequestAdminRole(ctx context.Context, userID uuid.
 // ApproveAdminRequest approves an admin request
 func (s *AdminRequestService) ApproveAdminRequest(ctx context.Context, token string) error {
 	// get user id from context
-	userID, ok := ctx.Value("userId").(uuid.UUID)
+	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
 		s.logger.Error("failed to get user id from context")
 		return app_errors.NewUnauthorizedUserError()

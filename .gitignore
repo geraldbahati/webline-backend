@@ -9,7 +9,7 @@
 *.dylib
 
 # Environment file
-.env
+*.env
 
 # Test binary, built with `go test -c`
 *.test
@@ -27,3 +27,5 @@ go.work
 
 .idea
 internal/.DS_Store
+
+.env

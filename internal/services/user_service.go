@@ -443,6 +443,9 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 		return nil, err
 	}
 
+	// update the profile url
+	user.Image = s.constructS3URL(user.Image)
+
 	roles, err := s.userRoleRepository.GetRolesForUser(ctx, user.ID)
 	if err != nil {
 		s.logger.Error("Failed to get roles for user", zap.Error(err))
@@ -452,6 +455,11 @@ func (s *UserService) GetUserProfile(ctx context.Context, userId string) (*model
 	user.Roles = roles
 
 	return user, nil
+}
+
+// constructS3URL constructs the S3 URL for a given file path
+func (s *UserService) constructS3URL(filePath string) string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.config.AWSBucketName, s.config.AWSRegion, filePath)
 }
 
 // LoginWithGoogle logs in a user using Google
@@ -657,24 +665,24 @@ func (s *UserService) EmailVerified(ctx context.Context, email string) error {
 
 // VerifyEmail verifies a user's email
 func (s *UserService) VerifyEmail(ctx context.Context, token string) error {
-	claims, err := utils.ParseEmailVerificationToken(token)
+	email, expiresAt, err := utils.ParseEmailVerificationToken(token)
 	if err != nil {
 		return err
 	}
 
 	// Check if the token has expired
-	if time.Now().After(claims.ExpiresAt.Time) {
+	if time.Now().After(expiresAt) {
 		return fmt.Errorf("token has expired")
 	}
 
 	// Update user email verification status
-	err = s.userRepository.UpdateUserEmailVerified(ctx, claims.Email)
+	err = s.userRepository.UpdateUserEmailVerified(ctx, email)
 	if err != nil {
 		return err
 	}
 
 	// Delete verification token
-	err = s.verificationTokenRepository.DeleteVerificationToken(ctx, claims.Email)
+	err = s.verificationTokenRepository.DeleteVerificationToken(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -801,4 +809,48 @@ func (s *UserService) handleUserProfileImage(ctx context.Context, image *model.I
 	}
 
 	return filePath, nil
+}
+
+// New method added to centralize user resolution during checkout
+// ResolveUserForOrder resolves user details during order creation.
+// It returns a user UUID (if the user exists or is created) or a guest UUID.
+func (s *UserService) ResolveUserForOrder(ctx context.Context, req *model.CreateOrderParams) (*uuid.UUID, *uuid.UUID, error) {
+	// Check if the user already exists.
+	existingUser, err := s.GetUserByEmail(ctx, req.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, err
+	}
+	if existingUser != nil {
+		return &existingUser.ID, nil, nil
+	}
+
+	if req.CanCreateAccount {
+		// Create user account from order data.
+		newUserID, err := s.CreateUserFromOrder(ctx, model.CreateUserParams{
+			Email:       req.Email,
+			Password:    *req.Password,
+			FirstName:   req.FirstName,
+			LastName:    req.LastName,
+			PhoneNumber: req.Phone,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newUserID, nil, nil
+	}
+
+	// Create a guest user.
+	guestID, err := s.CreateGuestUser(ctx, model.CreateGuestUserParams{
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Phone:     req.Phone,
+		City:      req.City,
+		County:    req.County,
+		Country:   req.Country,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, guestID, nil
 }

@@ -3,10 +3,12 @@ package sqlc
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"weblineBackend/internal/database"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -24,19 +26,31 @@ func NewCompanyRepositoryImpl(db *sql.DB, logger *zap.Logger) *companyRepository
 	}
 }
 
-func (r *companyRepositoryImpl) execTx(ctx context.Context, fn func(*database.Queries) error) (err error) {
+// isUniqueViolationError checks if an error is due to a duplicate key (unique constraint violation)
+func isUniqueViolationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if pqErr, ok := err.(*pq.Error); ok {
+		// "23505" is PostgreSQL's error code for unique violations
+		return pqErr.Code == "23505"
+	}
+	return false
+}
+
+// Replace the local execTx helper with a unified ExecTx.
+func (r *companyRepositoryImpl) ExecTx(ctx context.Context, fn func(*database.Queries) error) error {
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		r.logger.Error("failed to begin transaction", zap.Error(err))
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-
 	q := database.New(tx)
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback()
 			r.logger.Panic("transaction panicked, rolling back", zap.Any("panic", p))
-			panic(p) // Re-throw panic after rollback
+			panic(p) // rethrow after rollback
 		} else if err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
 				r.logger.Error("rollback failed", zap.Error(rbErr))
@@ -51,14 +65,13 @@ func (r *companyRepositoryImpl) execTx(ctx context.Context, fn func(*database.Qu
 			}
 		}
 	}()
-
 	err = fn(q)
 	return err
 }
 
 func (r *companyRepositoryImpl) CreateCompany(ctx context.Context, name string, kraPIN string, address string, phone string, email string) (*uuid.UUID, error) {
 	var id uuid.UUID
-	err := r.execTx(ctx, func(q *database.Queries) error {
+	err := r.ExecTx(ctx, func(q *database.Queries) error {
 		var err error
 		id, err = q.CreateCompany(ctx, database.CreateCompanyParams{
 			Name:   name,
@@ -96,6 +109,10 @@ func (r *companyRepositoryImpl) GetCompanyID(ctx context.Context, name string, k
 		KraPin: kraPIN,
 	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			r.logger.Warn("company not found", zap.String("name", name), zap.String("kraPIN", kraPIN))
+			return nil, nil
+		}
 		r.logger.Error("failed to get company", zap.Error(err))
 		return nil, err
 	}

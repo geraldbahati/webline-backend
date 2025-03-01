@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strconv"
-	"strings"
 	"weblineBackend/internal/model"
 	"weblineBackend/internal/services"
 
@@ -169,93 +169,6 @@ func (h *ProductHandler) GetProductsByCategoryIDHandler(w http.ResponseWriter, r
 	RespondWithJSON(w, http.StatusOK, products)
 }
 
-//// GetProductsByParentCategoryIDHandler gets all products by parent category ID
-//func (h *ProductHandler) GetProductsByParentCategoryIDHandler(w http.ResponseWriter, r *http.Request) {
-//	// get category ID
-//	vars := mux.Vars(r)
-//	categoryID := vars["id"]
-//
-//	// get products
-//	products, err := h.productService.GetProductsByParentCategoryID(r.Context(), categoryID)
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by parent category ID")
-//		return
-//	}
-//
-//	// respond with products
-//	RespondWithJSON(w, http.StatusOK, products)
-//}
-
-//func (h *ProductHandler) GetProductsByFiltersHandler(w http.ResponseWriter, r *http.Request) {
-//	categoryID := mux.Vars(r)["category_id"]
-//	categoryNamesStr := r.URL.Query().Get("category_names")
-//	colorsStr := r.URL.Query().Get("colors")
-//	processorsStr := r.URL.Query().Get("processors")
-//	storageStr := r.URL.Query().Get("storage")
-//	sizesStr := r.URL.Query().Get("sizes")
-//	priceFromStr := r.URL.Query().Get("price_from")
-//	priceToStr := r.URL.Query().Get("price_to")
-//	sortBy := r.URL.Query().Get("sort")
-//
-//	categoryNames := parseCommaSeparatedValues(categoryNamesStr)
-//	colors := parseCommaSeparatedValues(colorsStr)
-//	processors := parseCommaSeparatedValues(processorsStr)
-//	storage := parseCommaSeparatedValues(storageStr)
-//	sizes := parseCommaSeparatedValues(sizesStr)
-//
-//	priceFrom, err := parsePrice(priceFromStr, 0)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid price_from")
-//		return
-//	}
-//
-//	priceTo, err := parsePrice(priceToStr, 999999)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid price_to")
-//		return
-//	}
-//
-//	categoryUUID, err := uuid.Parse(categoryID)
-//	if err != nil {
-//		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
-//		return
-//	}
-//
-//	products, err := h.productService.GetProductsByFilters(
-//		r.Context(),
-//		categoryUUID,
-//		categoryNames,
-//		colors,
-//		processors,
-//		storage,
-//		sizes,
-//		priceFrom,
-//		priceTo,
-//		sortBy,
-//	)
-//
-//	if err != nil {
-//		RespondWithError(w, http.StatusInternalServerError, "Failed to get products by filters")
-//		return
-//	}
-//
-//	RespondWithJSON(w, http.StatusOK, products)
-//}
-
-func parseCommaSeparatedValues(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Split(s, ",")
-}
-
-func parsePrice(s string, defaultValue float64) (float64, error) {
-	if s == "" {
-		return defaultValue, nil
-	}
-	return strconv.ParseFloat(s, 64)
-}
-
 // SearchProductsHandler searches products by name
 func (h *ProductHandler) SearchProductsHandler(w http.ResponseWriter, r *http.Request) {
 	// get query
@@ -271,20 +184,6 @@ func (h *ProductHandler) SearchProductsHandler(w http.ResponseWriter, r *http.Re
 	// respond with products
 	RespondWithJSON(w, http.StatusOK, products)
 }
-
-// // GetProductsByFilterOptionsHandler gets all products by filter options
-//
-//	func (h *ProductHandler) GetProductsByFilterOptionsHandler(w http.ResponseWriter, r *http.Request) {
-//		// get filter options
-//		filterOptions, err := h.productService.GetFilterOptions(r.Context())
-//		if err != nil {
-//			RespondWithError(w, http.StatusInternalServerError, "Failed to get filter options")
-//			return
-//		}
-//
-//		// respond with filter options
-//		RespondWithJSON(w, http.StatusOK, filterOptions)
-//	}
 
 // GetFilterOptionsByCategoryNameHandler gets filter options by category name
 func (h *ProductHandler) GetFilterOptionsByCategoryNameHandler(w http.ResponseWriter, r *http.Request) {
@@ -368,8 +267,19 @@ func (h *ProductHandler) GetProductBySlugHandler(w http.ResponseWriter, r *http.
 
 // GetProductsHandler gets all products
 func (h *ProductHandler) GetProductsHandler(w http.ResponseWriter, r *http.Request) {
+
+	// get the page index and page size
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("limit")
+
+	page, pageSize, err := GetPageAndPageSize(pageStr, pageSizeStr)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid page or page size: %v", err))
+		return
+	}
+
 	// get products
-	products, err := h.productService.GetProducts(r.Context())
+	products, err := h.productService.GetProducts(r.Context(), page, pageSize)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to get products")
 		return
@@ -409,94 +319,95 @@ func (h *ProductHandler) GetProductDetailHandler(w http.ResponseWriter, r *http.
 
 const maxUploadSize = 10 << 20 // 10 MB
 
-// CreateV2ProductHandler creates a new product
-func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.Request) {
-	// parse the form
+// NEW HELPER FUNCTION: parseCreateProductRequest parses multipart form data for product creation.
+func parseCreateProductRequest(r *http.Request) (*model.CreateProductRequest, []*multipart.FileHeader, error) {
+	// Parse the multipart form
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-		RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse multipart form: %v", err))
-		return
+		return nil, nil, fmt.Errorf("failed to parse multipart form: %w", err)
 	}
 
-	// get the form data
-	var params model.CreateProductRequest
-	params.Slug = r.FormValue("slug")
-	params.Name = r.FormValue("name")
-	params.Description = r.FormValue("description")
-	params.MetaTitle = r.FormValue("metaTitle")
-	params.MetaDescription = r.FormValue("metaDescription")
-	priceStr := r.FormValue("price")
-	price, err := strconv.ParseFloat(priceStr, 64)
-	if err != nil {
-		log.Println(err)
-		RespondWithError(w, http.StatusBadRequest, "Invalid price")
-		return
+	// Initialize and populate the CreateProductRequest struct
+	params := &model.CreateProductRequest{
+		Slug:            r.FormValue("slug"),
+		Name:            r.FormValue("name"),
+		Description:     r.FormValue("description"),
+		MetaTitle:       r.FormValue("metaTitle"),
+		MetaDescription: r.FormValue("metaDescription"),
+		Status:          r.FormValue("status"),
+		PartNumber:      r.FormValue("partNumber"),
 	}
-	pricePerUnitStr := r.FormValue("pricePerUnit")
-	pricePerUnit, err := strconv.ParseFloat(pricePerUnitStr, 64)
+
+	if params.PartNumber == "" {
+		return nil, nil, fmt.Errorf("invalid part number")
+	}
+
+	// Parse price
+	price, err := strconv.ParseFloat(r.FormValue("price"), 64)
 	if err != nil {
-		log.Println(err)
-		RespondWithError(w, http.StatusBadRequest, "Invalid price per unit")
-		return
+		return nil, nil, fmt.Errorf("invalid price: %w", err)
+	}
+	params.Price = price
+
+	// Parse pricePerUnit
+	pricePerUnit, err := strconv.ParseFloat(r.FormValue("pricePerUnit"), 64)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid price per unit: %w", err)
 	}
 	params.PricePerUnit = pricePerUnit
-	params.Price = price
-	stockStr := r.FormValue("stock")
-	stock, err := strconv.Atoi(stockStr)
+
+	// Parse stock
+	stock, err := strconv.Atoi(r.FormValue("stock"))
 	if err != nil {
-		log.Println(err)
-		RespondWithError(w, http.StatusBadRequest, "Invalid stock")
-		return
+		return nil, nil, fmt.Errorf("invalid stock: %w", err)
 	}
 	params.Stock = stock
-	categoryIDStr := r.FormValue("categoryID")
-	categoryID, err := uuid.Parse(categoryIDStr)
+
+	// Parse categoryID
+	categoryID, err := uuid.Parse(r.FormValue("categoryID"))
 	if err != nil {
-		log.Println(err)
-		RespondWithError(w, http.StatusBadRequest, "Invalid category ID")
-		return
+		return nil, nil, fmt.Errorf("invalid category ID: %w", err)
 	}
 	params.CategoryID = categoryID
-	params.Status = r.FormValue("status")
-	params.PartNumber = r.FormValue("partNumber")
-	if params.PartNumber == "" {
-		RespondWithError(w, http.StatusBadRequest, "Invalid part number")
-		return
+
+	// Process image URLs from the "url" form field
+	params.ImageUrls = r.MultipartForm.Value["url"]
+
+	// Process specifications (assuming they are passed as JSON strings)
+	for _, specVal := range r.MultipartForm.Value["specifications"] {
+		var spec model.Specification
+		if err := json.Unmarshal([]byte(specVal), &spec); err != nil {
+			return nil, nil, fmt.Errorf("failed to parse specifications: %w", err)
+		}
+		params.Specifications = append(params.Specifications, spec)
 	}
 
-	// get the images
+	// Get uploaded images
 	images := r.MultipartForm.File["images"]
 
-	// Process image Urls
-	imageUrls := make([]string, 0)
-	for _, imageUrl := range r.MultipartForm.Value["url"] {
-		imageUrls = append(imageUrls, imageUrl)
-	}
-	params.ImageUrls = imageUrls
+	return params, images, nil
+}
 
-	// Process specifications
-	specifications := make([]model.Specification, 0)
-	for _, spec := range r.MultipartForm.Value["specifications"] {
-		var specification model.Specification
-		if err := json.Unmarshal([]byte(spec), &specification); err != nil {
-			log.Println(err)
-			http.Error(w, "Failed to parse specifications", http.StatusBadRequest)
-			return
-		}
-		specifications = append(specifications, specification)
+// CreateV2ProductHandler creates a new product
+func (h *ProductHandler) CreateV2ProductHandler(w http.ResponseWriter, r *http.Request) {
+	// Use helper to parse the form data
+	params, images, err := parseCreateProductRequest(r)
+	if err != nil {
+		log.Println(err)
+		RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
 	}
-	params.Specifications = specifications
 
 	log.Println("params: ", params)
 
-	//create product
-	err = h.productService.CreateV2Product(r.Context(), &params, images)
+	// Create/Update product using the service
+	err = h.productService.CreateV2Product(r.Context(), params, images)
 	if err != nil {
 		log.Println(err)
 		RespondWithError(w, http.StatusInternalServerError, "Failed to create product")
 		return
 	}
 
-	//respond with product
+	// Respond with success message
 	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Product created/updated successfully"})
 }
 
@@ -759,4 +670,26 @@ func (h *ProductHandler) GetAllProductFilterOptionsHandler(w http.ResponseWriter
 
 	// respond with filter options
 	RespondWithJSON(w, http.StatusOK, filterOptions)
+}
+
+// GetProductCartHandler gets a product cart by its slug
+func (h *ProductHandler) GetProductCartHandler(w http.ResponseWriter, r *http.Request) {
+	// get product slug
+	vars := mux.Vars(r)
+	slug := vars["slug"]
+
+	if slug == "" {
+		RespondWithError(w, http.StatusBadRequest, "Invalid slug")
+		return
+	}
+
+	// get product cart
+	productCart, err := h.productService.GetProductCart(r.Context(), slug)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to get product cart")
+		return
+	}
+
+	// respond with product cart
+	RespondWithJSON(w, http.StatusOK, productCart)
 }

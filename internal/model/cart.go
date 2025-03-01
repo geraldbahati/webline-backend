@@ -3,11 +3,11 @@ package model
 import "github.com/google/uuid"
 
 type ShoppingCart struct {
-	ID         uuid.UUID `json:"id"`
-	UserID     uuid.UUID `json:"userID"`
-	SessionID  uuid.UUID `json:"sessionID"`
-	TotalItems int32     `json:"totalItems"`
-	TotalPrice float64   `json:"totalPrice"`
+	ID         uuid.UUID  `json:"id"`
+	UserID     *uuid.UUID `json:"userID"`
+	GuestID    *uuid.UUID `json:"guestID"`
+	TotalItems int32      `json:"totalItems"`
+	TotalPrice float64    `json:"totalPrice"`
 }
 
 type CartItem struct {

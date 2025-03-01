@@ -19,7 +19,7 @@ WHERE id = $1 AND status = 'PENDING'
 `
 
 func (q *Queries) ApproveAdminRequest(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, approveAdminRequest, id)
+	_, err := q.exec(ctx, q.approveAdminRequestStmt, approveAdminRequest, id)
 	return err
 }
 
@@ -35,7 +35,7 @@ type CreateAdminRequestParams struct {
 }
 
 func (q *Queries) CreateAdminRequest(ctx context.Context, arg CreateAdminRequestParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, createAdminRequest, arg.UserID, arg.Reason)
+	row := q.queryRow(ctx, q.createAdminRequestStmt, createAdminRequest, arg.UserID, arg.Reason)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -47,7 +47,7 @@ WHERE token = $1
 `
 
 func (q *Queries) DeleteApprovalToken(ctx context.Context, token string) error {
-	_, err := q.db.ExecContext(ctx, deleteApprovalToken, token)
+	_, err := q.exec(ctx, q.deleteApprovalTokenStmt, deleteApprovalToken, token)
 	return err
 }
 
@@ -79,7 +79,7 @@ type GetAdminRequestByIDRow struct {
 }
 
 func (q *Queries) GetAdminRequestByID(ctx context.Context, id uuid.UUID) (GetAdminRequestByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getAdminRequestByID, id)
+	row := q.queryRow(ctx, q.getAdminRequestByIDStmt, getAdminRequestByID, id)
 	var i GetAdminRequestByIDRow
 	err := row.Scan(
 		&i.ID,
@@ -100,7 +100,7 @@ WHERE user_id = $1 AND status = 'PENDING'
 `
 
 func (q *Queries) GetAdminRequestByUserID(ctx context.Context, userID uuid.UUID) (AdminRequest, error) {
-	row := q.db.QueryRowContext(ctx, getAdminRequestByUserID, userID)
+	row := q.queryRow(ctx, q.getAdminRequestByUserIDStmt, getAdminRequestByUserID, userID)
 	var i AdminRequest
 	err := row.Scan(
 		&i.ID,
@@ -143,12 +143,12 @@ type GetAdminRequestsByUserIDRow struct {
 }
 
 func (q *Queries) GetAdminRequestsByUserID(ctx context.Context, userID uuid.UUID) ([]GetAdminRequestsByUserIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAdminRequestsByUserID, userID)
+	rows, err := q.query(ctx, q.getAdminRequestsByUserIDStmt, getAdminRequestsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAdminRequestsByUserIDRow
+	items := []GetAdminRequestsByUserIDRow{}
 	for rows.Next() {
 		var i GetAdminRequestsByUserIDRow
 		if err := rows.Scan(
@@ -180,7 +180,7 @@ WHERE token = $1
 `
 
 func (q *Queries) GetApprovalToken(ctx context.Context, token string) (AdminApprovalToken, error) {
-	row := q.db.QueryRowContext(ctx, getApprovalToken, token)
+	row := q.queryRow(ctx, q.getApprovalTokenStmt, getApprovalToken, token)
 	var i AdminApprovalToken
 	err := row.Scan(
 		&i.ID,
@@ -222,12 +222,12 @@ type GetPendingAdminRequestsRow struct {
 }
 
 func (q *Queries) GetPendingAdminRequests(ctx context.Context) ([]GetPendingAdminRequestsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getPendingAdminRequests)
+	rows, err := q.query(ctx, q.getPendingAdminRequestsStmt, getPendingAdminRequests)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetPendingAdminRequestsRow
+	items := []GetPendingAdminRequestsRow{}
 	for rows.Next() {
 		var i GetPendingAdminRequestsRow
 		if err := rows.Scan(
@@ -259,7 +259,7 @@ WHERE id = $1 AND status = 'PENDING'
 `
 
 func (q *Queries) RejectAdminRequest(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, rejectAdminRequest, id)
+	_, err := q.exec(ctx, q.rejectAdminRequestStmt, rejectAdminRequest, id)
 	return err
 }
 
@@ -275,6 +275,6 @@ type StoreApprovalTokenParams struct {
 }
 
 func (q *Queries) StoreApprovalToken(ctx context.Context, arg StoreApprovalTokenParams) error {
-	_, err := q.db.ExecContext(ctx, storeApprovalToken, arg.RequestID, arg.Token, arg.ExpiresAt)
+	_, err := q.exec(ctx, q.storeApprovalTokenStmt, storeApprovalToken, arg.RequestID, arg.Token, arg.ExpiresAt)
 	return err
 }

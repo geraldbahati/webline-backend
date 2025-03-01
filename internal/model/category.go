@@ -93,3 +93,47 @@ type CreateCategoryParams struct {
 	ParentID        string `json:"parentID"`
 	Slug            string `json:"slug"`
 }
+
+type CategoryStats struct {
+	DirectChildrenCount int `json:"directChildrenCount"`
+	AllDescendantsCount int `json:"allDescendantsCount"`
+	DirectProductCount  int `json:"directProductCount"`
+	TotalProductCount   int `json:"totalProductCount"`
+	DepthLevel          int `json:"depthLevel"`
+}
+
+type CategoryWithProductCount struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Slug         string `json:"slug"`
+	ImageURL     string `json:"imageUrl"`
+	Description  string `json:"description"`
+	IsActive     bool   `json:"isActive"`
+	Position     int    `json:"position"`
+	Depth        int    `json:"depth"`
+	ProductCount int    `json:"productCount"`
+}
+
+type CategoryHierarchyStats struct {
+	Category CategoryDetail             `json:"category"`
+	Stats    CategoryStats              `json:"stats"`
+	Children []CategoryWithProductCount `json:"children"`
+}
+
+// CategoryBreadcrumb represents one level in the category ancestry path
+type CategoryBreadcrumb struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+// CategoryWithAncestry contains category information with its full ancestry path
+type CategoryWithAncestry struct {
+	ID           string               `json:"id"`
+	Name         string               `json:"name"`
+	Slug         string               `json:"slug"`
+	Description  string               `json:"description"`
+	IsActive     bool                 `json:"isActive"`
+	ProductCount int                  `json:"productCount"`
+	AncestryPath []CategoryBreadcrumb `json:"ancestryPath"`
+}

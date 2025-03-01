@@ -16,6 +16,9 @@ type Services struct {
 	AdminRequestService     *AdminRequestService
 	ProductAttributeService *ProductAttributeService
 	PromotionService        *PromotionService
+	CacheService            CacheService
+	SessionService          *SessionService
+	SearchService           *SearchService
 }
 
 type Dependencies struct {
@@ -34,6 +37,9 @@ type Dependencies struct {
 	AdminRequestService     *AdminRequestService
 	ProductAttributeService *ProductAttributeService
 	PromotionService        *PromotionService
+	CacheService            CacheService
+	SessionService          *SessionService
+	SearchService           *SearchService
 }
 
 // NewServices initializes and returns a Services instance with all services.
@@ -54,5 +60,8 @@ func NewServices(deps Dependencies) *Services {
 		AdminRequestService:     deps.AdminRequestService,
 		ProductAttributeService: deps.ProductAttributeService,
 		PromotionService:        deps.PromotionService,
+		CacheService:            deps.CacheService,
+		SessionService:          deps.SessionService,
+		SearchService:           deps.SearchService,
 	}
 }

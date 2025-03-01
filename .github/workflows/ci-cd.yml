@@ -1,0 +1,275 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_env:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+          - staging
+
+jobs:
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Get short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend:${{ steps.vars.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/webline-backend:buildcache,mode=max
+
+  terraform:
+    name: Prepare Infrastructure
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          # Database Configuration
+          POSTGRES_USER=${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB=${{ secrets.DB_NAME }}
+          DB_HOST=db
+          DB_PORT=5432
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          PORT=8080
+
+          # AWS S3
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}
+
+          # MPESA
+          BUSINESS_SHORTCODE=${{ secrets.BUSINESS_SHORTCODE }}
+          PASSKEY=${{ secrets.PASSKEY }}
+          CALLBACK_URL=${{ secrets.CALLBACK_URL }}
+          CONSUMER_KEY=${{ secrets.CONSUMER_KEY }}
+          CONSUMER_SECRET=${{ secrets.CONSUMER_SECRET }}
+          ACCOUNT_REFERENCE=${{ secrets.ACCOUNT_REFERENCE }}
+
+          # SMTP
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }}
+          FROM_NAME=${{ secrets.FROM_NAME }}
+          TO_EMAIL=${{ secrets.TO_EMAIL }}
+
+          # URLs
+          FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+          BACKEND_URL=${{ secrets.BACKEND_URL }}
+
+          # REDIS
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          REDIS_DB=0
+          REDIS_POOL_SIZE=20
+          REDIS_MIN_IDLE_CONNS=5
+          REDIS_TTL=15m
+          REDIS_RATE_LIMIT=50
+
+          # JWT
+          JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+          JWT_VERIFY_SECRET=${{ secrets.JWT_VERIFY_SECRET }}
+          JWT_GUEST_SECRET=${{ secrets.JWT_GUEST_SECRET }}
+
+          # Environment
+          ENV=production
+
+          # Add allowed origins (comma-separated)
+          ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
+
+          # Docker configuration for CI/CD
+          DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
+          IMAGE_TAG=${{ github.sha }}
+          EOF
+
+      - name: Create SSH Key Directory
+        run: mkdir -p /home/runner/.ssh
+
+      - name: Create SSH Key File
+        run: |
+          mkdir -p /home/runner/.ssh
+
+          # Ensure the key is properly formatted with correct begin/end markers
+          cat > /home/runner/.ssh/id_rsa << EOF
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          -----END OPENSSH PRIVATE KEY-----
+          EOF
+
+          chmod 600 /home/runner/.ssh/id_rsa
+
+          # Verify key format and convert if needed
+          echo "Checking SSH key format..."
+          if ! ssh-keygen -l -f /home/runner/.ssh/id_rsa &> /dev/null; then
+            echo "Key appears to be in wrong format, trying to fix..."
+            # Create a backup
+            cp /home/runner/.ssh/id_rsa /home/runner/.ssh/id_rsa.bak
+
+            # Try to detect format and convert
+            if grep -q "BEGIN RSA PRIVATE KEY" /home/runner/.ssh/id_rsa; then
+              echo "Converting from PEM to OpenSSH format..."
+              ssh-keygen -p -N "" -m pem -f /home/runner/.ssh/id_rsa
+            fi
+          fi
+
+          # Final check
+          if ! ssh-keygen -l -f /home/runner/.ssh/id_rsa; then
+            echo "ERROR: SSH key still invalid after attempted fixes"
+            exit 1
+          fi
+
+          # Testing SSH connection directly
+          echo "Testing SSH connection..."
+          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 -v gerald-bahati@209.97.128.72 "echo SSH connection successful" || echo "SSH connection failed, but continuing workflow"
+
+      - name: Get short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Deploy directly using SSH
+        id: deploy_ssh_key
+        continue-on-error: true
+        run: |
+          export DROPLET_IP="209.97.128.72"
+
+          # Add IP to known hosts to avoid warnings
+          ssh-keyscan -H $DROPLET_IP >> /home/runner/.ssh/known_hosts
+
+          echo "Creating remote directories..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "mkdir -p ~/app" || { echo "Failed to create app directory"; exit 1; }
+
+          echo "Copying docker-compose.yml..."
+          scp -o BatchMode=yes docker-compose.yml gerald-bahati@$DROPLET_IP:~/app/ || { echo "Failed to copy docker-compose.yml"; exit 1; }
+
+          echo "Copying .env file..."
+          scp -o BatchMode=yes .env gerald-bahati@$DROPLET_IP:~/app/ || { echo "Failed to copy .env file"; exit 1; }
+
+          echo "Deploying..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker compose pull && sudo docker compose up -d" || {
+            echo "Deployment failed. Checking container logs..."
+            ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && echo 'PostgreSQL Logs:' && sudo docker logs backend_postgres"
+            exit 1;
+          }
+
+          echo "Checking container status..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker ps -a"
+
+          echo "Checking PostgreSQL logs..."
+          ssh -o BatchMode=yes gerald-bahati@$DROPLET_IP "cd ~/app && sudo docker logs backend_postgres"
+
+          echo "Deployment completed successfully."
+
+      - name: Deploy using password authentication
+        if: ${{ steps.deploy_ssh_key.outcome == 'failure' }}
+        env:
+          SSH_PASSWORD: ${{ secrets.DO_SSH_PASSWORD }}
+        run: |
+          export DROPLET_IP="209.97.128.72"
+
+          # Install sshpass for password authentication
+          sudo apt-get update && sudo apt-get install -y sshpass
+
+          echo "Creating remote directories..."
+          # First connect and set up sudo with NOPASSWD for this session only
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "echo '$SSH_PASSWORD' | sudo -S bash -c 'echo \"gerald-bahati ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/gerald-temp && chmod 440 /etc/sudoers.d/gerald-temp'"
+
+          echo "Creating app directory..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "mkdir -p ~/app"
+
+          echo "Copying docker-compose.yml..."
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no docker-compose.yml gerald-bahati@$DROPLET_IP:~/app/
+
+          echo "Copying .env file..."
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no .env gerald-bahati@$DROPLET_IP:~/app/
+
+          echo "Deploying..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+            cd ~/app &&
+            sudo docker compose pull &&
+            sudo docker compose up -d" || {
+              echo "Deployment failed. Checking container logs..."
+              sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+                cd ~/app &&
+                echo 'PostgreSQL Logs:' &&
+                sudo docker logs backend_postgres"
+              exit 1;
+            }
+
+          echo "Checking container status..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+            cd ~/app &&
+            sudo docker ps -a"
+
+          echo "Checking PostgreSQL logs..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+            cd ~/app &&
+            sudo docker logs backend_postgres"
+
+          echo "Removing temporary sudo privileges..."
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no gerald-bahati@$DROPLET_IP "
+            sudo rm -f /etc/sudoers.d/gerald-temp"
+
+          echo "Deployment completed successfully."
+
+      - name: Wait for Health Check
+        run: |
+          export DROPLET_IP="209.97.128.72"
+          echo "Waiting for the deployment to stabilize..."
+          sleep 60
+          MAX_RETRIES=10
+          COUNTER=0
+          until $(curl --output /dev/null --silent --fail http://$DROPLET_IP:8080/health); do
+            if [ ${COUNTER} -eq ${MAX_RETRIES} ]; then
+              echo "Max retries reached. Health check failed."
+              exit 1
+            fi
+            echo "Health check failed. Retrying in 10 seconds..."
+            sleep 10
+            let COUNTER=COUNTER+1
+          done
+          echo "Health check passed!"

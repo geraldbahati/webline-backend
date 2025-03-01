@@ -26,7 +26,7 @@ type ActivateProductsBySlugsParams struct {
 }
 
 func (q *Queries) ActivateProductsBySlugs(ctx context.Context, arg ActivateProductsBySlugsParams) error {
-	_, err := q.db.ExecContext(ctx, activateProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
+	_, err := q.exec(ctx, q.activateProductsBySlugsStmt, activateProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
 	return err
 }
 
@@ -37,7 +37,7 @@ WHERE id = $1
 `
 
 func (q *Queries) ArchiveProductByID(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, archiveProductByID, id)
+	_, err := q.exec(ctx, q.archiveProductByIDStmt, archiveProductByID, id)
 	return err
 }
 
@@ -53,7 +53,7 @@ type ArchiveProductsBySlugsParams struct {
 }
 
 func (q *Queries) ArchiveProductsBySlugs(ctx context.Context, arg ArchiveProductsBySlugsParams) error {
-	_, err := q.db.ExecContext(ctx, archiveProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
+	_, err := q.exec(ctx, q.archiveProductsBySlugsStmt, archiveProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
 	return err
 }
 
@@ -63,7 +63,7 @@ FROM products WHERE status = 'active'
 `
 
 func (q *Queries) CountProducts(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countProducts)
+	row := q.queryRow(ctx, q.countProductsStmt, countProducts)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -94,7 +94,19 @@ AND p.status = 'active'
 `
 
 func (q *Queries) CountProductsByParentCategoryID(ctx context.Context, id uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countProductsByParentCategoryID, id)
+	row := q.queryRow(ctx, q.countProductsByParentCategoryIDStmt, countProductsByParentCategoryID, id)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countV2Products = `-- name: CountV2Products :one
+SELECT COUNT(*) AS count
+FROM products
+`
+
+func (q *Queries) CountV2Products(ctx context.Context) (int64, error) {
+	row := q.queryRow(ctx, q.countV2ProductsStmt, countV2Products)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -145,7 +157,7 @@ type CreateProductParams struct {
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
-	row := q.db.QueryRowContext(ctx, createProduct,
+	row := q.queryRow(ctx, q.createProductStmt, createProduct,
 		arg.Name,
 		arg.Description,
 		arg.Stock,
@@ -192,7 +204,7 @@ DELETE FROM products WHERE id = $1
 `
 
 func (q *Queries) DeleteProductByID(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductByID, id)
+	_, err := q.exec(ctx, q.deleteProductByIDStmt, deleteProductByID, id)
 	return err
 }
 
@@ -201,7 +213,7 @@ DELETE FROM product_images WHERE product_id = $1
 `
 
 func (q *Queries) DeleteProductImagesByProductID(ctx context.Context, productID uuid.NullUUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductImagesByProductID, productID)
+	_, err := q.exec(ctx, q.deleteProductImagesByProductIDStmt, deleteProductImagesByProductID, productID)
 	return err
 }
 
@@ -210,7 +222,7 @@ DELETE FROM product_specifications WHERE product_id = $1
 `
 
 func (q *Queries) DeleteProductSpecificationsByProductID(ctx context.Context, productID uuid.NullUUID) error {
-	_, err := q.db.ExecContext(ctx, deleteProductSpecificationsByProductID, productID)
+	_, err := q.exec(ctx, q.deleteProductSpecificationsByProductIDStmt, deleteProductSpecificationsByProductID, productID)
 	return err
 }
 
@@ -220,7 +232,7 @@ WHERE slug = ANY($1::text[])
 `
 
 func (q *Queries) DeleteProductsBySlugs(ctx context.Context, dollar_1 []string) error {
-	_, err := q.db.ExecContext(ctx, deleteProductsBySlugs, pq.Array(dollar_1))
+	_, err := q.exec(ctx, q.deleteProductsBySlugsStmt, deleteProductsBySlugs, pq.Array(dollar_1))
 	return err
 }
 
@@ -236,14 +248,44 @@ type DraftProductsBySlugsParams struct {
 }
 
 func (q *Queries) DraftProductsBySlugs(ctx context.Context, arg DraftProductsBySlugsParams) error {
-	_, err := q.db.ExecContext(ctx, draftProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
+	_, err := q.exec(ctx, q.draftProductsBySlugsStmt, draftProductsBySlugs, pq.Array(arg.Column1), arg.UpdatedBy)
 	return err
 }
 
 const getProductByID = `-- name: GetProductByID :one
-SELECT id, name, description, usd_price, stock, category_id, created_at, updated_at, status, created_by, updated_by, featured, search_keyword, slug
-FROM products
-WHERE id = $1
+WITH rate AS (
+    SELECT COALESCE(
+        (SELECT rate_to_kes
+         FROM exchange_rates
+         WHERE currency_code = 'USD'
+           AND (valid_to IS NULL OR valid_to >= NOW())
+           AND valid_from <= NOW()
+         ORDER BY valid_from DESC
+         LIMIT 1),
+        135
+    ) AS rate_to_kes
+)
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    p.usd_price,
+    (p.usd_price * r.rate_to_kes)::numeric AS price_in_kes,
+    p.stock,
+    p.category_id,
+    p.created_at,
+    p.updated_at,
+    p.status,
+    p.created_by,
+    p.updated_by,
+    p.featured,
+    p.search_keyword,
+    p.slug
+FROM
+    products p,
+    rate r
+WHERE
+    p.id = $1
 `
 
 type GetProductByIDRow struct {
@@ -251,6 +293,7 @@ type GetProductByIDRow struct {
 	Name          string
 	Description   sql.NullString
 	UsdPrice      string
+	PriceInKes    string
 	Stock         sql.NullInt32
 	CategoryID    uuid.UUID
 	CreatedAt     sql.NullTime
@@ -264,13 +307,14 @@ type GetProductByIDRow struct {
 }
 
 func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (GetProductByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductByID, id)
+	row := q.queryRow(ctx, q.getProductByIDStmt, getProductByID, id)
 	var i GetProductByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Description,
 		&i.UsdPrice,
+		&i.PriceInKes,
 		&i.Stock,
 		&i.CategoryID,
 		&i.CreatedAt,
@@ -309,12 +353,12 @@ type GetProductByIDsRow struct {
 }
 
 func (q *Queries) GetProductByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetProductByIDsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductByIDs, pq.Array(dollar_1))
+	rows, err := q.query(ctx, q.getProductByIDsStmt, getProductByIDs, pq.Array(dollar_1))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetProductByIDsRow
+	items := []GetProductByIDsRow{}
 	for rows.Next() {
 		var i GetProductByIDsRow
 		if err := rows.Scan(
@@ -371,7 +415,7 @@ type GetProductBySlugRow struct {
 }
 
 func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProductBySlugRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductBySlug, slug)
+	row := q.queryRow(ctx, q.getProductBySlugStmt, getProductBySlug, slug)
 	var i GetProductBySlugRow
 	err := row.Scan(
 		&i.ID,
@@ -392,6 +436,64 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 	return i, err
 }
 
+const getProductCartByProductSlug = `-- name: GetProductCartByProductSlug :one
+WITH rate AS (
+    SELECT COALESCE(
+                   (SELECT rate_to_kes
+                    FROM exchange_rates
+                    WHERE currency_code = 'USD'
+                      AND (valid_to IS NULL OR valid_to >= NOW())
+                      AND valid_from <= NOW()
+                    ORDER BY valid_from DESC
+                    LIMIT 1),
+                   135) AS rate_to_kes
+)
+SELECT
+    p.id,
+    p.name,
+    p.description,
+    (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price,
+    p.stock,
+    p.category_id,
+    p.featured,
+    COALESCE(d.discount_percentage, 0) AS discount_percent,
+    p.slug
+FROM
+    products p
+        LEFT JOIN discounts d ON d.product_id = p.id
+WHERE
+    p.slug = $1
+`
+
+type GetProductCartByProductSlugRow struct {
+	ID              uuid.UUID
+	Name            string
+	Description     sql.NullString
+	Price           string
+	Stock           sql.NullInt32
+	CategoryID      uuid.UUID
+	Featured        sql.NullBool
+	DiscountPercent string
+	Slug            string
+}
+
+func (q *Queries) GetProductCartByProductSlug(ctx context.Context, slug string) (GetProductCartByProductSlugRow, error) {
+	row := q.queryRow(ctx, q.getProductCartByProductSlugStmt, getProductCartByProductSlug, slug)
+	var i GetProductCartByProductSlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.Price,
+		&i.Stock,
+		&i.CategoryID,
+		&i.Featured,
+		&i.DiscountPercent,
+		&i.Slug,
+	)
+	return i, err
+}
+
 const getProductIDsBySlugs = `-- name: GetProductIDsBySlugs :many
 SELECT
     id
@@ -402,12 +504,12 @@ WHERE
 `
 
 func (q *Queries) GetProductIDsBySlugs(ctx context.Context, dollar_1 []string) ([]uuid.UUID, error) {
-	rows, err := q.db.QueryContext(ctx, getProductIDsBySlugs, pq.Array(dollar_1))
+	rows, err := q.query(ctx, q.getProductIDsBySlugsStmt, getProductIDsBySlugs, pq.Array(dollar_1))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	items := []uuid.UUID{}
 	for rows.Next() {
 		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
@@ -440,6 +542,7 @@ SELECT
     p.id,
     p.name,
     p.description,
+    p.slug,
     (p.usd_price * (SELECT rate_to_kes FROM rate))::numeric AS price_in_kes,
     COALESCE(d.discount_percentage, 0) AS discount_percent,
     COALESCE(pi.image_url, '')::TEXT AS imageUrl
@@ -466,23 +569,41 @@ type GetProductPricingByProductIDRow struct {
 	ID              uuid.UUID
 	Name            string
 	Description     sql.NullString
+	Slug            string
 	PriceInKes      string
 	DiscountPercent string
 	Imageurl        string
 }
 
 func (q *Queries) GetProductPricingByProductID(ctx context.Context, id uuid.UUID) (GetProductPricingByProductIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductPricingByProductID, id)
+	row := q.queryRow(ctx, q.getProductPricingByProductIDStmt, getProductPricingByProductID, id)
 	var i GetProductPricingByProductIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Description,
+		&i.Slug,
 		&i.PriceInKes,
 		&i.DiscountPercent,
 		&i.Imageurl,
 	)
 	return i, err
+}
+
+const getProductSlugByProductID = `-- name: GetProductSlugByProductID :one
+SELECT
+    slug
+FROM
+    products
+WHERE
+    id = $1
+`
+
+func (q *Queries) GetProductSlugByProductID(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.queryRow(ctx, q.getProductSlugByProductIDStmt, getProductSlugByProductID, id)
+	var slug string
+	err := row.Scan(&slug)
+	return slug, err
 }
 
 const getProductSpecsByID = `-- name: GetProductSpecsByID :one
@@ -510,7 +631,7 @@ type GetProductSpecsByIDRow struct {
 }
 
 func (q *Queries) GetProductSpecsByID(ctx context.Context, id uuid.UUID) (GetProductSpecsByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getProductSpecsByID, id)
+	row := q.queryRow(ctx, q.getProductSpecsByIDStmt, getProductSpecsByID, id)
 	var i GetProductSpecsByIDRow
 	err := row.Scan(&i.Description, &i.Specs)
 	return i, err
@@ -540,12 +661,12 @@ type GetProductsByCategoryIDRow struct {
 }
 
 func (q *Queries) GetProductsByCategoryID(ctx context.Context, categoryID uuid.UUID) ([]GetProductsByCategoryIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByCategoryID, categoryID)
+	rows, err := q.query(ctx, q.getProductsByCategoryIDStmt, getProductsByCategoryID, categoryID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetProductsByCategoryIDRow
+	items := []GetProductsByCategoryIDRow{}
 	for rows.Next() {
 		var i GetProductsByCategoryIDRow
 		if err := rows.Scan(
@@ -629,12 +750,12 @@ type GetProductsByParentCategoryIDRow struct {
 }
 
 func (q *Queries) GetProductsByParentCategoryID(ctx context.Context, arg GetProductsByParentCategoryIDParams) ([]GetProductsByParentCategoryIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getProductsByParentCategoryID, arg.ID, arg.Limit, arg.Offset)
+	rows, err := q.query(ctx, q.getProductsByParentCategoryIDStmt, getProductsByParentCategoryID, arg.ID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetProductsByParentCategoryIDRow
+	items := []GetProductsByParentCategoryIDRow{}
 	for rows.Next() {
 		var i GetProductsByParentCategoryIDRow
 		if err := rows.Scan(
@@ -786,7 +907,7 @@ type GetV2ProductDetailBySlugRow struct {
 }
 
 func (q *Queries) GetV2ProductDetailBySlug(ctx context.Context, slug string) (GetV2ProductDetailBySlugRow, error) {
-	row := q.db.QueryRowContext(ctx, getV2ProductDetailBySlug, slug)
+	row := q.queryRow(ctx, q.getV2ProductDetailBySlugStmt, getV2ProductDetailBySlug, slug)
 	var i GetV2ProductDetailBySlugRow
 	err := row.Scan(
 		&i.Name,
@@ -856,7 +977,13 @@ FROM products p
          LEFT JOIN categories c ON p.category_id = c.id
          LEFT JOIN categories pc ON c.parent_id = pc.id
 ORDER BY p.created_at DESC
+LIMIT $1 OFFSET $2
 `
+
+type GetV2ProductsParams struct {
+	Limit  int32
+	Offset int32
+}
 
 type GetV2ProductsRow struct {
 	Name         string
@@ -872,13 +999,13 @@ type GetV2ProductsRow struct {
 	Categoryname sql.NullString
 }
 
-func (q *Queries) GetV2Products(ctx context.Context) ([]GetV2ProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getV2Products)
+func (q *Queries) GetV2Products(ctx context.Context, arg GetV2ProductsParams) ([]GetV2ProductsRow, error) {
+	rows, err := q.query(ctx, q.getV2ProductsStmt, getV2Products, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetV2ProductsRow
+	items := []GetV2ProductsRow{}
 	for rows.Next() {
 		var i GetV2ProductsRow
 		if err := rows.Scan(
@@ -937,12 +1064,12 @@ type ListProductsRow struct {
 }
 
 func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listProducts, arg.Limit, arg.Offset)
+	rows, err := q.query(ctx, q.listProductsStmt, listProducts, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListProductsRow
+	items := []ListProductsRow{}
 	for rows.Next() {
 		var i ListProductsRow
 		if err := rows.Scan(
@@ -1045,12 +1172,12 @@ type SearchProductsRow struct {
 }
 
 func (q *Queries) SearchProducts(ctx context.Context, dollar_1 sql.NullString) ([]SearchProductsRow, error) {
-	rows, err := q.db.QueryContext(ctx, searchProducts, dollar_1)
+	rows, err := q.query(ctx, q.searchProductsStmt, searchProducts, dollar_1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SearchProductsRow
+	items := []SearchProductsRow{}
 	for rows.Next() {
 		var i SearchProductsRow
 		if err := rows.Scan(
@@ -1089,7 +1216,7 @@ WHERE id = $1
 `
 
 func (q *Queries) SoftDeleteProduct(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, softDeleteProduct, id)
+	_, err := q.exec(ctx, q.softDeleteProductStmt, softDeleteProduct, id)
 	return err
 }
 
@@ -1140,7 +1267,7 @@ type UpdateProductParams struct {
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) error {
-	_, err := q.db.ExecContext(ctx, updateProduct,
+	_, err := q.exec(ctx, q.updateProductStmt, updateProduct,
 		arg.Name,
 		arg.Description,
 		arg.Stock,

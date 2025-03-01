@@ -13,6 +13,20 @@ import (
 )
 
 const getProductSEO = `-- name: GetProductSEO :one
+WITH rate AS (
+    SELECT COALESCE(
+        (
+            SELECT rate_to_kes
+            FROM exchange_rates
+            WHERE currency_code = 'USD'
+              AND (valid_to IS NULL OR valid_to >= NOW())
+              AND valid_from <= NOW()
+            ORDER BY valid_from DESC
+            LIMIT 1
+        ),
+        135
+    ) AS rate_to_kes
+)
 SELECT
     p.id,
     p.part_number,
@@ -20,13 +34,21 @@ SELECT
     p.meta_description,
     p.meta_keywords,
     p.usd_price,
+    (p.usd_price * rate.rate_to_kes)::numeric AS price_in_kes,
     c.name AS brand_name,
     COALESCE(
-            (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY created_at LIMIT 1),
-            ''
+        (
+            SELECT image_url
+            FROM product_images
+            WHERE product_id = p.id
+            ORDER BY created_at
+            LIMIT 1
+        ),
+        ''
     )::TEXT AS image_url
 FROM products p
-         JOIN categories c ON p.category_id = c.id
+JOIN categories c ON p.category_id = c.id
+CROSS JOIN rate
 WHERE p.slug = $1
 `
 
@@ -37,12 +59,13 @@ type GetProductSEORow struct {
 	MetaDescription sql.NullString
 	MetaKeywords    sql.NullString
 	UsdPrice        string
+	PriceInKes      string
 	BrandName       string
 	ImageUrl        string
 }
 
 func (q *Queries) GetProductSEO(ctx context.Context, slug string) (GetProductSEORow, error) {
-	row := q.db.QueryRowContext(ctx, getProductSEO, slug)
+	row := q.queryRow(ctx, q.getProductSEOStmt, getProductSEO, slug)
 	var i GetProductSEORow
 	err := row.Scan(
 		&i.ID,
@@ -51,6 +74,7 @@ func (q *Queries) GetProductSEO(ctx context.Context, slug string) (GetProductSEO
 		&i.MetaDescription,
 		&i.MetaKeywords,
 		&i.UsdPrice,
+		&i.PriceInKes,
 		&i.BrandName,
 		&i.ImageUrl,
 	)
@@ -77,7 +101,7 @@ type UpdateProductSEOParams struct {
 }
 
 func (q *Queries) UpdateProductSEO(ctx context.Context, arg UpdateProductSEOParams) error {
-	_, err := q.db.ExecContext(ctx, updateProductSEO,
+	_, err := q.exec(ctx, q.updateProductSEOStmt, updateProductSEO,
 		arg.ID,
 		arg.PartNumber,
 		arg.MetaTitle,

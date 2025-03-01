@@ -2,13 +2,13 @@ package appconfig
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
-
-	"github.com/joho/godotenv"
+	"strings"
+	"time"
 )
 
+// Config holds the configuration for the application.
 type Config struct {
 	Port               string
 	DbUrl              string
@@ -33,25 +33,99 @@ type Config struct {
 	ToEmail            string
 	FrontendURL        string
 	BackendURL         string
+	RedisHost          string
+	RedisPort          int
+	RedisPassword      string
+	RedisDB            int
+	RedisPoolSize      int
+	RedisMinIdleConns  int
+	RedisTTL           time.Duration
+	RedisRateLimit     int
+	Env                string
+	AllowedOrigins     []string
 }
 
-func LoadConfig() Config {
-	if err := godotenv.Load(".env"); err != nil {
-		log.Fatal("Error loading .env file:", err)
+// LoadConfig reads environment variables and constructs a Config struct.
+// It returns a pointer to Config and an error if any required variable is missing or invalid.
+func LoadConfig() (*Config, error) {
+	// Helper function to get environment variables with fallbacks.
+	getEnv := func(key string, fallback string) string {
+		if value, exists := os.LookupEnv(key); exists {
+			return value
+		}
+		return fallback
 	}
 
-	port, _ := strconv.Atoi(getEnv("SMTP_PORT", "587"))
+	// Parse SMTP_PORT with error handling.
+	smtpPortStr := getEnv("SMTP_PORT", "587")
+	smtpPort, err := strconv.Atoi(smtpPortStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid SMTP_PORT: %w", err)
+	}
 
-	return Config{
-		Port: getEnv("BACKEND_PORT", "8080"),
-		DbUrl: fmt.Sprintf(
-			"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-			getEnv("POSTGRES_USER", "postgres"),
-			getEnv("POSTGRES_PASSWORD", "password"),
-			getEnv("DB_HOST", "localhost"),
-			getEnv("DB_PORT", "5432"),
-			getEnv("POSTGRES_DB", "webline"),
-		),
+	// Parse Redis_PORT with error handling.
+	redisPortStr := getEnv("REDIS_PORT", "6379")
+	redisPort, err := strconv.Atoi(redisPortStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_PORT: %w", err)
+	}
+
+	// Parse Redis_DB with error handling.
+	redisDBStr := getEnv("REDIS_DB", "0")
+	redisDB, err := strconv.Atoi(redisDBStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_DB: %w", err)
+	}
+
+	// Parse Redis_PoolSize with error handling.
+	redisPoolSizeStr := getEnv("REDIS_POOL_SIZE", "10")
+	redisPoolSize, err := strconv.Atoi(redisPoolSizeStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_POOL_SIZE: %w", err)
+	}
+
+	// Parse Redis_MinIdleConns with error handling.
+	redisMinIdleConnsStr := getEnv("REDIS_MIN_IDLE_CONNS", "5")
+	redisMinIdleConns, err := strconv.Atoi(redisMinIdleConnsStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_MIN_IDLE_CONNS: %w", err)
+	}
+
+	// Parse Redis_TTL with error handling -> 10 minutes by default
+	redisTTLStr := getEnv("REDIS_TTL", "10m")
+	redisTTL, err := time.ParseDuration(redisTTLStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_TTL: %w", err)
+	}
+
+	// Parse Redis_RateLimit with error handling.
+	redisRateLimitStr := getEnv("REDIS_RATE_LIMIT", "100")
+	redisRateLimit, err := strconv.Atoi(redisRateLimitStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_RATE_LIMIT: %w", err)
+	}
+
+	// Construct the database URL.
+	dbUrl := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		getEnv("DB_USER", "postgres"),
+		getEnv("DB_PASSWORD", "password"),
+		getEnv("DB_HOST", "localhost"),
+		getEnv("DB_PORT", "5432"),
+		getEnv("DB_NAME", "webline_db"),
+	)
+
+	// Parse Server Port.
+	serverPort := getEnv("BACKEND_PORT", "8080")
+
+	// Parse Allowed Origins.
+	allowedOriginsStr := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
+	allowedOrigins := strings.Split(allowedOriginsStr, ",")
+
+	// Initialize Config struct.
+	cfg := &Config{
+		Port:               serverPort,
+		DbUrl:              dbUrl,
 		DefaultPageSize:    100,
 		DefaultPage:        1,
 		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
@@ -65,7 +139,7 @@ func LoadConfig() Config {
 		ConsumerSecret:     getEnv("CONSUMER_SECRET", ""),
 		AccountReference:   getEnv("ACCOUNT_REFERENCE", ""),
 		SMTPHost:           getEnv("SMTP_HOST", ""),
-		SMTPPort:           port,
+		SMTPPort:           smtpPort,
 		SMTPUsername:       getEnv("SMTP_USERNAME", ""),
 		SMTPPassword:       getEnv("SMTP_PASSWORD", ""),
 		FromEmail:          getEnv("FROM_EMAIL", ""),
@@ -73,13 +147,17 @@ func LoadConfig() Config {
 		ToEmail:            getEnv("TO_EMAIL", ""),
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
 		BackendURL:         getEnv("BACKEND_URL", "http://localhost:8080"),
+		RedisHost:          getEnv("REDIS_HOST", "localhost"),
+		RedisPort:          redisPort,
+		RedisPassword:      getEnv("REDIS_PASSWORD", "password"),
+		RedisDB:            redisDB,
+		RedisPoolSize:      redisPoolSize,
+		RedisMinIdleConns:  redisMinIdleConns,
+		RedisTTL:           time.Duration(redisTTL),
+		RedisRateLimit:     redisRateLimit,
+		Env:                getEnv("ENV", "local"),
+		AllowedOrigins:     allowedOrigins,
 	}
-}
 
-func getEnv(key string, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-
-	return fallback
+	return cfg, nil
 }

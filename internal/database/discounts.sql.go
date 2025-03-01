@@ -27,7 +27,7 @@ type CreateDiscountParams struct {
 }
 
 func (q *Queries) CreateDiscount(ctx context.Context, arg CreateDiscountParams) (Discount, error) {
-	row := q.db.QueryRowContext(ctx, createDiscount,
+	row := q.queryRow(ctx, q.createDiscountStmt, createDiscount,
 		arg.ProductID,
 		arg.DiscountPercentage,
 		arg.StartDate,
@@ -52,7 +52,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteDiscount(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteDiscount, id)
+	_, err := q.exec(ctx, q.deleteDiscountStmt, deleteDiscount, id)
 	return err
 }
 
@@ -77,12 +77,12 @@ type GetActiveDiscountsByProductIDsRow struct {
 }
 
 func (q *Queries) GetActiveDiscountsByProductIDs(ctx context.Context, arg GetActiveDiscountsByProductIDsParams) ([]GetActiveDiscountsByProductIDsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getActiveDiscountsByProductIDs, pq.Array(arg.Column1), arg.StartDate)
+	rows, err := q.query(ctx, q.getActiveDiscountsByProductIDsStmt, getActiveDiscountsByProductIDs, pq.Array(arg.Column1), arg.StartDate)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetActiveDiscountsByProductIDsRow
+	items := []GetActiveDiscountsByProductIDsRow{}
 	for rows.Next() {
 		var i GetActiveDiscountsByProductIDsRow
 		if err := rows.Scan(&i.ProductID, &i.DiscountPercentage); err != nil {
@@ -106,7 +106,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetDiscountByID(ctx context.Context, id uuid.UUID) (Discount, error) {
-	row := q.db.QueryRowContext(ctx, getDiscountByID, id)
+	row := q.queryRow(ctx, q.getDiscountByIDStmt, getDiscountByID, id)
 	var i Discount
 	err := row.Scan(
 		&i.ID,
@@ -129,7 +129,7 @@ LIMIT 1
 `
 
 func (q *Queries) GetDiscountByProductID(ctx context.Context, productID uuid.NullUUID) (Discount, error) {
-	row := q.db.QueryRowContext(ctx, getDiscountByProductID, productID)
+	row := q.queryRow(ctx, q.getDiscountByProductIDStmt, getDiscountByProductID, productID)
 	var i Discount
 	err := row.Scan(
 		&i.ID,
@@ -150,12 +150,12 @@ ORDER BY created_at
 `
 
 func (q *Queries) ListDiscounts(ctx context.Context) ([]Discount, error) {
-	rows, err := q.db.QueryContext(ctx, listDiscounts)
+	rows, err := q.query(ctx, q.listDiscountsStmt, listDiscounts)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Discount
+	items := []Discount{}
 	for rows.Next() {
 		var i Discount
 		if err := rows.Scan(
@@ -188,12 +188,12 @@ ORDER BY created_at
 `
 
 func (q *Queries) ListDiscountsByProductID(ctx context.Context, productID uuid.NullUUID) ([]Discount, error) {
-	rows, err := q.db.QueryContext(ctx, listDiscountsByProductID, productID)
+	rows, err := q.query(ctx, q.listDiscountsByProductIDStmt, listDiscountsByProductID, productID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Discount
+	items := []Discount{}
 	for rows.Next() {
 		var i Discount
 		if err := rows.Scan(
@@ -233,7 +233,7 @@ type UpdateDiscountParams struct {
 }
 
 func (q *Queries) UpdateDiscount(ctx context.Context, arg UpdateDiscountParams) (Discount, error) {
-	row := q.db.QueryRowContext(ctx, updateDiscount,
+	row := q.queryRow(ctx, q.updateDiscountStmt, updateDiscount,
 		arg.ID,
 		arg.DiscountPercentage,
 		arg.StartDate,

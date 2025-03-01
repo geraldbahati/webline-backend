@@ -34,7 +34,7 @@ type ChangeOrderPaymentMethodParams struct {
 }
 
 func (q *Queries) ChangeOrderPaymentMethod(ctx context.Context, arg ChangeOrderPaymentMethodParams) (sql.NullString, error) {
-	row := q.db.QueryRowContext(ctx, changeOrderPaymentMethod, arg.OrderID, arg.Method)
+	row := q.queryRow(ctx, q.changeOrderPaymentMethodStmt, changeOrderPaymentMethod, arg.OrderID, arg.Method)
 	var order_number sql.NullString
 	err := row.Scan(&order_number)
 	return order_number, err
@@ -65,7 +65,7 @@ type CreatePaymentRow struct {
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (CreatePaymentRow, error) {
-	row := q.db.QueryRowContext(ctx, createPayment,
+	row := q.queryRow(ctx, q.createPaymentStmt, createPayment,
 		arg.OrderID,
 		arg.CheckoutRequestID,
 		arg.PaymentMethodID,
@@ -103,12 +103,12 @@ type GetAllPaymentsRow struct {
 }
 
 func (q *Queries) GetAllPayments(ctx context.Context) ([]GetAllPaymentsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllPayments)
+	rows, err := q.query(ctx, q.getAllPaymentsStmt, getAllPayments)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllPaymentsRow
+	items := []GetAllPaymentsRow{}
 	for rows.Next() {
 		var i GetAllPaymentsRow
 		if err := rows.Scan(
@@ -154,7 +154,7 @@ type GetPaymentByOrderIDRow struct {
 }
 
 func (q *Queries) GetPaymentByOrderID(ctx context.Context, orderID uuid.UUID) (GetPaymentByOrderIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getPaymentByOrderID, orderID)
+	row := q.queryRow(ctx, q.getPaymentByOrderIDStmt, getPaymentByOrderID, orderID)
 	var i GetPaymentByOrderIDRow
 	err := row.Scan(
 		&i.ID,
@@ -177,7 +177,7 @@ WHERE status = $1
 `
 
 func (q *Queries) GetPaymentStatusIDByStatus(ctx context.Context, status string) (int32, error) {
-	row := q.db.QueryRowContext(ctx, getPaymentStatusIDByStatus, status)
+	row := q.queryRow(ctx, q.getPaymentStatusIDByStatusStmt, getPaymentStatusIDByStatus, status)
 	var id int32
 	err := row.Scan(&id)
 	return id, err
@@ -190,7 +190,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetStatusByID(ctx context.Context, id int32) (string, error) {
-	row := q.db.QueryRowContext(ctx, getStatusByID, id)
+	row := q.queryRow(ctx, q.getStatusByIDStmt, getStatusByID, id)
 	var status string
 	err := row.Scan(&status)
 	return status, err
@@ -208,7 +208,7 @@ type UpdateCheckoutRequestIDByOrderIDParams struct {
 }
 
 func (q *Queries) UpdateCheckoutRequestIDByOrderID(ctx context.Context, arg UpdateCheckoutRequestIDByOrderIDParams) error {
-	_, err := q.db.ExecContext(ctx, updateCheckoutRequestIDByOrderID, arg.CheckoutRequestID, arg.OrderID)
+	_, err := q.exec(ctx, q.updateCheckoutRequestIDByOrderIDStmt, updateCheckoutRequestIDByOrderID, arg.CheckoutRequestID, arg.OrderID)
 	return err
 }
 
@@ -227,7 +227,7 @@ type UpdatePaymentStatusParams struct {
 }
 
 func (q *Queries) UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updatePaymentStatus,
+	_, err := q.exec(ctx, q.updatePaymentStatusStmt, updatePaymentStatus,
 		arg.PaymentStatusID,
 		arg.Amount,
 		arg.ResultCode,
