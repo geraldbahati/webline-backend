@@ -37,9 +37,13 @@ RUN echo "Building for $TARGETPLATFORM with version $VERSION on $BUILD_DATE" && 
       "linux/arm64") GOARCH=arm64 ;; \
       *) GOARCH=amd64 ;; \
     esac && \
+    # List directories to debug
+    echo "Listing directories:" && ls -la && \
+    echo "Contents of cmd directory:" && ls -la cmd && \
+    # Build with verbose flag for debugging
     CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH} \
-    go build -ldflags="-w -s -X main.Version=$VERSION -X main.BuildDate=$BUILD_DATE" \
-    -a -installsuffix cgo -o main ./cmd
+    go build -v -ldflags="-w -s -X main.Version=$VERSION -X main.BuildDate=$BUILD_DATE" \
+    -a -installsuffix cgo -o main ./cmd/main.go
 
 # Stage 2: Create a minimal runtime image
 FROM --platform=$TARGETPLATFORM alpine:latest
