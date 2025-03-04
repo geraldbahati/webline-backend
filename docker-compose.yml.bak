@@ -1,52 +1,77 @@
+version: '3.8'
+
 services:
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: backend_postgres
-    command: ["postgres", "-c", "statement_timeout=60000"]
+    command: ["postgres", "-c", "statement_timeout=60000", "-c", "max_connections=100", "-c", "shared_buffers=128MB"]
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGDATABASE: ${DB_NAME}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5433:5432"  # Consider removing or restricting in production
+      - "127.0.0.1:5433:5432"  # Only accessible locally
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
     networks:
       - webline-backend-network
-      - webline-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-d", "${DB_NAME}", "-U", "${DB_USER}", "-h", "localhost", "-p", "5432"]
+      test: ["CMD-SHELL", "pg_isready -d ${DB_NAME} -U ${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     restart: unless-stopped
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
 
   redis:
     image: redis:7.0-alpine
     container_name: backend_redis
     ports:
-      - "6379:6379"  # Remove in production to restrict access
+      - "127.0.0.1:6379:6379"  # Only accessible locally
     volumes:
       - redis-data:/data
     networks:
       - webline-backend-network
-      - webline-network
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+      start_period: 10s
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     restart: unless-stopped
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - VERSION=${VERSION:-dev}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
     container_name: backend
     env_file:
       - .env
@@ -78,8 +103,12 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - HEALTH_CHECK_URL=http://localhost:8080/health
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - backups:/backups
+      - backend-data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -89,16 +118,27 @@ services:
         restart: true
     networks:
       - webline-backend-network
-      - webline-network
     restart: unless-stopped
+    stop_grace_period: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: "512M"
+          cpus: "0.7"
+          memory: "640M"
         reservations:
           cpus: "0.2"
-          memory: "256M"
+          memory: "320M"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres-data:
@@ -107,9 +147,13 @@ volumes:
     driver: local
   backups:
     driver: local
+  backend-data:
+    driver: local
 
 networks:
   webline-backend-network:
     driver: bridge
-  webline-network:
-    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16

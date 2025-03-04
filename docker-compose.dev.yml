@@ -1,0 +1,11 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/app:ro
+      - ./backups:/backups
+    environment:
+      - ENV=development
+      - AUTO_MIGRATE=true
