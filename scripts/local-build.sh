@@ -42,26 +42,59 @@ DB_PASSWORD=postgres
 DB_NAME=webline
 PORT=8080
 
-# Environment
-ENV=development
-
-# REDIS
+# Redis Configuration
 REDIS_HOST=redis
 REDIS_PORT=6379
-REDIS_PASSWORD=
+REDIS_PASSWORD=redispassword
 REDIS_DB=0
 REDIS_POOL_SIZE=20
 REDIS_MIN_IDLE_CONNS=5
 REDIS_TTL=15m
 REDIS_RATE_LIMIT=50
 
-# Set other variables as needed for local development
-# ...
+# Environment
+ENV=development
+
+# Placeholders for other required variables
+AWS_ACCESS_KEY_ID=placeholder
+AWS_SECRET_ACCESS_KEY=placeholder
+AWS_REGION=us-east-1
+AWS_BUCKET_NAME=placeholder
+
+BUSINESS_SHORTCODE=placeholder
+PASSKEY=placeholder
+CALLBACK_URL=http://localhost:8080/api/callback
+CONSUMER_KEY=placeholder
+CONSUMER_SECRET=placeholder
+ACCOUNT_REFERENCE=placeholder
+
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=placeholder
+SMTP_PASSWORD=placeholder
+FROM_EMAIL=no-reply@example.com
+FROM_NAME=Webline
+TO_EMAIL=admin@example.com
+
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8080
+
+# JWT secrets for development
+JWT_ACCESS_SECRET=dev_access_secret
+JWT_REFRESH_SECRET=dev_refresh_secret
+JWT_VERIFY_SECRET=dev_verify_secret
+JWT_GUEST_SECRET=dev_guest_secret
+
+# Allow all origins in development
+ALLOWED_ORIGINS=*
 EOF
   echo -e "${GREEN}.env file created with default values.${NC}"
-  echo -e "${YELLOW}Please update it with your specific configuration if needed.${NC}"
+  echo -e "${YELLOW}These are placeholders for local development. Don't use in production!${NC}"
   echo ""
 fi
+
+# Ensure the postgres/init directory exists
+mkdir -p ./postgres/init
 
 # Detect system architecture
 ARCH=$(uname -m)
@@ -95,17 +128,37 @@ else
   }
 fi
 
+# Stop any existing containers
+echo -e "${BLUE}Stopping any existing containers...${NC}"
+$DOCKER_COMPOSE down
+
 # Build and start containers
-echo -e "${BLUE}Starting the application...${NC}"
+echo -e "${BLUE}Building and starting the application...${NC}"
 $DOCKER_COMPOSE up --build -d
 
+# Wait for containers to initialize
+echo -e "${YELLOW}Waiting for containers to initialize (30 seconds)...${NC}"
+sleep 30
+
 # Check container status
-echo -e "${BLUE}Checking container status...${NC}"
+echo -e "${BLUE}Checking container status:${NC}"
 $DOCKER_COMPOSE ps
 
+# Check service health
+echo -e "\n${BLUE}Health check for backend service:${NC}"
+curl -s http://localhost:8080/health || echo -e "\n${RED}Backend health check failed. See logs for details.${NC}"
+
+# Print logs
+echo -e "\n${BLUE}Recent logs (last 20 lines):${NC}"
+$DOCKER_COMPOSE logs --tail=20
+
 echo ""
-echo -e "${GREEN}Application should be running now!${NC}"
+echo -e "${GREEN}Application is now running!${NC}"
 echo -e "${BLUE}Access the API at:${NC} http://localhost:8080"
-echo -e "${BLUE}To view logs:${NC} $DOCKER_COMPOSE logs -f"
-echo -e "${BLUE}To stop the application:${NC} $DOCKER_COMPOSE down"
+echo ""
+echo -e "${YELLOW}Useful commands:${NC}"
+echo -e "  - View logs: ${GREEN}$DOCKER_COMPOSE logs -f${NC}"
+echo -e "  - Stop application: ${GREEN}$DOCKER_COMPOSE down${NC}"
+echo -e "  - Restart a service: ${GREEN}$DOCKER_COMPOSE restart [service]${NC}"
+echo -e "  - Run migrations manually: ${GREEN}$DOCKER_COMPOSE exec backend ./entrypoint.sh migrate${NC}"
 echo ""
